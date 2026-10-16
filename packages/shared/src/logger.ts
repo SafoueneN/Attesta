@@ -17,6 +17,16 @@ export const REDACTED_PATHS = [
   "*.rawText",
 ];
 
+/** Niveaux pino traduits en sévérités Cloud Logging (filtres et alertes par gravité). */
+const SEVERITY: Record<string, string> = {
+  trace: "DEBUG",
+  debug: "DEBUG",
+  info: "INFO",
+  warn: "WARNING",
+  error: "ERROR",
+  fatal: "CRITICAL",
+};
+
 export function createLogger(level: string, destination?: pino.DestinationStream): Logger {
   return pino(
     {
@@ -24,6 +34,8 @@ export function createLogger(level: string, destination?: pino.DestinationStream
       redact: { paths: REDACTED_PATHS, censor: "[supprimé]" },
       base: { service: "attesta" },
       timestamp: pino.stdTimeFunctions.isoTime,
+      messageKey: "message",
+      formatters: { level: (label, number) => ({ severity: SEVERITY[label] ?? "DEFAULT", level: number }) },
     },
     destination,
   );

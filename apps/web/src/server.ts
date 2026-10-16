@@ -3,6 +3,7 @@ import { AnthropicProvider, createClaudeClient, DemoProvider, type LlmProvider }
 import { PuppeteerPdfRenderer } from "@attesta/render";
 import { createLogger, loadConfig, type Config } from "@attesta/shared";
 import { createApp } from "./app.js";
+import { startMaintenance } from "./stores.js";
 
 const config = loadConfig();
 const logger = createLogger(config.LOG_LEVEL);
@@ -52,6 +53,8 @@ const app = createApp({
     : undefined,
 });
 
+const stopMaintenance = pool ? startMaintenance(pool, logger) : undefined;
+
 const server = app.listen(config.PORT, () => {
   logger.info(
     {
@@ -67,6 +70,7 @@ const server = app.listen(config.PORT, () => {
 async function shutdown(signal: string) {
   logger.info({ signal }, "arrêt en cours");
   server.close();
+  stopMaintenance?.();
   await Promise.allSettled([renderer.close(), pool?.end()]);
   process.exit(0);
 }

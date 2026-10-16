@@ -26,6 +26,7 @@ import { currentGeneration, describeIssue, describePointer, type StoredGeneratio
 import { fr } from "./i18n.js";
 import { createIaRoutes } from "./ia-routes.js";
 import { absoluteSessionLimit, csrfToken, cspNonce, verifyCsrf } from "./security.js";
+import { MemoryIaQuota, PgIaQuota, PgRateLimitStore, pgUsageRecorder } from "./stores.js";
 
 declare module "express-session" {
   interface SessionData {
@@ -34,7 +35,6 @@ declare module "express-session" {
     csrfToken: string;
     generation: StoredGeneration;
     generationToken: string;
-    quota: { day: string; count: number };
     /** Message à afficher une fois, à la page suivante. */
     notice: { kind: "info" | "error"; text: string };
   }
@@ -121,6 +121,10 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
     }
   });
 
+  // Avec une base, compteurs et verrous sont partagés entre instances (docs/adr/0009).
+  const limiterStore = (prefix: string) =>
+    pool ? new PgRateLimitStore(pool, config.SESSION_SECRET, prefix) : undefined;
+
   app.use("/static", express.static(publicDir, { maxAge: production ? "1h" : 0 }));
   app.use(
     rateLimit({
@@ -128,6 +132,7 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
       limit: limits?.general ?? 300,
       standardHeaders: "draft-8",
       legacyHeaders: false,
+      store: limiterStore("general"),
     }),
   );
   app.use(express.urlencoded({ extended: true, limit: "200kb", parameterLimit: 2000 }));
@@ -170,6 +175,8 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
     maxCostUsd: ia?.maxCostUsd ?? 0,
     dailyQuota: ia?.dailyQuota ?? 0,
     logger,
+    quotaStore: pool ? new PgIaQuota(pool, config.SESSION_SECRET) : new MemoryIaQuota(),
+    recordUsage: pool ? pgUsageRecorder(pool, logger) : undefined,
   });
   cv.use(iaRoutes.multipart);
   cv.use((req, res, next) => (req.method === "POST" ? verifyCsrf(req, res, next) : next()));
@@ -273,7 +280,17 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
       ]);
     }
     const variant = Variant.parse(req.body.variant);
+    const started = Date.now();
     const pdf = await renderer.render(renderCvHtml(current.view, { variant }));
+    logger.info(
+      {
+        event: "pdf_export",
+        variant,
+        tailored: Boolean(current.generation),
+        durationMs: Date.now() - started,
+      },
+      "pdf",
+    );
     res.type("application/pdf").attachment(`cv-attesta-${variant}.pdf`).send(Buffer.from(pdf));
   }
 
@@ -293,10 +310,23 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
     });
   });
 
-  app.use("/cv", rateLimit({ windowMs: 15 * 60 * 1000, limit: limits?.export ?? 20, skip: isNotExport }));
   app.use(
     "/cv",
-    rateLimit({ windowMs: 60 * 60 * 1000, limit: limits?.generation ?? 10, skip: isNotGeneration }),
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: limits?.export ?? 20,
+      skip: isNotExport,
+      store: limiterStore("export"),
+    }),
+  );
+  app.use(
+    "/cv",
+    rateLimit({
+      windowMs: 60 * 60 * 1000,
+      limit: limits?.generation ?? 10,
+      skip: isNotGeneration,
+      store: limiterStore("generation"),
+    }),
   );
   app.use("/cv", cv);
 

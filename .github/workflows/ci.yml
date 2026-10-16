@@ -1,4 +1,5 @@
-# CI de base (Phase 1). La CI/CD complète (scans, déploiement, rollback) arrive en Phase 3.
+# Intégration continue : chaque PR et chaque push sur main.
+# Le déploiement (préprod, prod) est dans cd.yml et ne part que si ce workflow est vert.
 name: ci
 
 on:
@@ -15,8 +16,20 @@ concurrency:
 
 jobs:
   qualite:
-    name: Lint, types, tests unitaires et ATS
+    name: Lint, types, tests unitaires, contrats, évaluations, ATS
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: attesta_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d attesta_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/attesta_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,13 +37,59 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       # Ubuntu 24.04 restreint les espaces de noms utilisateur : sans ce réglage,
-      # le bac à sable de Chromium (rendu PDF) ne démarre pas.
+      # la sandbox de Chromium (rendu PDF) ne démarre pas.
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - name: Migrations (montée, descente, remontée)
+        run: |
+          DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
+          DATABASE_URL=$TEST_DATABASE_URL npx node-pg-migrate down --count 999 --migrations-dir db/migrations --migration-file-language sql
+          DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
+      # Inclut les tests d'intégration PostgreSQL et l'évaluation de fidélité (porte bloquante).
       - run: npm run test:coverage
+      - name: Les tests d'intégration ont bien tourné
+        run: npx vitest run apps/web/test/postgres.int.test.ts --reporter=verbose | grep -q "verrou atomique"
       - run: npm audit --omit=dev --audit-level=high
+      - name: Scripts de déploiement et de retour arrière
+        run: bash infra/deploy/test/deploy.test.sh
+
+  secrets:
+    name: Recherche de secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks (tout l'historique)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.21.2 detect --source /repo --no-banner --redact
+
+  infra:
+    name: Terraform
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - run: terraform fmt -check -recursive infra/terraform
+      - name: terraform validate
+        run: |
+          for root in infra/terraform/shared infra/terraform/environment; do
+            terraform -chdir="$root" init -backend=false -input=false
+            terraform -chdir="$root" validate
+          done
+
+  commits:
+    name: Conventional Commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v6
 
   e2e:
     name: Bout en bout et accessibilité
@@ -53,7 +112,7 @@ jobs:
           retention-days: 7
 
   image:
-    name: Image Docker et test de fumée
+    name: Image Docker, vulnérabilités et test de fumée
     runs-on: ubuntu-24.04
     needs: [qualite]
     steps:
@@ -63,6 +122,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: docker compose up -d --build --wait
+      - name: Vulnérabilités de l'image (critiques et hautes, corrigeables)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: attesta-web
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - run: node scripts/smoke.mjs http://localhost:3080
       - run: npm ci && npx playwright install --with-deps chromium
       - run: npx playwright test
         env:

@@ -40,11 +40,22 @@ Reste de la Phase 1, non bloquant : sections Projets et Certifications dans le f
 | 2.8 | Jeu d'évaluation + porte CI                                                                       | fait en rejeu (4 cas, bloquant en CI) ; `npm run evals:live` prêt, **non exécuté**                  |
 | 2.9 | Juge LLM d'implication                                                                            | **non fait** (optionnel) ; à décider après une mesure réelle                                        |
 
-## Phase 3 : Industrialisation
+## Phase 3 : Industrialisation (livrée le 2026-10-16, sans déploiement réel)
 
-Reportés des phases précédentes : worker + pg-boss (rendu PDF et génération hors du processus web), comptes et droits RGPD (export, suppression), tables `cv_generation`, `cv_line_trace`, `llm_usage`, commitlint, profil seccomp Chromium, analyse des PDF importés dans un `worker_thread` (délai, limites mémoire), verrou de génération et quota partagés en base (plusieurs instances). Puis :
+| #    | Tâche                                                                                                                                                    | État                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 3.1  | Hébergeur (Q10)                                                                                                                                          | Google Cloud Paris ([ADR 0009](adr/0009-hebergement-et-execution.md))                         |
+| 3.2  | IaC Terraform : registre, WIF, Cloud SQL (sauvegardes, PITR), secrets, Cloud Run, job de migration, alertes                                              | écrit ; `terraform validate` et `fmt` verts ; **jamais appliqué** (pas de projet)             |
+| 3.3  | CI : lint, types, couverture, PostgreSQL réel, migrations montée et descente, audit, gitleaks, Trivy, Terraform, commitlint, E2E, image et test de fumée | écrit ; actionlint vert ; gitleaks et Trivy exécutés en local ; **jamais exécuté sur GitHub** |
+| 3.4  | CD : préprod sur `main`, prod par release avec approbation, une image par commit, paliers, test de fumée, retour arrière automatique et manuel           | écrit ; logique testée par 8 scénarios avec `gcloud` simulé ; **non exécuté sur Cloud Run**   |
+| 3.5  | État partagé entre instances : verrou et quota d'IA, limiteur, coûts LLM en base, purge                                                                  | fait ; 8 tests d'intégration sur un vrai PostgreSQL                                           |
+| 3.6  | Analyse des PDF dans un `worker_thread` borné                                                                                                            | fait                                                                                          |
+| 3.7  | Sandbox Chromium réactivée (profil seccomp dédié)                                                                                                        | fait en conteneur ; **à vérifier sur Cloud Run** par le test de fumée                         |
+| 3.8  | Observabilité : journaux Cloud Logging, métriques et alertes                                                                                             | fait (Terraform)                                                                              |
+| 3.9  | Test de fumée, runbook (déploiement, retour arrière, sauvegardes, incidents)                                                                             | fait                                                                                          |
+| 3.10 | Relecture indépendante de la phase                                                                                                                       | voir ADR 0009, section « Relecture indépendante »                                             |
 
-CI/CD complète (Trivy, npm audit, gitleaks, build et push de l'image signée), environnements dev, préprod et prod, déploiement progressif + rollback testé, IaC Terraform de l'hébergeur UE, sauvegardes et restauration testées, métriques et alertes, runbook, tests ATS et a11y étendus, droits RGPD (export et suppression), revue de sécurité indépendante.
+Reporté en Phase 4 : comptes et droits RGPD, avec l'e-mail ([ADR 0009](adr/0009-hebergement-et-execution.md), décision 3).
 
 ## Phase 4 : Veille emploi
 

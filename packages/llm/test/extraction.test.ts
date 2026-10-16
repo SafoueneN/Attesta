@@ -99,3 +99,16 @@ describe("ancrage de l'extraction dans le PDF", () => {
     expect(dropped).toBe(3);
   });
 });
+
+describe("isolement de l'analyse PDF", () => {
+  const renderer = new PuppeteerPdfRenderer({ maxConcurrency: 1, timeoutMs: 30_000 });
+  afterAll(() => renderer.close());
+
+  it("interrompt une analyse qui dépasse le délai", async () => {
+    const pdf = await renderer.render(renderCvHtml(viewFromProfile(lea), { variant: "ats" }));
+
+    const outcome = extractPdfText(pdf, { timeoutMs: 1 });
+
+    await expect(outcome).rejects.toThrow("trop long à analyser");
+  });
+});

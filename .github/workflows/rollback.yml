@@ -1,0 +1,36 @@
+# Retour arrière manuel : 100 % du trafic vers une révision antérieure, en quelques
+# secondes, sans reconstruction (docs/runbook.md, « Retour arrière »).
+name: rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environnement
+        type: choice
+        options: [preprod, prod]
+        required: true
+      revision:
+        description: Révision cible (vide = la précédente)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rollback:
+    runs-on: ubuntu-24.04
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - env:
+          REGION: europe-west9
+        run: bash infra/deploy/rollback.sh "attesta-${{ inputs.environment }}" "${{ inputs.revision }}"

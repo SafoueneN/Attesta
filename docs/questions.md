@@ -23,14 +23,16 @@ Chaque question vient avec une **proposition par défaut**. Sans réponse, la pr
 
 Révision de Q3 : les **comptes** passent en **Phase 3**, avec les droits RGPD (export, suppression). La Phase 2 n'en a pas eu besoin : la génération vit dans la session anonyme, avec les mêmes durées que le brouillon.
 
-## Bloquantes pour la Phase 3
+## Phase 3 : décisions prises le 2026-10-16
 
-| #   | Question                                             | Proposition par défaut                                                         |
-| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Q10 | Hébergeur UE et budget mensuel ?                     | À fournir (exemples : Scaleway, OVHcloud, Clever Cloud, AWS Francfort)         |
-| Q11 | Seuils de couverture de tests ?                      | 90 % pour `schema` et le contrôle de fidélité, 75 % ailleurs                   |
-| Q12 | Outil de génération de code autorisé pour l'équipe ? | Claude Code, avec les trois niveaux de vérification du § 15                    |
-| Q13 | Antivirus (ClamAV) sur l'upload PDF ?                | Non au départ (fichier jamais servi à des tiers, analyse isolée) ; à réévaluer |
+| #   | Question                    | Décision                                                                                                                                                                                                                     | Justification                                                                                                                                                                             |
+| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q10 | Hébergeur UE et budget      | **Google Cloud, région `europe-west9` (Paris)** : Cloud Run, Cloud SQL, Secret Manager, Artifact Registry. Budget : ordre de grandeur de 10 à 60 € par mois et par environnement pour la base, plus l'usage (**à chiffrer**) | Même fournisseur que Vertex AI (un seul contrat, IA sans clé), révisions Cloud Run pour le déploiement progressif et le retour arrière. [ADR 0009](adr/0009-hebergement-et-execution.md). |
+| Q11 | Seuils de couverture        | **75 % des lignes global, 90 % pour `schema`**, bloquants en CI                                                                                                                                                              | Déjà en place ; mesuré à 91 %.                                                                                                                                                            |
+| Q12 | Outil de génération de code | **Claude Code**, avec les trois niveaux de vérification du § 15 : relecture humaine, contrôle statique, CI                                                                                                                   | Une relecture par un agent indépendant est faite à chaque phase.                                                                                                                          |
+| Q13 | Antivirus sur l'upload      | **Non** : le PDF n'est ni stocké ni servi ; il est analysé dans un `worker_thread` isolé, avec délai et limites mémoire                                                                                                      | Le risque visé par un antivirus (propager un fichier infecté) n'existe pas ici.                                                                                                           |
+
+Révision : les **comptes** passent en Phase 4, avec l'e-mail ([ADR 0009](adr/0009-hebergement-et-execution.md), décision 3).
 
 ## Bloquantes pour la Phase 4
 

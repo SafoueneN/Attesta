@@ -1,51 +1,52 @@
 # Architecture d'Attesta
 
-Statut : Phase 0, proposition à valider. Les décisions détaillées figurent dans [adr/](adr/README.md).
+Statut : à jour à la fin de la Phase 3 (2026-10-16). Décisions détaillées : [adr/](adr/README.md).
 
 ## Vue d'ensemble
 
 ```mermaid
 flowchart LR
-  U[Candidat · navigateur] -->|HTTPS, formulaires, SSE| W[apps/web<br/>Express + EJS]
-  W -->|enqueue| Q[(PostgreSQL<br/>pg-boss + pgvector)]
-  K[worker<br/>même image] -->|consomme| Q
-  K --> L[packages/llm<br/>pipeline 4 étapes]
-  K --> R[packages/render<br/>Puppeteer]
-  K --> J[packages/jobwatch<br/>ingestion · matching · rapports]
-  L -->|API| P[(Fournisseur LLM<br/>UE)]
-  J -->|API| S[(BA · Adzuna · Jooble · France Travail)]
-  J -->|SMTP/API| E[(SES Francfort / Brevo)]
-  L & R & J & W --> SC[packages/schema<br/>Zod]
+  U[Candidat · navigateur] -->|HTTPS, formulaires, SSE| W
+  subgraph CR[Cloud Run · europe-west9]
+    W[apps/web<br/>Express 5 + EJS]
+    W --> L[packages/llm<br/>pipeline, contrôle de fidélité]
+    W --> R[packages/render<br/>gabarit unique + Chromium sandboxé]
+    W --> T[worker_thread<br/>analyse PDF bornée]
+  end
+  W --> DB[(Cloud SQL PostgreSQL 16<br/>sessions · quotas · compteurs · coûts)]
+  L -->|identité du service, sans clé| V[(Vertex AI région eu<br/>Claude)]
+  L & R & W --> SC[packages/schema<br/>contrat Zod]
+  GH[GitHub Actions] -->|WIF, sans clé| AR[(Artifact Registry)]
+  GH -->|deploy.sh : révision, test de fumée, paliers| CR
 ```
 
-- `apps/web` : routes, sessions, CSRF, vues EJS, endpoint SSE de progression, `/health`.
-- `worker` : pipeline LLM, rendu PDF et veille. Il est séparé pour isoler Chromium et les appels longs du serveur HTTP.
-- La génération est mise en file même en mode anonyme, ce qui donne idempotence, quotas et reprise. Le web s'abonne à la progression du job et la relaie en SSE (via `LISTEN/NOTIFY` de PostgreSQL).
+- **Un seul service** (`apps/web`) sert les pages, la génération (avec progression SSE), l'aperçu et l'export PDF. Il n'y a pas de worker séparé ([ADR 0009](adr/0009-hebergement-et-execution.md)) : Chromium est un processus à part et borné, et l'analyse des PDF importés tourne dans un `worker_thread` avec délai et plafond mémoire.
+- **Sans état local** : sessions, verrou et quota d'IA, limiteur de requêtes et coûts sont dans PostgreSQL, avec des mises à jour atomiques. Le service peut donc tourner sur plusieurs instances.
+- **pg-boss** arrivera en Phase 4 pour la veille planifiée (`packages/jobwatch`).
 
 ## Flux de génération d'un CV
 
 ```mermaid
 sequenceDiagram
   participant N as Navigateur
-  participant W as Web
-  participant K as Worker
-  participant M as LLM
-  N->>W: POST /cv/generate (profil validé, offre)
-  W->>W: Zod + quota + CSRF
-  W->>K: job generate-cv (singletonKey = hash)
-  W-->>N: 202 + URL SSE
-  K->>M: 2. analyse offre (cache)
-  K-->>N: SSE « Analyse de l'offre terminée »
-  K->>M: 3. rédaction ciblée (≤2 relances schéma)
-  K->>K: 4. contrôle fidélité (déterministe)
-  K-->>N: SSE « CV prêt · fidélité 96 % »
-  N->>W: relecture + corrections + case « j'ai relu »
-  N->>W: POST /cv/export
-  W->>K: job render-pdf
-  K-->>N: PDF (même HTML que l'aperçu)
+  participant W as Web (Cloud Run)
+  participant DB as PostgreSQL
+  participant M as Claude (Vertex eu)
+  N->>W: GET /cv/generer/flux?jeton=… (ou POST /cv/generer sans JS)
+  W->>DB: jeton consommé, verrou + quota réservés (atomique)
+  W->>M: analyse de l'offre (cache par empreinte)
+  W-->>N: SSE « Offre analysée »
+  W->>M: rédaction à partir des faits numérotés (≤ 2 relances)
+  W->>W: contrôle de fidélité déterministe, retrait des lignes non prouvées
+  W->>DB: session rechargée ; abandon si effacée ou profil modifié
+  W-->>N: SSE « done »
+  N->>W: relecture ligne par ligne, corrections, case « j'ai relu »
+  N->>W: POST /cv/etape/5 → PDF (même HTML que l'aperçu)
 ```
 
 ## Modèle de données (ERD)
+
+Modèle **cible**. Tables en place à la fin de la Phase 3 : `session`, `ia_quota`, `rate_limit`, `llm_usage`. Les autres (comptes, générations conservées, veille) arrivent en Phase 4 avec leur usage.
 
 ```mermaid
 erDiagram
@@ -240,4 +241,9 @@ En mode anonyme, `profile_version`, `job_offer_input` et `cv_generation` sont st
 
 ## Observabilité
 
-Logs pino JSON sans PII. Métriques Prometheus : latence par étape du pipeline, taux de rejet du schéma, score de fidélité moyen, coût LLM par CV, taux de mode dégradé, durée de rendu PDF, taux de plaintes e-mail.
+- **Journaux** pino en JSON, au format Cloud Logging (`severity`, `message`), sans aucune donnée personnelle. Événements métier : `generation` (statut, raison, score, coût, durée, tentatives), `llm_usage` (jetons, coût, latence), `pdf_export` (durée).
+- **Métriques** : tirées des journaux par Terraform (générations par statut, score de fidélité, coût par CV, durée de génération), plus les métriques natives de Cloud Run (latence, 5xx, instances). Pas d'exposition Prometheus : Cloud Run n'en a pas besoin.
+- **Alertes** : service injoignable, erreurs 5xx, IA en mode dégradé (voir [runbook](runbook.md#surveillance-et-alertes)).
+- **Coûts** : table `llm_usage` (13 mois).
+
+Le taux de plaintes e-mail sera ajouté avec la veille (Phase 4).

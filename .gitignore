@@ -10,3 +10,6 @@ test-results/
 *.tsbuildinfo
 evals/results/
 evals/dist/
+.terraform/
+*.tfstate
+*.tfstate.*

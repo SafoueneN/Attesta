@@ -11,17 +11,23 @@ import {
   PdfImportError,
   type GenerationResult,
   type LlmProvider,
+  type LlmUsage,
   type ProgressEvent,
 } from "@attesta/llm";
 import { AppError, type Logger } from "@attesta/shared";
 import { draftFromExtraction, emptyDraft, validProfile, type Draft } from "./draft.js";
 import { applyCorrections, currentGeneration, generationKey } from "./generation.js";
+import type { IaQuotaStore } from "./stores.js";
 
 export interface IaOptions {
   provider?: LlmProvider;
   maxCostUsd: number;
   dailyQuota: number;
   logger: Logger;
+  /** Verrou et quota partagés entre instances (PostgreSQL en préprod et en prod). */
+  quotaStore: IaQuotaStore;
+  /** Enregistrement durable du coût de chaque appel (sans contenu). */
+  recordUsage?: (usage: LlmUsage) => void;
 }
 
 type Outcome =
@@ -82,36 +88,29 @@ export function createIaRoutes(options: IaOptions) {
   const cv = express.Router();
   const analysisCache = new Map<string, OfferAnalysis>();
   const draftOf = (req: Request): Draft => (req.session.draft ??= emptyDraft());
-  /** Sessions ayant un appel au modèle en cours (verrou d'instance ; partagé en base en Phase 3). */
-  const running = new Set<string>();
-
   /**
    * Un seul appel au modèle à la fois par session, et quota du jour (générations
-   * et imports confondus) enregistré dans le store **avant** l'appel.
+   * et imports confondus), réservés de façon atomique dans le store partagé.
    */
   async function withReservation(req: Request, work: () => Promise<Outcome>): Promise<Outcome> {
     const id = req.sessionID;
-    if (running.has(id)) {
+    const reservation = await options.quotaStore.reserve(id, options.dailyQuota);
+    if (reservation === "busy") {
       return {
         kind: "busy",
         message: "Un traitement par l'IA est déjà en cours pour votre session. Patientez quelques instants.",
       };
     }
-    const today = new Date().toISOString().slice(0, 10);
-    const quota = req.session.quota?.day === today ? req.session.quota : { day: today, count: 0 };
-    if (quota.count >= options.dailyQuota) {
+    if (reservation === "quota") {
       return {
         kind: "quota",
         message: `Limite de ${options.dailyQuota} appels à l'IA par jour atteinte. Votre CV non adapté reste exportable.`,
       };
     }
-    running.add(id);
     try {
-      req.session.quota = { day: today, count: quota.count + 1 };
-      await saveSession(req);
       return await work();
     } finally {
-      running.delete(id);
+      await options.quotaStore.release(id);
     }
   }
 
@@ -137,12 +136,16 @@ export function createIaRoutes(options: IaOptions) {
     signal: AbortSignal,
   ): Promise<Outcome> {
     const key = generationKey(profile, draft);
+    const started = Date.now();
     const result: GenerationResult = await generateTailoredCv(
       {
         provider: llm,
         maxCostUsd: options.maxCostUsd,
         analysisCache,
-        onUsage: (usage) => logger.info({ event: "llm_usage", ...usage }, "llm"),
+        onUsage: (usage) => {
+          logger.info({ event: "llm_usage", ...usage }, "llm");
+          options.recordUsage?.(usage);
+        },
       },
       { profile, offerText: draft.offer.rawText },
       { onProgress, signal },
@@ -153,8 +156,16 @@ export function createIaRoutes(options: IaOptions) {
       return { kind: "erased" };
     }
     const costUsd = result.usage.reduce((sum, u) => sum + u.costUsd, 0);
+    const metrics = {
+      costUsd,
+      durationMs: Date.now() - started,
+      redactionAttempts: result.usage.filter((u) => u.step === "redaction").length,
+    };
     if (result.status === "degraded") {
-      logger.warn({ event: "generation", status: "degraded", reason: result.reason, costUsd }, "generation");
+      logger.warn(
+        { event: "generation", status: "degraded", reason: result.reason, ...metrics },
+        "generation",
+      );
       return { kind: "degraded", message: DEGRADED_MESSAGES[result.reason]! };
     }
     const current = validProfile(draftOf(req));
@@ -171,7 +182,7 @@ export function createIaRoutes(options: IaOptions) {
         score: result.report.score,
         removed: result.removed.length,
         missingKeywords: result.cv.missingKeywords.length,
-        costUsd,
+        ...metrics,
         pipelineVersion: result.pipelineVersion,
       },
       "generation",
@@ -213,7 +224,9 @@ export function createIaRoutes(options: IaOptions) {
     if (!token || token !== req.session.generationToken) {
       throw new AppError("generation_token", 403, "Lien de génération expiré. Rechargez la page.");
     }
+    // Consommation enregistrée tout de suite : un rejeu, même concurrent, est refusé.
     delete req.session.generationToken;
+    await saveSession(req);
 
     res.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
@@ -301,6 +314,7 @@ export function createIaRoutes(options: IaOptions) {
       try {
         const { profile, usage } = await extractProfile(provider, text);
         logger.info({ event: "llm_usage", ...usage }, "llm");
+        options.recordUsage?.(usage);
         if (!(await reloadSession(req))) {
           forgetSession(req);
           return { kind: "erased" };

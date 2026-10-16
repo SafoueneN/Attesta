@@ -1,4 +1,4 @@
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { Worker } from "node:worker_threads";
 import { normalize } from "./faithfulness.js";
 import { ExtractedProfileOutput } from "./llm-schemas.js";
 import { dataBlock, systemPrompt } from "./prompts.js";
@@ -18,44 +18,69 @@ export class PdfImportError extends Error {
 /** Le fichier commence-t-il par la signature d'un PDF ? (le type MIME annoncé ne suffit pas) */
 export const isPdf = (bytes: Uint8Array) => new TextDecoder().decode(bytes.subarray(0, 5)) === "%PDF-";
 
+/** Délai et mémoire maximaux de l'analyse d'un PDF, dans son propre thread. */
+export const PDF_ANALYSIS_LIMITS = {
+  timeoutMs: 10_000,
+  maxOldGenerationSizeMb: 256,
+  maxYoungGenerationSizeMb: 32,
+};
+
+/** Le worker est en .ts quand ce module est exécuté depuis les sources (tests), en .js une fois compilé. */
+const workerUrl = new URL(
+  import.meta.url.endsWith(".ts") ? "./pdf-text-worker.ts" : "./pdf-text-worker.js",
+  import.meta.url,
+);
+
 /**
  * Texte d'un PDF, sans charger ses polices embarquées ni les polices système ;
- * 10 pages et 30 000 caractères au plus.
+ * 10 pages et 30 000 caractères au plus. L'analyse tourne dans un worker_thread
+ * borné en temps et en mémoire : un fichier piégé échoue proprement sans bloquer
+ * le serveur.
  */
-export async function extractPdfText(bytes: Uint8Array): Promise<string> {
+export async function extractPdfText(
+  bytes: Uint8Array,
+  limits: { timeoutMs: number } = PDF_ANALYSIS_LIMITS,
+): Promise<string> {
   if (bytes.byteLength > MAX_PDF_BYTES) throw new PdfImportError("Le fichier dépasse 5 Mo.");
   if (!isPdf(bytes)) throw new PdfImportError("Le fichier n'est pas un PDF valide.");
-  const task = getDocument({
-    data: bytes.slice(),
-    useSystemFonts: false,
-    disableFontFace: true,
+
+  const text = await new Promise<string>((resolve, reject) => {
+    const worker = new Worker(workerUrl, {
+      workerData: { bytes, maxPages: MAX_PAGES, maxChars: MAX_CHARS },
+      resourceLimits: {
+        maxOldGenerationSizeMb: PDF_ANALYSIS_LIMITS.maxOldGenerationSizeMb,
+        maxYoungGenerationSizeMb: PDF_ANALYSIS_LIMITS.maxYoungGenerationSizeMb,
+      },
+    });
+    const finish = (outcome: () => void) => {
+      clearTimeout(timer);
+      void worker.terminate();
+      outcome();
+    };
+    const timer = setTimeout(
+      () =>
+        finish(() =>
+          reject(new PdfImportError("Ce PDF est trop long à analyser. Saisissez votre profil à la main.")),
+        ),
+      limits.timeoutMs,
+    );
+    worker.once("message", (message: { ok: boolean; text?: string }) =>
+      finish(() =>
+        message.ok && message.text !== undefined
+          ? resolve(message.text)
+          : reject(new PdfImportError("Ce PDF n'a pas pu être lu.")),
+      ),
+    );
+    // Erreur ou dépassement mémoire (ERR_WORKER_OUT_OF_MEMORY) : refus propre.
+    worker.once("error", () => finish(() => reject(new PdfImportError("Ce PDF n'a pas pu être lu."))));
   });
-  try {
-    const doc = await task.promise;
-    const pages: string[] = [];
-    for (let n = 1; n <= Math.min(doc.numPages, MAX_PAGES); n++) {
-      const content = await (await doc.getPage(n)).getTextContent();
-      pages.push(
-        content.items.map((item) => ("str" in item ? item.str + (item.hasEOL ? "\n" : " ") : "")).join(""),
-      );
-    }
-    const text = pages
-      .join("\n")
-      .replace(/[ \t]+/g, " ")
-      .trim()
-      .slice(0, MAX_CHARS);
-    if (text.length < 50) {
-      throw new PdfImportError(
-        "Aucun texte lisible dans ce PDF (document scanné ?). Saisissez votre profil à la main.",
-      );
-    }
-    return text;
-  } catch (error) {
-    if (error instanceof PdfImportError) throw error;
-    throw new PdfImportError("Ce PDF n'a pas pu être lu.");
-  } finally {
-    await task.destroy();
+
+  if (text.length < 50) {
+    throw new PdfImportError(
+      "Aucun texte lisible dans ce PDF (document scanné ?). Saisissez votre profil à la main.",
+    );
   }
+  return text;
 }
 
 /** Étape 1 du pipeline : le CV importé devient un brouillon de profil, à relire par le candidat. */

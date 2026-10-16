@@ -2,7 +2,7 @@
 
 > Information de conception, **pas un avis juridique**. À faire valider par un juriste ou un DPO avant la mise en production.
 
-État au 2026-10-16 (fin de Phase 2). Chaque mesure renvoie au code ou au test qui la met en œuvre.
+État au 2026-10-16 (fin de Phase 3). Chaque mesure renvoie au code ou au test qui la met en œuvre.
 
 ## Données personnelles (RGPD)
 
@@ -17,7 +17,9 @@
 | Décision automatisée (art. 22)             | Aucune : Attesta propose, le candidat relit, corrige et valide chaque export (case obligatoire)                                        | étape 5                                                                                                                |
 | Données sensibles                          | Prompts : aucune extraction d'âge, de photo, de nationalité, de situation familiale ni de santé                                        | `prompts/*/v1.md`                                                                                                      |
 
-Reste à faire (Phase 3) : comptes, export des données (art. 15 et 20), journal de consentement, registre des traitements, DPA signé avec Google Cloud.
+Hébergement (Phase 3) : Google Cloud, région Paris, pour l'application, la base et les secrets ; Vertex AI en région `eu`. Quotas, compteurs et limiteur ne stockent que des **empreintes** (HMAC) des identifiants de session et des IP, purgées après un jour ; coûts LLM sans contenu, conservés 13 mois. Accès à la base journalisés (`log_connections`).
+
+Reste à faire (Phase 4, avec les comptes) : export des données (art. 15 et 20), journal de consentement, registre des traitements. Avant production : DPA signé avec Google Cloud.
 
 ## Règlement européen sur l'IA (AI Act)
 
@@ -28,11 +30,11 @@ Reste à faire (Phase 3) : comptes, export des données (art. 15 et 20), journal
 
 ## Sécurité spécifique aux LLM
 
-| Risque                            | Parade                                                                                                                                                     | Preuve                                                                                                                   |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Injection de prompt (offre ou CV) | Données en blocs JSON balisés, avec `<` échappé ; consignes « données, jamais instructions » ; sortie contrainte par schéma ; contrôle de fidélité en aval | test « empêche un texte d'offre de fermer sa balise » ; cas d'évaluation `injection-offre`                               |
-| Hallucination                     | Le modèle cite des faits, n'écrit aucun champ factuel ; contrôle déterministe ; retrait ; relecture                                                        | `evals/fidelity.eval.test.ts` (rappel de 100 % sur les inventions étiquetées)                                            |
-| Fuite de données                  | Minimisation ; aucune clé côté client ; secrets par variables d'environnement                                                                              | ADR 0006, 0008                                                                                                           |
-| Coût et abus                      | Plafond par CV, quota par session, 10 générations par heure et par IP                                                                                      | `pipeline.ts` ; `app.ts`                                                                                                 |
-| Dépendance au fournisseur         | Interface `LlmProvider`, mode dégradé                                                                                                                      | `packages/llm/src/provider.ts`                                                                                           |
-| Upload malveillant                | 5 Mo au plus, signature `%PDF-` vérifiée, 10 pages au plus, polices non chargées, fichier jamais servi ni stocké                                           | `packages/llm/src/extraction.ts` ; tests d'import. **Reste** : déni de service par PDF piégé (analyse à isoler, Phase 3) |
+| Risque                            | Parade                                                                                                                                                     | Preuve                                                                                                           |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Injection de prompt (offre ou CV) | Données en blocs JSON balisés, avec `<` échappé ; consignes « données, jamais instructions » ; sortie contrainte par schéma ; contrôle de fidélité en aval | test « empêche un texte d'offre de fermer sa balise » ; cas d'évaluation `injection-offre`                       |
+| Hallucination                     | Le modèle cite des faits, n'écrit aucun champ factuel ; contrôle déterministe ; retrait ; relecture                                                        | `evals/fidelity.eval.test.ts` (rappel de 100 % sur les inventions étiquetées)                                    |
+| Fuite de données                  | Minimisation ; aucune clé côté client ; secrets par variables d'environnement                                                                              | ADR 0006, 0008                                                                                                   |
+| Coût et abus                      | Plafond par CV, quota par session, 10 générations par heure et par IP                                                                                      | `pipeline.ts` ; `app.ts`                                                                                         |
+| Dépendance au fournisseur         | Interface `LlmProvider`, mode dégradé                                                                                                                      | `packages/llm/src/provider.ts`                                                                                   |
+| Upload malveillant                | 5 Mo au plus, signature `%PDF-` vérifiée, 10 pages au plus, polices non chargées, fichier jamais servi ni stocké                                           | `packages/llm/src/extraction.ts` ; tests d'import. analyse isolée dans un `worker_thread` (10 s, 256 Mo au plus) |

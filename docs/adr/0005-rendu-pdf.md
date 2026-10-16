@@ -1,6 +1,6 @@
 # ADR 0005 : Gabarit HTML unique et Puppeteer en worker isolé
 
-- Statut : proposé
+- Statut : accepté, **amendé par l'[ADR 0009](0009-hebergement-et-execution.md)** (pas de worker pg-boss pour le parcours interactif ; pg-boss en Phase 4)
 - Date : 2026-10-16
 
 ## Décision

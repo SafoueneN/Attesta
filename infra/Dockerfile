@@ -17,9 +17,13 @@ COPY apps apps
 RUN npx tsc -b && npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
+# Correctifs de sécurité Debian, Chromium et polices. npm et npx sont retirés :
+# inutiles à l'exécution, ils apportaient des vulnérabilités (scan Trivy en CI).
 RUN apt-get update \
+  && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends chromium fonts-liberation ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 # Système de fichiers en lecture seule à l'exécution : Chromium écrit dans /tmp (tmpfs).
 ENV NODE_ENV=production \
   PORT=3000 \

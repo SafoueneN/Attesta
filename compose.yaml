@@ -22,8 +22,8 @@ services:
     build: { context: ., dockerfile: infra/Dockerfile }
     command:
       [
-        "npx",
-        "node-pg-migrate",
+        "node",
+        "node_modules/node-pg-migrate/bin/node-pg-migrate.js",
         "up",
         "--migrations-dir",
         "db/migrations",
@@ -50,11 +50,11 @@ services:
       LOG_LEVEL: info
       # demo : génération sans IA. Pour Claude sur Vertex AI (UE), voir docs/runbook.md.
       LLM_PROVIDER: demo
-      PDF_CHROMIUM_NO_SANDBOX: "true"
     read_only: true
     tmpfs: ["/tmp"]
     cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    # Sandbox de Chromium active grâce à un profil seccomp dédié (docs/adr/0009).
+    security_opt: ["no-new-privileges:true", "seccomp=./infra/seccomp/chromium.json"]
     depends_on:
       migrate: { condition: service_completed_successfully }
     restart: unless-stopped

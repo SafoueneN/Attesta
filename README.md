@@ -2,7 +2,7 @@
 
 Génération de CV ciblés par offre, **prouvables ligne par ligne**. L'IA reformule, le candidat décide.
 
-> **Statut : Phase 2 livrée (intelligence).** CV ciblé par offre, généré par Claude (Vertex AI, UE), chaque ligne vérifiée contre le profil ; mode démonstration sans IA pour le développement. Veille emploi : Phase 4.
+> **Statut : Phase 3 livrée (industrialisation).** CV ciblé par Claude (Vertex AI, UE), chaque ligne vérifiée ; état partagé dans PostgreSQL ; infrastructure Google Cloud (Paris) en Terraform ; CI/CD avec déploiement progressif et retour arrière. Rien n'a encore été déployé sur un vrai projet. Veille emploi : Phase 4.
 
 ## Démarrage rapide
 
@@ -39,7 +39,8 @@ packages/shared/     Config validée, logger sans PII, erreurs
 db/                  Migrations SQL, seeds
 prompts/             Prompts versionnés + changelog
 evals/               Jeu de référence, métriques de fidélité
-infra/               Dockerfile (CI : .github/workflows ; compose.yaml à la racine)
+infra/               Dockerfile, seccomp Chromium, Terraform, scripts de déploiement
+scripts/             test de fumée d'un déploiement
 docs/                ADR, architecture, tests, backlog, questions
 ```
 

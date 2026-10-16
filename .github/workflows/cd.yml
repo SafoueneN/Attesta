@@ -1,0 +1,101 @@
+# Déploiement continu sur Google Cloud (docs/adr/0009, docs/runbook.md).
+# - push sur main, CI verte : image construite une fois, publiée, déployée en préprod ;
+# - publication d'une release (tag v*) : la MÊME image (même digest) est promue en
+#   prod, par paliers (10, 50, 100 %), après approbation de l'environnement « prod ».
+# Authentification par Workload Identity Federation : aucune clé dans GitHub.
+#
+# Variables du dépôt (Settings > Variables) : GCP_PROJECT_ID, GCP_WIF_PROVIDER,
+# GCP_DEPLOYER_SA, REGISTRY (sorties de infra/terraform/shared).
+name: cd
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cd-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  REGION: europe-west9
+
+jobs:
+  publier:
+    name: Image (construite une seule fois)
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+      - id: push
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          REGISTRY: ${{ vars.REGISTRY }}
+        run: |
+          docker build -f infra/Dockerfile -t "$REGISTRY/web:sha-$SHA" .
+          docker push "$REGISTRY/web:sha-$SHA"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$REGISTRY/web:sha-$SHA")
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+
+  preprod:
+    name: Préprod
+    needs: [publier]
+    runs-on: ubuntu-24.04
+    environment:
+      name: preprod
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: bash infra/deploy/deploy.sh attesta-preprod "${{ needs.publier.outputs.image }}" "100"
+
+  prod:
+    name: Prod (promotion de l'image validée en préprod)
+    if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-24.04
+    environment:
+      name: prod # approbation manuelle requise (règle de protection de l'environnement)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Image construite pour ce commit
+        id: image
+        env:
+          REGISTRY: ${{ vars.REGISTRY }}
+        run: |
+          digest=$(gcloud artifacts docker images describe "$REGISTRY/web:sha-$GITHUB_SHA" --format='value(image_summary.digest)')
+          [ -n "$digest" ] || { echo "Aucune image pour $GITHUB_SHA : passer d'abord par main et la préprod."; exit 1; }
+          echo "image=$REGISTRY/web@$digest" >> "$GITHUB_OUTPUT"
+      - run: bash infra/deploy/deploy.sh attesta-prod "${{ steps.image.outputs.image }}" "10 50 100"
