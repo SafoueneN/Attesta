@@ -54,3 +54,7 @@ docs/                ADR, architecture, tests, backlog, questions
 - [Conformité (RGPD, AI Act)](docs/conformite.md)
 - [Backlog](docs/backlog.md)
 - [Questions ouvertes](docs/questions.md)
+
+## Licence
+
+[MIT](LICENSE). Données tierces : villes GeoNames (CC BY 4.0), classification ESCO (Commission européenne) ; polices Source Sans 3 (SIL Open Font License).

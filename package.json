@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Attesta, le CV qui dit vrai : CV ciblé par offre, prouvable ligne par ligne.",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22"
