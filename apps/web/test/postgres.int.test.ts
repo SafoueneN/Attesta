@@ -13,6 +13,9 @@ import { csrfFrom, FakeRenderer, submit, validBasics, validParcours } from "./he
 const url = process.env.TEST_DATABASE_URL;
 const secret = "s".repeat(32);
 
+// En CI, ces tests ne doivent jamais être ignorés en silence.
+if (process.env.CI && !url) throw new Error("TEST_DATABASE_URL est requis en CI");
+
 describe.skipIf(!url)("PostgreSQL : état partagé entre instances", () => {
   const pool = new pg.Pool({ connectionString: url });
   const logger = createLogger("silent");
@@ -38,8 +41,8 @@ describe.skipIf(!url)("PostgreSQL : état partagé entre instances", () => {
 
     const results = await Promise.all(Array.from({ length: 10 }, () => quota.reserve("session-a", 5)));
 
-    expect(results.filter((r) => r === "ok")).toHaveLength(1);
-    expect(results.filter((r) => r === "busy")).toHaveLength(9);
+    expect(results.filter((r) => r.status === "ok")).toHaveLength(1);
+    expect(results.filter((r) => r.status === "busy")).toHaveLength(9);
   });
 
   it("quota quotidien appliqué après libération du verrou", async () => {
@@ -47,8 +50,9 @@ describe.skipIf(!url)("PostgreSQL : état partagé entre instances", () => {
 
     const outcomes: string[] = [];
     for (let i = 0; i < 3; i++) {
-      outcomes.push(await quota.reserve("session-b", 2));
-      await quota.release("session-b");
+      const reservation = await quota.reserve("session-b", 2);
+      outcomes.push(reservation.status);
+      if (reservation.status === "ok") await quota.release("session-b", reservation.token);
     }
 
     expect(outcomes).toEqual(["ok", "ok", "quota"]);
@@ -56,10 +60,22 @@ describe.skipIf(!url)("PostgreSQL : état partagé entre instances", () => {
 
   it("se comporte comme l'implémentation mémoire (même contrat)", async () => {
     for (const quota of [new PgIaQuota(pool, secret), new MemoryIaQuota()]) {
-      expect(await quota.reserve("session-c", 1)).toBe("ok");
-      expect(await quota.reserve("session-c", 1)).toBe("busy");
-      await quota.release("session-c");
-      expect(await quota.reserve("session-c", 1)).toBe("quota");
+      const first = await quota.reserve("session-c", 1);
+      expect(first.status).toBe("ok");
+      expect((await quota.reserve("session-c", 1)).status).toBe("busy");
+      if (first.status === "ok") await quota.release("session-c", first.token);
+      expect((await quota.reserve("session-c", 1)).status).toBe("quota");
+    }
+  });
+
+  it("une requête ne peut pas lever le verrou posé par une autre", async () => {
+    for (const quota of [new PgIaQuota(pool, secret), new MemoryIaQuota()]) {
+      const holder = await quota.reserve("session-d", 5);
+
+      await quota.release("session-d", "jeton-d-une-autre-requete");
+
+      expect(holder.status).toBe("ok");
+      expect((await quota.reserve("session-d", 5)).status).toBe("busy");
     }
   });
 

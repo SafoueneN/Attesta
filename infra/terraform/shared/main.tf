@@ -23,6 +23,16 @@ variable "github_repository" {
   type        = string
 }
 
+variable "github_repository_id" {
+  description = "Identifiant numérique du dépôt (stable même si le dépôt est renommé ou recréé)."
+  type        = string
+}
+
+variable "github_owner_id" {
+  description = "Identifiant numérique du propriétaire du dépôt."
+  type        = string
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -57,6 +67,20 @@ resource "google_artifact_registry_repository" "images" {
   location      = var.region
   format        = "DOCKER"
 
+  # Étiquettes immuables : l'image validée en préprod ne peut pas être remplacée.
+  docker_config {
+    immutable_tags = true
+  }
+
+  # Toute image validée en préprod (donc promouvable ou servie en prod) est conservée.
+  cleanup_policies {
+    id     = "garder-les-validees"
+    action = "KEEP"
+    condition {
+      tag_state    = "TAGGED"
+      tag_prefixes = ["preprod-valide-"]
+    }
+  }
   cleanup_policies {
     id     = "garder-les-recentes"
     action = "KEEP"
@@ -74,22 +98,6 @@ resource "google_artifact_registry_repository" "images" {
   depends_on = [google_project_service.apis]
 }
 
-# Compte utilisé par GitHub Actions pour publier les images et déployer.
-resource "google_service_account" "deployer" {
-  account_id   = "attesta-deployer"
-  display_name = "Attesta : déploiement depuis GitHub Actions"
-}
-
-resource "google_project_iam_member" "deployer" {
-  for_each = toset([
-    "roles/run.admin",
-    "roles/artifactregistry.writer",
-  ])
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.deployer.email}"
-}
-
 resource "google_iam_workload_identity_pool" "github" {
   workload_identity_pool_id = "github"
   display_name              = "GitHub Actions"
@@ -100,30 +108,30 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-oidc"
   display_name                       = "GitHub OIDC"
-  # Seul ce dépôt peut obtenir une identité Google.
-  attribute_condition = "assertion.repository == \"${var.github_repository}\""
+  # Seul ce dépôt (identifiants numériques épinglés) peut obtenir une identité Google.
+  attribute_condition = "assertion.repository_id == \"${var.github_repository_id}\" && assertion.repository_owner_id == \"${var.github_owner_id}\""
+  # « dépôt:environnement GitHub » : chaque environnement n'obtient que son propre
+  # compte de déploiement (infra/terraform/environment). Un job sans environnement
+  # GitHub n'obtient aucune identité.
   attribute_mapping = {
-    "google.subject"       = "assertion.sub"
-    "attribute.repository" = "assertion.repository"
-    "attribute.ref"        = "assertion.ref"
+    "google.subject"     = "assertion.sub"
+    "attribute.repo_env" = "assertion.repository + \":\" + assertion.environment"
   }
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
 }
 
-resource "google_service_account_iam_member" "github_impersonation" {
-  service_account_id = google_service_account.deployer.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
-}
-
 output "registry" {
   value = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.images.repository_id}"
 }
 
-output "deployer_service_account" {
-  value = google_service_account.deployer.email
+output "registry_repository" {
+  value = google_artifact_registry_repository.images.repository_id
+}
+
+output "workload_identity_pool" {
+  value = google_iam_workload_identity_pool.github.name
 }
 
 output "workload_identity_provider" {

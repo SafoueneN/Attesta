@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import type { IncrementResponse, Options, Store } from "express-rate-limit";
 import type { Pool } from "pg";
 import type { LlmUsage } from "@attesta/llm";
@@ -9,39 +9,48 @@ import type { Logger } from "@attesta/shared";
  * (une seule instance : développement, tests) et PostgreSQL (préprod, prod).
  */
 
-export type Reservation = "ok" | "busy" | "quota";
+export type Reservation = { status: "ok"; token: string } | { status: "busy" | "quota" };
 
 export interface IaQuotaStore {
   /** Réserve un appel au modèle : un seul à la fois par session, `dailyLimit` par jour. */
   reserve(sessionId: string, dailyLimit: number): Promise<Reservation>;
-  release(sessionId: string): Promise<void>;
+  /** Lève le verrou, seulement s'il appartient encore à cette réservation. */
+  release(sessionId: string, token: string): Promise<void>;
 }
 
-/** Durée maximale d'un verrou : au-delà, il est considéré comme abandonné (instance arrêtée). */
-export const LOCK_MS = 10 * 60 * 1000;
+/**
+ * Durée maximale d'un verrou, au-delà de laquelle il est considéré comme abandonné
+ * (instance arrêtée). Supérieure au délai maximal d'une requête Cloud Run (15 min).
+ */
+export const LOCK_MS = 16 * 60 * 1000;
 
 const today = () => new Date().toISOString().slice(0, 10);
+const newToken = () => randomBytes(16).toString("base64url");
 
 /** Empreinte non réversible sans le secret : aucun identifiant brut n'est stocké. */
 export const fingerprint = (secret: string, value: string) =>
   createHmac("sha256", secret).update(value).digest("base64url");
 
 export class MemoryIaQuota implements IaQuotaStore {
-  private readonly entries = new Map<string, { day: string; count: number; runningUntil: number }>();
+  private readonly entries = new Map<
+    string,
+    { day: string; count: number; runningUntil: number; token?: string }
+  >();
 
   async reserve(sessionId: string, dailyLimit: number): Promise<Reservation> {
     const now = Date.now();
     const entry = this.entries.get(sessionId);
-    if (entry && entry.runningUntil > now) return "busy";
+    if (entry && entry.runningUntil > now) return { status: "busy" };
     const count = entry?.day === today() ? entry.count : 0;
-    if (count >= dailyLimit) return "quota";
-    this.entries.set(sessionId, { day: today(), count: count + 1, runningUntil: now + LOCK_MS });
-    return "ok";
+    if (count >= dailyLimit) return { status: "quota" };
+    const token = newToken();
+    this.entries.set(sessionId, { day: today(), count: count + 1, runningUntil: now + LOCK_MS, token });
+    return { status: "ok", token };
   }
 
-  async release(sessionId: string): Promise<void> {
+  async release(sessionId: string, token: string): Promise<void> {
     const entry = this.entries.get(sessionId);
-    if (entry) entry.runningUntil = 0;
+    if (entry?.token === token) entry.runningUntil = 0;
   }
 }
 
@@ -53,30 +62,36 @@ export class PgIaQuota implements IaQuotaStore {
 
   async reserve(sessionId: string, dailyLimit: number): Promise<Reservation> {
     const subject = fingerprint(this.secret, sessionId);
-    // Une seule instruction : la vérification et l'incrément sont atomiques.
-    const reserved = await this.pool.query(
-      `INSERT INTO ia_quota AS q (subject, day, count, running_until)
-       VALUES ($1, $2::date, 1, now() + $4 * interval '1 millisecond')
-       ON CONFLICT (subject) DO UPDATE SET
-         count = CASE WHEN q.day = EXCLUDED.day THEN q.count + 1 ELSE 1 END,
-         day = EXCLUDED.day,
-         running_until = EXCLUDED.running_until
-       WHERE (q.running_until IS NULL OR q.running_until < now())
-         AND (q.day <> EXCLUDED.day OR q.count < $3)
-       RETURNING count`,
-      [subject, today(), dailyLimit, LOCK_MS],
+    const token = newToken();
+    // Une seule instruction : vérification, incrément et raison d'un éventuel refus
+    // sont évalués ensemble.
+    const { rows } = await this.pool.query<{ reserved: boolean; busy: boolean | null }>(
+      `WITH prior AS (
+         SELECT running_until IS NOT NULL AND running_until >= now() AS busy FROM ia_quota WHERE subject = $1
+       ),
+       upsert AS (
+         INSERT INTO ia_quota AS q (subject, day, count, running_until, token)
+         VALUES ($1, $2::date, 1, now() + $4 * interval '1 millisecond', $5)
+         ON CONFLICT (subject) DO UPDATE SET
+           count = CASE WHEN q.day = EXCLUDED.day THEN q.count + 1 ELSE 1 END,
+           day = EXCLUDED.day,
+           running_until = EXCLUDED.running_until,
+           token = EXCLUDED.token
+         WHERE (q.running_until IS NULL OR q.running_until < now())
+           AND (q.day <> EXCLUDED.day OR q.count < $3)
+         RETURNING 1
+       )
+       SELECT EXISTS (SELECT 1 FROM upsert) AS reserved, (SELECT busy FROM prior) AS busy`,
+      [subject, today(), dailyLimit, LOCK_MS, token],
     );
-    if (reserved.rowCount) return "ok";
-    const { rows } = await this.pool.query<{ busy: boolean }>(
-      "SELECT running_until IS NOT NULL AND running_until >= now() AS busy FROM ia_quota WHERE subject = $1",
-      [subject],
-    );
-    return rows[0]?.busy ? "busy" : "quota";
+    if (rows[0]?.reserved) return { status: "ok", token };
+    return { status: rows[0]?.busy ? "busy" : "quota" };
   }
 
-  async release(sessionId: string): Promise<void> {
-    await this.pool.query("UPDATE ia_quota SET running_until = NULL WHERE subject = $1", [
+  async release(sessionId: string, token: string): Promise<void> {
+    await this.pool.query("UPDATE ia_quota SET running_until = NULL WHERE subject = $1 AND token = $2", [
       fingerprint(this.secret, sessionId),
+      token,
     ]);
   }
 }

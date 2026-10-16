@@ -111,6 +111,13 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
     }),
   );
 
+  // Vivacité : le processus répond. Ne dépend pas de la base, pour qu'une maintenance
+  // de Cloud SQL ne fasse pas redémarrer toutes les instances en boucle.
+  app.get("/livez", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
+  // Disponibilité : le service peut traiter des requêtes (base joignable).
   app.get("/health", async (_req, res) => {
     try {
       if (pool) await pool.query("SELECT 1");

@@ -10,6 +10,11 @@ const Env = z
     DATABASE_URL: z.string().min(1).optional(),
     /** Nombre de proxys de confiance devant l'application (IP réelle pour le rate limiting). */
     TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+    /**
+     * Connexions PostgreSQL par instance. À dimensionner : max_instances × PG_POOL_MAX
+     * doit rester sous max_connections de la base (docs/runbook.md).
+     */
+    PG_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
     PDF_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
     PDF_TIMEOUT_MS: z.coerce.number().int().min(1000).default(20_000),
     PUPPETEER_EXECUTABLE_PATH: z.string().min(1).optional(),

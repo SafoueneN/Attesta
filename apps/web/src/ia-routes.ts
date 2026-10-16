@@ -95,22 +95,23 @@ export function createIaRoutes(options: IaOptions) {
   async function withReservation(req: Request, work: () => Promise<Outcome>): Promise<Outcome> {
     const id = req.sessionID;
     const reservation = await options.quotaStore.reserve(id, options.dailyQuota);
-    if (reservation === "busy") {
+    if (reservation.status === "busy") {
       return {
         kind: "busy",
         message: "Un traitement par l'IA est déjà en cours pour votre session. Patientez quelques instants.",
       };
     }
-    if (reservation === "quota") {
+    if (reservation.status === "quota") {
       return {
         kind: "quota",
         message: `Limite de ${options.dailyQuota} appels à l'IA par jour atteinte. Votre CV non adapté reste exportable.`,
       };
     }
+    const { token } = reservation as Extract<typeof reservation, { status: "ok" }>;
     try {
       return await work();
     } finally {
-      await options.quotaStore.release(id);
+      await options.quotaStore.release(id, token);
     }
   }
 

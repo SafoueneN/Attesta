@@ -188,3 +188,10 @@ describe("sécurité et données", () => {
     expect(second.status).toBe(429);
   });
 });
+
+describe("sondes", () => {
+  it("la vivacité ne dépend pas de la base", async () => {
+    const res = await testApp().agent.get("/livez");
+    expect(res.status).toBe(200);
+  });
+});

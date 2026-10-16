@@ -15,9 +15,20 @@ variable "environment" {
   }
 }
 
-variable "deployer_service_account" {
-  description = "Sortie deployer_service_account de la configuration shared."
+variable "workload_identity_pool" {
+  description = "Sortie workload_identity_pool de la configuration shared."
   type        = string
+}
+
+variable "github_repository" {
+  description = "Dépôt GitHub, au format organisation/depot."
+  type        = string
+}
+
+variable "registry_repository" {
+  description = "Sortie registry_repository de la configuration shared."
+  type        = string
+  default     = "attesta"
 }
 
 variable "bootstrap_image" {
@@ -35,6 +46,11 @@ variable "min_instances" {
 
 variable "max_instances" {
   type = number
+}
+
+variable "pg_pool_max" {
+  description = "Connexions par instance : max_instances × pg_pool_max doit rester sous max_connections de la base."
+  type        = number
 }
 
 variable "llm_model" {
@@ -60,6 +76,11 @@ variable "chromium_no_sandbox" {
 
 variable "alert_email" {
   type = string
+}
+
+output "deployer_service_account" {
+  description = "À déclarer comme variable GCP_DEPLOYER_SA de l'environnement GitHub du même nom."
+  value       = google_service_account.deployer.email
 }
 
 output "url" {

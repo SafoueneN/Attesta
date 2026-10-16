@@ -56,7 +56,8 @@ DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate && npm test
    ```bash
    cd infra/terraform/shared
    terraform init -backend-config=bucket=<projet>-tfstate -backend-config=prefix=shared
-   terraform apply -var project_id=<projet> -var github_repository=<org>/attesta
+   terraform apply -var project_id=<projet> -var github_repository=<org>/attesta \
+     -var github_repository_id=<id numérique> -var github_owner_id=<id numérique>
    ```
 4. **Première image**, publiée à la main dans le registre (sortie `registry`) pour amorcer les services.
 5. **Environnements**, pour `preprod` puis `prod` :
@@ -64,12 +65,17 @@ DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate && npm test
    cd infra/terraform/environment
    terraform init -backend-config=bucket=<projet>-tfstate -backend-config=prefix=preprod
    terraform apply -var-file=preprod.tfvars -var project_id=<projet> \
-     -var deployer_service_account=<sortie shared> -var bootstrap_image=<image@digest> -var alert_email=<astreinte>
+     -var workload_identity_pool=<sortie shared> -var github_repository=<org>/attesta \
+     -var bootstrap_image=<image@digest> -var alert_email=<astreinte>
    ```
 6. **GitHub** :
-   - variables du dépôt `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_DEPLOYER_SA`, `REGISTRY` (sorties de `shared`) ;
-   - environnements `preprod` et `prod`, ce dernier avec **approbation obligatoire** ;
-   - branche `main` protégée : PR, revue et CI verte obligatoires.
+   - variables du dépôt : `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `REGISTRY` (sorties de `shared`) ;
+   - environnement `preprod` : variable `GCP_DEPLOYER_SA` (sortie `deployer_service_account` de l'environnement), déploiement limité à la branche `main` ;
+   - environnement `prod` : sa propre variable `GCP_DEPLOYER_SA`, **approbation obligatoire**, déploiement limité aux tags `v*` ;
+   - branche `main` protégée : PR, revue et CI verte obligatoires ; approbation requise pour les workflows des contributeurs externes.
+
+   Chaque environnement GitHub n'obtient que **son** compte de déploiement : la condition de fédération porte sur « dépôt:environnement ». Un job sans environnement n'obtient aucune identité, et le compte préprod n'a aucun droit sur la prod.
+
 7. **Extension pgvector**, au premier besoin (Phase 4) : `CREATE EXTENSION vector;` par une migration.
 
 ## Déployer
@@ -81,21 +87,23 @@ Tout est automatique ([cd.yml](../.github/workflows/cd.yml)), avec une **seule i
 | Push sur `main`, CI verte | image construite et publiée, déployée en **préprod** (100 % après le test de fumée)          |
 | Release `vX.Y.Z` publiée  | la **même** image est promue en **prod** après approbation, par paliers de 10, 50 puis 100 % |
 
+Seule une image portant l'étiquette `preprod-valide-sha-<commit>`, posée après un déploiement préprod réussi, peut être promue. Les étiquettes du registre sont immuables.
+
 Chaque déploiement ([deploy.sh](../infra/deploy/deploy.sh)) suit ces étapes :
 
 1. migrations (Cloud Run Job) ;
 2. révision sans trafic, étiquetée `candidat` ;
 3. test de fumée sur son URL ;
-4. paliers, chacun suivi d'un test de fumée.
+4. paliers, chacun suivi d'un test de fumée **du candidat** et d'une recherche d'erreurs 5xx sur sa révision.
 
-Au premier échec, le trafic retourne à 100 % sur la révision précédente.
+Au premier échec, à une erreur de gcloud ou à une annulation du job, le trafic retourne à 100 % sur la révision précédente. Un déploiement est refusé si le trafic est déjà partagé entre deux révisions (déploiement précédent interrompu) : faire d'abord un retour arrière. Les déploiements et retours arrière d'un même environnement ne peuvent pas se chevaucher (groupe de concurrence commun).
 
 **Règle des migrations** : uniquement des ajouts compatibles avec la révision précédente (nouvelle table, colonne facultative). Une suppression se fait en deux temps : d'abord le code qui n'utilise plus la colonne, puis la migration qui la retire, dans une release ultérieure. C'est ce qui permet le retour arrière sans toucher à la base.
 
 ## Retour arrière
 
 - **Automatique** : pendant un déploiement, dès qu'un test de fumée échoue.
-- **Manuel**, en quelques secondes et sans reconstruction : GitHub → Actions → `rollback` → choisir l'environnement, et éventuellement la révision. En ligne de commande : `bash infra/deploy/rollback.sh attesta-prod [révision]`.
+- **Manuel**, en quelques secondes et sans reconstruction : GitHub → Actions → `rollback` → choisir l'environnement, et éventuellement la révision. Par défaut : la révision prête la plus récente créée avant celle qui sert (un candidat refusé n'est jamais choisi). En ligne de commande : `bash infra/deploy/rollback.sh attesta-prod [révision]`.
 - Le registre conserve les 30 dernières images ; Cloud Run conserve les révisions.
 
 ## Sauvegardes et restauration
@@ -127,18 +135,20 @@ FROM llm_usage GROUP BY 1, 2 ORDER BY 1 DESC;
 
 ## Incidents
 
-| Symptôme                                                     | Cause probable                                                                         | Action                                                                                                                                                                                           |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/health` renvoie 503                                        | PostgreSQL injoignable                                                                 | Cloud SQL : état de l'instance, connexions ; en local `docker compose logs db`                                                                                                                   |
-| Le formulaire « perd » la saisie à chaque page               | cookie de session refusé : `HTTPS_ONLY` actif sur une connexion en HTTP                | servir en HTTPS, ou `HTTPS_ONLY=false` **en local uniquement**                                                                                                                                   |
-| 403 « Votre session a expiré »                               | jeton CSRF absent ou session expirée (2 h d'inactivité, 24 h au plus)                  | comportement attendu ; recharger la page                                                                                                                                                         |
-| Export PDF en erreur 500, « Rendu PDF interrompu »           | Chromium lent ou bloqué                                                                | mémoire de l'instance ; `PDF_TIMEOUT_MS` ; le navigateur est relancé automatiquement                                                                                                             |
-| Chromium ne démarre pas (« No usable sandbox »)              | espaces de noms utilisateur bloqués                                                    | Docker : profil `infra/seccomp/chromium.json` ; Ubuntu 24.04 : `sysctl kernel.apparmor_restrict_unprivileged_userns=0` ; Cloud Run : `chromium_no_sandbox = true` (ADR 0009), en dernier recours |
-| Bandeau « La reformulation par IA est indisponible »         | fournisseur injoignable, quota Vertex, délai dépassé                                   | `reason` = `indisponible` : identité du service, quota Vertex ; `refus` : contenu décliné ; `budget` : `LLM_MAX_COST_USD_PER_CV` ; le parcours reste utilisable sans IA                          |
-| « La reformulation obtenue ne respectait pas nos contrôles » | 3 sorties non conformes de suite                                                       | `pipelineVersion` et `redactionAttempts` dans les journaux ; relancer `npm run evals:live`                                                                                                       |
-| « Un traitement par l'IA est déjà en cours »                 | verrou de session posé (10 min au plus si une instance s'est arrêtée)                  | attendre ; le verrou expire seul                                                                                                                                                                 |
-| 429 Too Many Requests                                        | limiteur : 300 requêtes ou 20 exports par 15 min, 10 appels à l'IA par heure et par IP | derrière un proxy, vérifier `TRUST_PROXY` (sinon toutes les requêtes semblent venir du proxy)                                                                                                    |
-| « Ce PDF est trop long à analyser »                          | délai de 10 s dépassé dans le thread d'analyse                                         | comportement attendu pour un PDF piégé ou démesuré ; saisie manuelle                                                                                                                             |
+| Symptôme                                                      | Cause probable                                                                                   | Action                                                                                                                                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/health` renvoie 503                                         | PostgreSQL injoignable                                                                           | Cloud SQL : état de l'instance, connexions ; en local `docker compose logs db`                                                                                                                   |
+| Le formulaire « perd » la saisie à chaque page                | cookie de session refusé : `HTTPS_ONLY` actif sur une connexion en HTTP                          | servir en HTTPS, ou `HTTPS_ONLY=false` **en local uniquement**                                                                                                                                   |
+| 403 « Votre session a expiré »                                | jeton CSRF absent ou session expirée (2 h d'inactivité, 24 h au plus)                            | comportement attendu ; recharger la page                                                                                                                                                         |
+| Export PDF en erreur 500, « Rendu PDF interrompu »            | Chromium lent ou bloqué                                                                          | mémoire de l'instance ; `PDF_TIMEOUT_MS` ; le navigateur est relancé automatiquement                                                                                                             |
+| Chromium ne démarre pas (« No usable sandbox »)               | espaces de noms utilisateur bloqués                                                              | Docker : profil `infra/seccomp/chromium.json` ; Ubuntu 24.04 : `sysctl kernel.apparmor_restrict_unprivileged_userns=0` ; Cloud Run : `chromium_no_sandbox = true` (ADR 0009), en dernier recours |
+| Bandeau « La reformulation par IA est indisponible »          | fournisseur injoignable, quota Vertex, délai dépassé                                             | `reason` = `indisponible` : identité du service, quota Vertex ; `refus` : contenu décliné ; `budget` : `LLM_MAX_COST_USD_PER_CV` ; le parcours reste utilisable sans IA                          |
+| « La reformulation obtenue ne respectait pas nos contrôles »  | 3 sorties non conformes de suite                                                                 | `pipelineVersion` et `redactionAttempts` dans les journaux ; relancer `npm run evals:live`                                                                                                       |
+| « Un traitement par l'IA est déjà en cours »                  | verrou de session posé (10 min au plus si une instance s'est arrêtée)                            | attendre ; le verrou expire seul                                                                                                                                                                 |
+| 429 Too Many Requests                                         | limiteur : 300 requêtes ou 20 exports par 15 min, 10 appels à l'IA par heure et par IP           | derrière un proxy, vérifier `TRUST_PROXY` (sinon toutes les requêtes semblent venir du proxy)                                                                                                    |
+| « Ce PDF est trop long à analyser » ou « n'a pas pu être lu » | délai de 10 s, plafond mémoire de 768 Mo ou temps CPU de 15 s dépassé par le processus d'analyse | comportement attendu pour un PDF piégé ; l'instance n'est pas affectée ; saisie manuelle                                                                                                         |
+| « Trop d'imports sont en cours »                              | une analyse à la fois par instance, 3 en attente au plus                                         | réessayer ; augmenter les instances si c'est fréquent                                                                                                                                            |
+| Erreurs « too many clients » de PostgreSQL                    | `max_instances × PG_POOL_MAX` dépasse `max_connections`                                          | réduire `pg_pool_max` ou `max_instances`, ou agrandir la base (tfvars)                                                                                                                           |
 
 ## Données
 

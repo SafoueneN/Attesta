@@ -41,11 +41,48 @@ resource "google_project_iam_member" "runtime" {
   member  = "serviceAccount:${google_service_account.runtime.email}"
 }
 
-# Le compte de déploiement doit pouvoir lancer des révisions sous cette identité.
+# --- Identité de déploiement propre à cet environnement : obtenue seulement par les
+# jobs GitHub de l'environnement du même nom (soumis à ses règles de protection),
+# et limitée à ce service, ce job, cette identité d'exécution et au registre.
+
+resource "google_service_account" "deployer" {
+  account_id   = "${local.name}-deploy"
+  display_name = "Attesta ${var.environment} : déploiement"
+}
+
+resource "google_service_account_iam_member" "github" {
+  service_account_id = google_service_account.deployer.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${var.workload_identity_pool}/attribute.repo_env/${var.github_repository}:${var.environment}"
+}
+
 resource "google_service_account_iam_member" "deployer_acts_as_runtime" {
   service_account_id = google_service_account.runtime.name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${var.deployer_service_account}"
+  member             = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Préprod : publie les images et pose l'étiquette « validée » ; prod : lecture seule.
+resource "google_artifact_registry_repository_iam_member" "deployer" {
+  repository = var.registry_repository
+  location   = var.region
+  role       = local.is_prod ? "roles/artifactregistry.reader" : "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Lecture des journaux : recherche d'erreurs 5xx du candidat pendant les paliers.
+# Les journaux ne contiennent aucune donnée personnelle (docs/conformite.md).
+resource "google_project_iam_member" "deployer_logs" {
+  project = var.project_id
+  role    = "roles/logging.viewer"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "deployer" {
+  name     = google_cloud_run_v2_service.web.name
+  location = var.region
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.deployer.email}"
 }
 
 # --- Base PostgreSQL 16 (pgvector disponible par CREATE EXTENSION), sauvegardes et PITR.
@@ -176,6 +213,7 @@ locals {
     LLM_MAX_COST_USD_PER_CV = tostring(var.llm_max_cost_usd_per_cv)
     LLM_DAILY_QUOTA         = tostring(var.llm_daily_quota)
     PDF_CHROMIUM_NO_SANDBOX = tostring(var.chromium_no_sandbox)
+    PG_POOL_MAX             = tostring(var.pg_pool_max)
   }
 }
 
@@ -255,7 +293,7 @@ resource "google_cloud_run_v2_service" "web" {
       }
       liveness_probe {
         http_get {
-          path = "/health"
+          path = "/livez"
         }
         period_seconds = 30
       }
@@ -330,5 +368,5 @@ resource "google_cloud_run_v2_job_iam_member" "deployer_runs_migrations" {
   name     = google_cloud_run_v2_job.migrate.name
   location = var.region
   role     = "roles/run.developer"
-  member   = "serviceAccount:${var.deployer_service_account}"
+  member   = "serviceAccount:${google_service_account.deployer.email}"
 }

@@ -5,12 +5,12 @@
 #   ex. préprod : deploy.sh attesta-preprod europe-west9-docker.pkg.dev/.../web@sha256:... "100"
 #       prod    : deploy.sh attesta-prod    ...                                         "10 50 100"
 #
-# 1. migrations (Cloud Run Job, même image) ; elles doivent rester compatibles avec
-#    la révision précédente (ajouts seulement), sinon le retour arrière casse ;
-# 2. nouvelle révision sans trafic, étiquetée « candidat » ;
-# 3. test de fumée sur l'URL du candidat : en cas d'échec, aucun trafic n'a bougé ;
-# 4. bascule par paliers, test de fumée après chacun ; échec : retour immédiat
-#    de 100 % du trafic à la révision précédente.
+# 1. état de départ sain exigé : une seule révision sert 100 % du trafic ;
+# 2. migrations (Cloud Run Job, même image), compatibles avec la révision en place ;
+# 3. nouvelle révision sans trafic, étiquetée « candidat », testée sur sa propre URL ;
+# 4. bascule par paliers ; à chaque palier, test de fumée du candidat et recherche
+#    d'erreurs 5xx sur sa révision ; au moindre échec, à une erreur ou à une
+#    interruption (annulation du job), 100 % du trafic revient à la révision précédente.
 set -euo pipefail
 
 SERVICE=${1:?service Cloud Run requis}
@@ -23,18 +23,29 @@ STEP_PAUSE_SECONDS=${STEP_PAUSE_SECONDS:-300}
 
 log() { printf '[déploiement %s] %s\n' "$SERVICE" "$*"; }
 
-service_json() { gcloud run services describe "$SERVICE" --region "$REGION" --format=json; }
+# Lecture d'un champ du service (JSON de gcloud) par une expression JavaScript.
+service_field() {
+  gcloud run services describe "$SERVICE" --region "$REGION" --format=json | node -e '
+    let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
+      const s = JSON.parse(raw || "{}"); const traffic = s.status?.traffic ?? [];
+      process.stdout.write(String(eval(process.argv[1]) ?? ""));
+    });' "$1"
+}
 
-# Révision qui reçoit le trafic avant ce déploiement (vide au premier déploiement).
-previous=$(service_json | node -e '
-  let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
-    const traffic = JSON.parse(raw || "{}").status?.traffic ?? [];
-    const serving = traffic.filter((t) => (t.percent ?? 0) > 0).sort((a, b) => b.percent - a.percent);
-    process.stdout.write(serving[0]?.revisionName ?? "");
-  });')
+# État de départ : premier déploiement (aucun trafic) ou une seule révision à 100 %.
+serving=$(service_field 'traffic.filter((t) => (t.percent ?? 0) > 0).map((t) => `${t.revisionName}:${t.percent}`).join(" ")')
+previous=""
+if [[ -n "$serving" ]]; then
+  if [[ "$serving" != *":100" || "$serving" == *" "* ]]; then
+    log "trafic partagé ($serving) : terminer ou annuler le déploiement précédent (rollback) avant d'en lancer un autre"
+    exit 1
+  fi
+  previous=${serving%%:*}
+fi
 log "révision actuelle : ${previous:-aucune}"
 
 rollback() {
+  trap - ERR INT TERM
   if [[ -n "$previous" ]]; then
     log "RETOUR ARRIÈRE : 100 % du trafic vers $previous"
     gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-revisions "${previous}=100" --quiet
@@ -48,34 +59,46 @@ gcloud run jobs execute "$MIGRATION_JOB" --region "$REGION" --wait --quiet
 log "nouvelle révision sans trafic"
 gcloud run deploy "$SERVICE" --region "$REGION" --image "$IMAGE" --no-traffic --tag candidat --quiet
 
-candidate_url=$(service_json | node -e '
-  let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => {
-    const tagged = (JSON.parse(raw).status?.traffic ?? []).find((t) => t.tag === "candidat");
-    process.stdout.write(tagged?.url ?? "");
-  });')
-[[ -n "$candidate_url" ]] || { log "URL du candidat introuvable"; exit 1; }
+candidate_url=$(service_field 'traffic.find((t) => t.tag === "candidat")?.url')
+candidate=$(service_field 'traffic.find((t) => t.tag === "candidat")?.revisionName')
+[[ -n "$candidate_url" && -n "$candidate" ]] || { log "révision candidate introuvable"; exit 1; }
 
-log "test de fumée du candidat : $candidate_url"
+log "test de fumée du candidat $candidate : $candidate_url"
 if ! $SMOKE_CMD "$candidate_url"; then
   log "ÉCHEC du test de fumée : le trafic reste sur ${previous:-aucune révision}"
   exit 1
 fi
 
-service_url=$(service_json | node -e '
-  let raw = ""; process.stdin.on("data", (d) => (raw += d)).on("end", () => process.stdout.write(JSON.parse(raw).status?.url ?? ""));')
+# Erreurs 5xx servies par la révision candidate depuis $1 secondes.
+candidate_errors() {
+  gcloud logging read \
+    "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE\" AND resource.labels.revision_name=\"$candidate\" AND httpRequest.status>=500" \
+    --freshness="${1}s" --limit=1 --format='value(timestamp)'
+}
+
+# À partir d'ici, toute erreur ou interruption ramène le trafic à la révision précédente.
+trap 'log "interruption ou erreur pendant la bascule"; rollback; exit 1' ERR INT TERM
 
 for percent in $STEPS; do
-  log "bascule : ${percent} % vers le candidat"
-  gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-tags "candidat=${percent}" --quiet
+  log "bascule : ${percent} % vers $candidate"
+  gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-revisions "${candidate}=${percent}" --quiet
+  window=60
   if [[ "$percent" != "100" ]]; then
     log "observation pendant ${STEP_PAUSE_SECONDS} s"
     sleep "$STEP_PAUSE_SECONDS"
+    window=$((STEP_PAUSE_SECONDS + 60))
   fi
-  if ! $SMOKE_CMD "$service_url"; then
-    log "ÉCHEC du test de fumée à ${percent} %"
+  if ! $SMOKE_CMD "$candidate_url"; then
+    log "ÉCHEC du test de fumée du candidat à ${percent} %"
+    rollback
+    exit 1
+  fi
+  if [[ -n "$(candidate_errors "$window")" ]]; then
+    log "ERREURS 5xx sur $candidate à ${percent} %"
     rollback
     exit 1
   fi
 done
 
-log "déploiement terminé : 100 % sur la nouvelle révision"
+trap - ERR INT TERM
+log "déploiement terminé : 100 % sur $candidate"

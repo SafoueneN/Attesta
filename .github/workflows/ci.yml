@@ -31,8 +31,8 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/attesta_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -47,10 +47,9 @@ jobs:
           DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
           DATABASE_URL=$TEST_DATABASE_URL npx node-pg-migrate down --count 999 --migrations-dir db/migrations --migration-file-language sql
           DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
-      # Inclut les tests d'intégration PostgreSQL et l'évaluation de fidélité (porte bloquante).
+      # Inclut les tests d'intégration PostgreSQL (en échec, et non ignorés, si la base
+      # manque en CI) et l'évaluation de fidélité (porte bloquante).
       - run: npm run test:coverage
-      - name: Les tests d'intégration ont bien tourné
-        run: npx vitest run apps/web/test/postgres.int.test.ts --reporter=verbose | grep -q "verrou atomique"
       - run: npm audit --omit=dev --audit-level=high
       - name: Scripts de déploiement et de retour arrière
         run: bash infra/deploy/test/deploy.test.sh
@@ -59,7 +58,7 @@ jobs:
     name: Recherche de secrets
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: gitleaks (tout l'historique)
@@ -69,8 +68,8 @@ jobs:
     name: Terraform
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: 1.9.8
       - run: terraform fmt -check -recursive infra/terraform
@@ -86,17 +85,17 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@v6
+      - uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
 
   e2e:
     name: Bout en bout et accessibilité
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -104,7 +103,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: playwright-report
@@ -116,14 +115,14 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [qualite]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: docker compose up -d --build --wait
       - name: Vulnérabilités de l'image (critiques et hautes, corrigeables)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
         with:
           image-ref: attesta-web
           severity: CRITICAL,HIGH

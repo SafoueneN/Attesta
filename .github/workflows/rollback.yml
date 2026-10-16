@@ -1,5 +1,6 @@
 # Retour arrière manuel : 100 % du trafic vers une révision antérieure, en quelques
-# secondes, sans reconstruction (docs/runbook.md, « Retour arrière »).
+# secondes, sans reconstruction (docs/runbook.md, « Retour arrière »). Partage le
+# groupe de concurrence du déploiement : il ne peut pas être écrasé par un palier.
 name: rollback
 
 on:
@@ -17,20 +18,32 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   rollback:
     runs-on: ubuntu-24.04
     environment:
       name: ${{ inputs.environment }}
+    concurrency:
+      group: deploiement-${{ inputs.environment }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOYER_SA }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+      # Valeurs transmises par l'environnement, jamais interpolées dans le script ;
+      # rollback.sh refuse tout nom de révision hors [a-z0-9-].
       - env:
           REGION: europe-west9
-        run: bash infra/deploy/rollback.sh "attesta-${{ inputs.environment }}" "${{ inputs.revision }}"
+          TARGET_ENV: ${{ inputs.environment }}
+          REVISION: ${{ inputs.revision }}
+        run: bash infra/deploy/rollback.sh "attesta-$TARGET_ENV" "$REVISION"

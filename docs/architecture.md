@@ -11,7 +11,7 @@ flowchart LR
     W[apps/web<br/>Express 5 + EJS]
     W --> L[packages/llm<br/>pipeline, contrôle de fidélité]
     W --> R[packages/render<br/>gabarit unique + Chromium sandboxé]
-    W --> T[worker_thread<br/>analyse PDF bornée]
+    W --> T[processus enfant<br/>analyse PDF plafonnée]
   end
   W --> DB[(Cloud SQL PostgreSQL 16<br/>sessions · quotas · compteurs · coûts)]
   L -->|identité du service, sans clé| V[(Vertex AI région eu<br/>Claude)]
@@ -20,7 +20,7 @@ flowchart LR
   GH -->|deploy.sh : révision, test de fumée, paliers| CR
 ```
 
-- **Un seul service** (`apps/web`) sert les pages, la génération (avec progression SSE), l'aperçu et l'export PDF. Il n'y a pas de worker séparé ([ADR 0009](adr/0009-hebergement-et-execution.md)) : Chromium est un processus à part et borné, et l'analyse des PDF importés tourne dans un `worker_thread` avec délai et plafond mémoire.
+- **Un seul service** (`apps/web`) sert les pages, la génération (avec progression SSE), l'aperçu et l'export PDF. Il n'y a pas de worker séparé ([ADR 0009](adr/0009-hebergement-et-execution.md)) : Chromium est un processus à part et borné, et l'analyse des PDF importés tourne dans un processus enfant plafonné par le noyau (mémoire, CPU, délai), sans aucun secret.
 - **Sans état local** : sessions, verrou et quota d'IA, limiteur de requêtes et coûts sont dans PostgreSQL, avec des mises à jour atomiques. Le service peut donc tourner sur plusieurs instances.
 - **pg-boss** arrivera en Phase 4 pour la veille planifiée (`packages/jobwatch`).
 

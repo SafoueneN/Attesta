@@ -8,7 +8,7 @@ import { startMaintenance } from "./stores.js";
 const config = loadConfig();
 const logger = createLogger(config.LOG_LEVEL);
 const pool = config.DATABASE_URL
-  ? new pg.Pool({ connectionString: config.DATABASE_URL, max: 10 })
+  ? new pg.Pool({ connectionString: config.DATABASE_URL, max: config.PG_POOL_MAX })
   : undefined;
 const renderer = new PuppeteerPdfRenderer({
   maxConcurrency: config.PDF_MAX_CONCURRENCY,
