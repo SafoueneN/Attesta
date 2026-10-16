@@ -5,7 +5,7 @@
 
 ## Contexte
 
-La Phase 4 livre la veille quotidienne : deux rapports PDF par e-mail, à partir du profil du candidat. Elle exige ce que le parcours anonyme n'avait pas : un compte (adresse vérifiée), un profil conservé, des consentements journalisés, un envoi fiable et une exécution planifiée. Aucune clé d'API payante n'était disponible : tout ce qui peut l'être est vérifié en local sur des données réelles et gratuites (BA Jobsuche, ESCO, GeoNames, BGE-M3), le reste est testé avec des données fictives.
+La Phase 4 livre la veille quotidienne : deux rapports PDF par e-mail, à partir du profil du candidat. Elle exige ce que le parcours anonyme n'avait pas : un compte (adresse vérifiée), un profil conservé, des consentements journalisés, un envoi fiable et une exécution planifiée. Aucune clé d'API payante n'était disponible : tout ce qui peut l'être est vérifié en local sur des données réelles et gratuites (BA Jobsuche, ESCO, GeoNames), le reste est testé avec des données fictives. BGE-M3 n'a pas pu être téléchargé sur le poste de développement : la veille réelle a tourné avec les vecteurs de développement.
 
 ## Décisions
 
