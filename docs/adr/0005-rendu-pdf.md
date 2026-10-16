@@ -12,6 +12,10 @@
 - **Test ATS** : extraction du texte du PDF avec `pdfjs-dist`. Il vérifie que chaque ligne du CV est retrouvée dans l'ordre, qu'il n'y a qu'une colonne (ordre de lecture identique au DOM) et que les dates sont cohérentes.
 - Docker : Chromium et polices installés dans l'image, conteneur lancé avec `--init` (récupération des processus zombies de Chromium), utilisateur non-root, sandbox Chromium **active** (pas de `--no-sandbox`), avec le profil seccomp adéquat.
 
+## Étape intermédiaire en Phase 1
+
+En Phase 1, il n'y a ni pipeline ni pg-boss. Le rendu tourne donc **dans le processus web**, derrière l'interface `PdfRenderer`, avec une concurrence bornée (2 rendus simultanés) et un timeout. Le passage dans le worker se fait en Phase 2, quand la file arrive avec le pipeline. Seul le câblage change, pas l'interface. Risque accepté le temps de la Phase 1 : un plantage de Chromium touche le serveur web, ce qui est atténué par le redémarrage automatique du conteneur.
+
 ## Conséquences
 
 - L'égalité aperçu = PDF est garantie par construction, puis vérifiée par un test de rendu.

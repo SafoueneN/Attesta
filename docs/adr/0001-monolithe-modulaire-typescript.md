@@ -1,6 +1,6 @@
 # ADR 0001 : Monolithe modulaire en TypeScript, workspaces npm
 
-- Statut : proposé
+- Statut : accepté le 2026-10-16
 - Date : 2026-10-16
 
 ## Contexte

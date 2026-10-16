@@ -2,14 +2,14 @@
 
 Chaque question vient avec une **proposition par défaut**. Sans réponse, la proposition sera appliquée et signalée.
 
-## Bloquantes pour la Phase 1
+## Phase 1 : décisions prises le 2026-10-16
 
-| # | Question | Proposition par défaut |
-|---|---|---|
-| Q1 | Valider TypeScript strict (écart par rapport à « Node.js » seul) ? | Oui (ADR 0001) |
-| Q2 | Rétention en mode anonyme : 2 h d'inactivité ? Purge des comptes à 12 ou 24 mois ? | 2 h et 12 mois |
-| Q3 | Le mode compte est-il nécessaire dès la Phase 1, ou anonyme seulement ? | Anonyme seulement en Phase 1 ; comptes en Phase 2 |
-| Q4 | Langues de l'interface au lancement ? | FR seulement (pilote DE en Phase 4) |
+| # | Question | Décision | Justification |
+|---|---|---|---|
+| Q1 | TypeScript strict ? | **Oui.** TypeScript strict, compilé par `tsc` vers JavaScript qui s'exécute sur Node 22. | Le contrat Zod est typé de bout en bout (`z.infer`) : une sortie LLM ou un formulaire mal câblé casse la compilation, pas la production. TypeScript reste du Node.js à l'exécution ; le seul coût est une étape de build. |
+| Q2 | Rétention | **Anonyme : 2 h d'inactivité glissante, plafond absolu de 24 h.** **Comptes : purge après 12 mois d'inactivité**, prévenance à 11 mois. | Une session de rédaction dure moins de 2 h ; le plafond de 24 h empêche qu'un onglet ouvert prolonge indéfiniment la conservation. On retient 12 mois (borne basse de la fourchette 12–24) par minimisation (RGPD, art. 5-1-e) : un compte inactif depuis un an a peu de valeur pour le candidat. |
+| Q3 | Phase 1 anonyme seulement ? | **Oui.** Les comptes arrivent en Phase 2, les tables associées avec eux. | Les comptes apportent authentification, vérification d'e-mail, consentement et droits RGPD : un chantier entier sans valeur tant que rien n'est à sauvegarder. Livrer d'abord le parcours CV complet réduit le risque. |
+| Q4 | Interface en français seulement ? | **Oui pour le contenu**, mais tous les libellés passent dès maintenant par un dictionnaire (`fr`). | Ajouter l'allemand pour le pilote de la Phase 4 consistera à ajouter un fichier, sans réécrire les vues. Les titres de section du CV suivent la même règle. |
 
 ## Bloquantes pour la Phase 2
 

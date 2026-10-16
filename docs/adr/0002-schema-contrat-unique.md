@@ -1,6 +1,6 @@
 # ADR 0002 : Schéma Zod, contrat unique et traçabilité par pointeurs JSON
 
-- Statut : proposé (v1 implémentée dans `packages/schema`, testée)
+- Statut : accepté le 2026-10-16 (v1 implémentée dans `packages/schema`, testée)
 - Date : 2026-10-16
 
 ## Contexte
