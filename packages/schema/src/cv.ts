@@ -34,7 +34,7 @@ export const TailoredCv = z.object({
 
 /** Sortie de l'étape 4 : contrôle de fidélité, ligne par ligne. */
 export const FaithfulnessIssue = z.object({
-  kind: z.enum(["number", "date", "entity", "skill", "unresolved-source"]),
+  kind: z.enum(["number", "date", "entity", "skill", "unresolved-source", "foreign-source"]),
   value: z.string(),
 });
 

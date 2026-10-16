@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import { TailoredCv, type CvLine, type FaithfulnessReport, type Profile } from "@attesta/schema";
-import { checkFaithfulness, cvLines, type RemovedLine } from "@attesta/llm";
+import { checkFaithfulness, cvLines, sanitizeText, type RemovedLine } from "@attesta/llm";
 import type { Draft } from "./draft.js";
 
 /** Génération conservée dans la session anonyme (mêmes durées que le brouillon). */
 export interface StoredGeneration {
+  /** Identifiant aléatoire, repris par le formulaire de relecture. */
+  id: string;
   /** Empreinte du profil et de l'offre au moment de la génération. */
   key: string;
   cv: TailoredCv;
@@ -64,26 +66,33 @@ function mapLines(cv: TailoredCv, fn: (line: CvLine, path: string) => CvLine | n
 export function applyCorrections(
   stored: StoredGeneration,
   profile: Profile,
+  offerText: string,
   body: Record<string, unknown>,
 ): StoredGeneration {
   const paths = cvLines(stored.cv).map((l) => l.path);
   const edited = new Set(stored.edited);
+  const kept: string[] = [];
   const corrected = mapLines(stored.cv, (line, path) => {
     const i = paths.indexOf(path);
-    const raw = body[`line_${i}`];
     if (body[`remove_${i}`] === "yes") return null;
-    const text = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim().slice(0, 500) : line.text;
+    const raw = body[`line_${i}`];
+    const text =
+      typeof raw === "string" ? sanitizeText(raw).replace(/\s+/g, " ").trim().slice(0, 500) : line.text;
     if (!text) return null;
     if (text !== line.text) edited.add(path);
+    kept.push(path);
     return { ...line, text };
   });
   const cv = TailoredCv.parse(corrected);
+  // Un retrait décale les positions : chaque ligne conservée est suivie de son
+  // ancienne à sa nouvelle position (même ordre de parcours que `cvLines`).
+  const newPaths = cvLines(cv).map((l) => l.path);
+  const moved = new Map(kept.map((old, k) => [old, newPaths[k]!]));
   return {
     ...stored,
     cv,
-    report: checkFaithfulness(cv, profile).report,
-    // Les positions changent quand une ligne est retirée : on ne garde que les lignes encore présentes.
-    edited: [...edited].filter((path) => cvLines(cv).some((l) => l.path === path)),
+    report: checkFaithfulness(cv, profile, offerText).report,
+    edited: [...edited].flatMap((path) => moved.get(path) ?? []),
   };
 }
 
@@ -123,5 +132,7 @@ export function describeIssue(issue: RemovedLine["issues"][number]): string {
       return `« ${issue.value} » est demandé par l'offre mais absent de votre profil`;
     case "unresolved-source":
       return "la source citée n'existe pas dans votre profil";
+    case "foreign-source":
+      return "la source citée appartient à une autre expérience";
   }
 }

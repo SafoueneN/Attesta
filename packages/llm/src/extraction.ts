@@ -1,4 +1,5 @@
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { normalize } from "./faithfulness.js";
 import { ExtractedProfileOutput } from "./llm-schemas.js";
 import { dataBlock, systemPrompt } from "./prompts.js";
 import type { LlmProvider, LlmUsage } from "./provider.js";
@@ -74,4 +75,47 @@ export async function extractProfile(
     signal,
   });
   return { profile: data, usage };
+}
+
+/**
+ * Ne garde de l'extraction que ce qui figure dans le texte du PDF : chaque
+ * réalisation (80 % de ses mots, tous ses nombres), chaque compétence et chaque
+ * mot-clé doivent s'y retrouver. Écarte les inventions de l'étape d'extraction.
+ * Limite : un texte caché dans le PDF (blanc sur blanc) est bien « dans » le PDF ;
+ * seule la relecture du candidat l'écarte.
+ */
+export function groundExtraction(
+  profile: ExtractedProfileOutput,
+  pdfText: string,
+): { profile: ExtractedProfileOutput; dropped: number } {
+  const corpus = normalize(pdfText);
+  const vocabulary = new Set(corpus.trim().split(" "));
+  const sourceNumbers = new Set(pdfText.match(/\d+(?:[.,]\d+)?/g) ?? []);
+  let dropped = 0;
+  const grounded = (text: string) => {
+    const tokens = normalize(text)
+      .trim()
+      .split(" ")
+      .filter((w) => w.length >= 3);
+    const found = tokens.filter((w) => vocabulary.has(w)).length;
+    const numbersOk = (text.match(/\d+(?:[.,]\d+)?/g) ?? []).every((n) => sourceNumbers.has(n));
+    const ok = numbersOk && (tokens.length === 0 || found / tokens.length >= 0.8);
+    if (!ok) dropped++;
+    return ok;
+  };
+  const present = (term: string) => {
+    const ok = corpus.includes(normalize(term));
+    if (!ok) dropped++;
+    return ok;
+  };
+  return {
+    profile: {
+      ...profile,
+      work: profile.work.map((w) => ({ ...w, highlights: w.highlights.filter(grounded) })),
+      skills: profile.skills
+        .filter((s) => present(s.name))
+        .map((s) => ({ ...s, keywords: s.keywords.filter(present) })),
+    },
+    dropped,
+  };
 }

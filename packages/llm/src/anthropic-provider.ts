@@ -54,9 +54,17 @@ export class AnthropicProvider implements LlmProvider {
     } catch (error) {
       if (error instanceof Anthropic.APIUserAbortError) throw error;
       if (error instanceof Anthropic.APIError) {
-        throw new LlmUnavailableError(`Appel LLM en échec (${error.status ?? "réseau"})`, error.status, {
-          cause: error,
-        });
+        throw new LlmUnavailableError(`Appel LLM en échec (${error.status ?? "réseau"})`, error.status);
+      }
+      // Sortie tronquée, texte libre au lieu de JSON, JSON hors schéma : `parse`
+      // lève une erreur dont le message cite la sortie du modèle. On ne la propage
+      // pas (elle pourrait contenir des données personnelles) : relance ou mode dégradé.
+      if (
+        error instanceof Anthropic.AnthropicError ||
+        error instanceof SyntaxError ||
+        (error instanceof Error && error.name === "ZodError")
+      ) {
+        throw new LlmSchemaError("Sortie du modèle non analysable");
       }
       throw error;
     }

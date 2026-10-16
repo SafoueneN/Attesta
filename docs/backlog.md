@@ -42,7 +42,7 @@ Reste de la Phase 1, non bloquant : sections Projets et Certifications dans le f
 
 ## Phase 3 : Industrialisation
 
-Reportés des phases précédentes : worker + pg-boss (rendu PDF et génération hors du processus web), comptes et droits RGPD (export, suppression), tables `cv_generation`, `cv_line_trace`, `llm_usage`, commitlint, profil seccomp Chromium. Puis :
+Reportés des phases précédentes : worker + pg-boss (rendu PDF et génération hors du processus web), comptes et droits RGPD (export, suppression), tables `cv_generation`, `cv_line_trace`, `llm_usage`, commitlint, profil seccomp Chromium, analyse des PDF importés dans un `worker_thread` (délai, limites mémoire), verrou de génération et quota partagés en base (plusieurs instances). Puis :
 
 CI/CD complète (Trivy, npm audit, gitleaks, build et push de l'image signée), environnements dev, préprod et prod, déploiement progressif + rollback testé, IaC Terraform de l'hébergeur UE, sauvegardes et restauration testées, métriques et alertes, runbook, tests ATS et a11y étendus, droits RGPD (export et suppression), revue de sécurité indépendante.
 

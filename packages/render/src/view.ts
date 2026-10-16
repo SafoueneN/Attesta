@@ -175,6 +175,17 @@ export function viewFromTailored(profile: Profile, cv: TailoredCv, lang: CvLang 
     }
   });
 
+  // Accroche générée à partir d'autres faits alors que le profil n'a pas de résumé :
+  // la section n'existe pas encore dans la vue de base.
+  if (cv.summary.length && !sections.some((s) => s.id === "summary")) {
+    sections.unshift({
+      id: "summary",
+      title: CV_LABELS[lang].summary,
+      entries: [],
+      items: toLines(cv.summary),
+    });
+  }
+
   return {
     ...base,
     headline: cv.headline?.text ?? base.headline,

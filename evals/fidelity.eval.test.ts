@@ -25,7 +25,7 @@ describe.each(CASES)("éval $id", (evalCase) => {
     const removed = result.removed.map((r) => r.text);
     const kept = cvLines(result.cv).map((l) => l.line.text);
     // Zéro invention dans le CV exporté
-    expect(checkFaithfulness(result.cv, evalCase.profile).report.score).toBe(1);
+    expect(checkFaithfulness(result.cv, evalCase.profile, evalCase.offerText).report.score).toBe(1);
     for (const invention of evalCase.inventions) expect(kept).not.toContain(invention);
     // Rappel : toutes les inventions étiquetées sont retirées
     expect(removed.sort()).toEqual([...evalCase.inventions].sort());

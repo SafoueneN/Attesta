@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TailoredCv } from "@attesta/schema";
+import { Profile, TailoredCv } from "@attesta/schema";
 import {
   assemble,
   checkFaithfulness,
@@ -7,6 +7,8 @@ import {
   lineContext,
   missingKeywords,
   normalize,
+  offerTerms,
+  sanitizeText,
 } from "../src/index.js";
 import { analysis, honestDraft, inventedDraft, lea } from "./fixtures.js";
 
@@ -50,10 +52,81 @@ describe("checkLine", () => {
     });
   });
 
-  it("accepte une compétence déclarée dans le profil, même hors des sources de la ligne", () => {
+  it("admet une compétence déclarée ailleurs dans le profil pour le titre et l'accroche seulement", () => {
+    const line = { text: "Développeuse Node.js et PostgreSQL", sources: ["/basics/label"] };
+    expect(checkLine(line, ctx)).toEqual([]);
     expect(
-      check("Migration de 12 services Express vers Node.js 20 et PostgreSQL", ["/work/0/highlights/0"]),
-    ).toEqual([]);
+      checkLine({ ...line, sources: ["/work/0/highlights/0"] }, ctx, "/work/0").map((i) => i.value),
+    ).toContain("PostgreSQL");
+  });
+
+  describe("contournements relevés par la relecture indépendante", () => {
+    it("une source prise dans une autre expérience est signalée", () => {
+      expect(
+        checkLine(
+          { text: "Maintenance de sites PHP pour 20 clients", sources: ["/work/1/highlights/0"] },
+          ctx,
+          "/work/0",
+        ),
+      ).toContainEqual({ kind: "foreign-source", value: "/work/1/highlights/0" });
+    });
+
+    it("les nombres écrits en lettres et les ordres de grandeur doivent être prouvés", () => {
+      const values = (text: string) => check(text, ["/work/0/highlights/0"]).map((i) => i.value);
+      expect(values("Encadrement d'une équipe de dix développeurs")).toContain("dix");
+      expect(values("Services utilisés par des millions de personnes")).toContain("million");
+      expect(values("Migration de douze services Express")).toEqual([]);
+    });
+
+    it("un nombre doit garder son unité", () => {
+      const ctxDuree = lineContext(
+        Profile.parse({
+          basics: { name: "X" },
+          work: [{ name: "A", position: "B", startDate: "2020", highlights: ["Gain de 40 % en 2 mois"] }],
+        }),
+        [],
+      );
+      expect(
+        checkLine({ text: "Gain de 2 % en 40 mois", sources: ["/work/0/highlights/0"] }, ctxDuree).length,
+      ).toBeGreaterThan(0);
+      expect(
+        checkLine({ text: "Gain de 40 % en 2 mois", sources: ["/work/0/highlights/0"] }, ctxDuree),
+      ).toEqual([]);
+    });
+
+    it("titres, niveaux et diplômes absents du profil sont signalés", () => {
+      expect(check("Architecte logiciel senior", ["/basics/label"]).map((i) => i.value)).toEqual(
+        expect.arrayContaining(["architect", "senior"]),
+      );
+      expect(
+        check("Titulaire d'un master en informatique", ["/basics/summary"]).map((i) => i.value),
+      ).toContain("master");
+    });
+
+    it("un caractère invisible ne masque pas une compétence absente", () => {
+      const withGuard = lineContext(lea, [], "Poste Node.js avec Terraform et Ansible.");
+      const text = "Terraform​ : déploiement des services";
+      expect(checkLine({ text, sources: ["/work/0/highlights/0"] }, withGuard, "/work/0")).toContainEqual({
+        kind: "skill",
+        value: "Terraform",
+      });
+      expect(sanitizeText("Doc​ker")).toBe("Docker");
+    });
+
+    it("les termes de l'offre servent de garde-fou même si l'analyse LLM est vide", () => {
+      const emptyAnalysisCtx = lineContext(lea, [], "Développeur. Une expérience de Kubernetes est un plus.");
+      expect(
+        checkLine(
+          { text: "déploiement sur kubernetes", sources: ["/work/0/highlights/0"] },
+          emptyAnalysisCtx,
+        ),
+      ).toContainEqual({ kind: "skill", value: "Kubernetes" });
+      expect(offerTerms("Poste à Lyon.\nVous maîtrisez PostgreSQL et Kubernetes.")).toEqual([
+        "Lyon",
+        "PostgreSQL",
+        "Kubernetes",
+      ]);
+    });
   });
 
   it("signale une source qui n'existe pas dans le profil", () => {

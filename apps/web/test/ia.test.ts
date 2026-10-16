@@ -1,4 +1,5 @@
 import { Writable } from "node:stream";
+import request from "supertest";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   DemoProvider,
@@ -6,6 +7,7 @@ import {
   ScriptedProvider,
   type DraftOutput,
   type LlmProvider,
+  type LlmRequest,
   type OfferAnalysisOutput,
 } from "@attesta/llm";
 import { PuppeteerPdfRenderer, renderCvHtml, viewFromProfile } from "@attesta/render";
@@ -135,6 +137,7 @@ describe("génération : parcours sans JavaScript", () => {
       .type("form")
       .send({
         _csrf: csrfFrom(page.text),
+        generation: /name="generation" value="([^"]+)"/.exec(page.text)?.[1],
         line_0: "Temps de réponse de l'API réduit de 40 %",
         line_1: "Migration de 12 services Express vers Node.js 20",
         remove_1: "yes",
@@ -179,7 +182,7 @@ describe("génération : parcours sans JavaScript", () => {
     await generate(agent);
     const page = await agent.get("/cv/etape/4");
 
-    expect(page.text).toContain("Limite de 1 générations par jour atteinte");
+    expect(page.text).toContain("Limite de 1 appels à l&#39;IA par jour atteinte");
   });
 
   it("ne journalise ni le contenu du CV ni l'identité, mais trace coût et score", async () => {
@@ -306,5 +309,114 @@ describe("import d'un CV PDF", () => {
     const page = await agent.get("/cv/etape/1");
 
     expect(page.text).not.toContain("Importer et pré-remplir");
+  });
+});
+
+/** Fournisseur de démo qui attend un signal avant de répondre : simule un appel long. */
+class GatedProvider implements LlmProvider {
+  readonly kind = "demo" as const;
+  readonly model = "demo";
+  private readonly demo = new DemoProvider();
+  private release!: () => void;
+  private readonly gate = new Promise<void>((resolve) => (this.release = resolve));
+  open() {
+    this.release();
+  }
+  async generate<T>(req: LlmRequest<T>) {
+    await this.gate;
+    return this.demo.generate(req);
+  }
+}
+
+const pause = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+describe("génération et session concurrentes", () => {
+  it("un effacement demandé pendant la génération reste effectif", async () => {
+    const provider = new GatedProvider();
+    const { app, agent } = iaApp(provider);
+    const first = await agent.get("/cv/etape/1");
+    const sessionCookie = (first.headers["set-cookie"] as unknown as string[])[0]!.split(";")[0]!;
+    await fillSteps(agent);
+    const page = await agent.get("/cv/etape/4");
+
+    const generation = agent
+      .post("/cv/generer")
+      .type("form")
+      .send({ _csrf: csrfFrom(page.text) })
+      .then((r) => r);
+    await pause();
+    const erase = await agent
+      .post("/cv/effacer")
+      .type("form")
+      .send({ _csrf: csrfFrom(page.text) });
+    provider.open();
+    const done = await generation;
+    const replay = await request(app).get("/cv/etape/1").set("Cookie", sessionCookie);
+
+    expect(erase.headers.location).toBe("/?efface=1");
+    expect(done.headers.location).toBe("/?efface=1");
+    expect(replay.text).not.toContain("Léa Martin");
+  });
+
+  it("refuse une seconde génération simultanée pour la même session", async () => {
+    const provider = new GatedProvider();
+    const { agent } = iaApp(provider);
+    await fillSteps(agent);
+    const page = await agent.get("/cv/etape/4");
+
+    const first = agent
+      .post("/cv/generer")
+      .type("form")
+      .send({ _csrf: csrfFrom(page.text) })
+      .then((r) => r);
+    await pause();
+    await agent
+      .post("/cv/generer")
+      .type("form")
+      .send({ _csrf: csrfFrom(page.text) });
+    provider.open();
+    await first;
+    const after = await agent.get("/cv/etape/4");
+
+    expect(after.text).toContain("Un traitement par l&#39;IA est déjà en cours");
+    expect(after.text).toContain("Démonstration : contenu recopié de votre profil");
+  });
+
+  it("compte l'import dans le quota d'appels à l'IA", async () => {
+    const extracted = {
+      basics: {
+        name: "Sam",
+        label: null,
+        email: null,
+        phone: null,
+        city: null,
+        countryCode: null,
+        url: null,
+        summary: null,
+      },
+      work: [],
+      education: [],
+      skills: [],
+      languages: [],
+    };
+    const { agent } = iaApp(new ScriptedProvider({ "extraction-cv": [{ data: extracted }] }), {
+      dailyQuota: 1,
+    });
+    const profile = Profile.parse({
+      basics: { name: "Sam", summary: "Développeur web depuis 2020, PHP et Symfony." },
+    });
+    const renderer = new PuppeteerPdfRenderer({ maxConcurrency: 1, timeoutMs: 30_000 });
+    const pdf = Buffer.from(
+      await renderer.render(renderCvHtml(viewFromProfile(profile), { variant: "ats" })),
+    );
+    await renderer.close();
+
+    for (let i = 0; i < 2; i++) {
+      const step1 = await agent.get("/cv/etape/1");
+      await agent.post("/cv/import").field("_csrf", csrfFrom(step1.text)).attach("cv", pdf, "cv.pdf");
+    }
+    const page = await agent.get("/cv/etape/1");
+
+    expect(page.text).toContain("Limite de 1 appels à l&#39;IA par jour atteinte");
   });
 });

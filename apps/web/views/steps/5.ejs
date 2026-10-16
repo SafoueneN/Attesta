@@ -1,5 +1,8 @@
 <% const reviewedError = errors.find((e) => e.field === "reviewed"); -%>
 <% if (generation) { -%>
+<% if (generation.report.supportedLines < generation.report.checkedLines) { -%>
+  <p class="notice notice--error" role="note">Attention : <%= generation.report.checkedLines - generation.report.supportedLines %> ligne(s) modifiée(s) par vous ne sont pas rattachées à votre profil. Elles seront exportées telles quelles : vérifiez-les à l'étape 4.</p>
+<% } -%>
   <p class="notice">Vous exportez la version adaptée à l'offre (fidélité : <%= Math.round(generation.report.score * 100) %> %<%= generation.edited.length ? ", avec vos corrections" : "" %>).</p>
 <% } else { -%>
   <p class="notice">Vous exportez votre CV tel que vous l'avez saisi, sans adaptation à l'offre.</p>

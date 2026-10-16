@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { OfferAnalysis, TailoredCv, type Profile } from "@attesta/schema";
 import { z } from "zod";
 import { entryOutlines, profileFacts } from "./facts.js";
-import { checkFaithfulness, missingKeywords, type RemovedLine } from "./faithfulness.js";
+import { checkFaithfulness, missingKeywords, sanitizeText, type RemovedLine } from "./faithfulness.js";
 import { DraftOutput, OfferAnalysisOutput } from "./llm-schemas.js";
 import { dataBlock, PIPELINE_VERSION, systemPrompt } from "./prompts.js";
 import {
@@ -86,7 +86,7 @@ export async function generateTailoredCv(
     guardBudget();
     const cv = await draft(deps, input.profile, analysis, missing, record, guardBudget, options);
 
-    const outcome = checkFaithfulness(cv, input.profile);
+    const outcome = checkFaithfulness(cv, input.profile, input.offerText);
     options.onProgress?.({
       stage: "controle",
       status: "done",
@@ -140,7 +140,11 @@ async function analyseOffer(
   });
   record(usage);
   const analysis = toOfferAnalysis(data);
-  deps.analysisCache?.set(key, analysis);
+  if (deps.analysisCache) {
+    // Cache borné : on écarte l'entrée la plus ancienne au-delà de 500 offres.
+    if (deps.analysisCache.size >= 500) deps.analysisCache.delete(deps.analysisCache.keys().next().value!);
+    deps.analysisCache.set(key, analysis);
+  }
   return analysis;
 }
 
@@ -241,6 +245,8 @@ async function draft(
  * n'a pas reprises sont ajoutées avec leurs faits d'origine, recopiés à l'identique.
  */
 export function assemble(output: DraftOutput, profile: Profile, missing: string[]): unknown {
+  const clean = (line: { text: string; sources: string[] }) => ({ ...line, text: sanitizeText(line.text) });
+  const cleanEntry = (e: DraftOutput["work"][number]) => ({ ...e, highlights: e.highlights.map(clean) });
   const verbatim = (section: "work" | "projects", i: number) =>
     profile[section][i]!.highlights.map((text, j) => ({
       text,
@@ -262,10 +268,10 @@ export function assemble(output: DraftOutput, profile: Profile, missing: string[
   ];
 
   return {
-    headline: output.headline ?? undefined,
-    summary: output.summary,
-    work: complete("work", output.work),
-    projects: complete("projects", output.projects),
+    headline: output.headline ? clean(output.headline) : undefined,
+    summary: output.summary.map(clean),
+    work: complete("work", output.work.map(cleanEntry)),
+    projects: complete("projects", output.projects.map(cleanEntry)),
     education: allRefs("education").map((ref) => ({ ref })),
     skills,
     languages: allRefs("languages"),

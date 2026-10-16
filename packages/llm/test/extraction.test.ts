@@ -56,3 +56,46 @@ describe("import de CV PDF", () => {
     expect(provider.requests[0]!.messages[0]!.content).toMatch(/^<cv>\n/);
   });
 });
+
+describe("ancrage de l'extraction dans le PDF", () => {
+  it("écarte ce que le modèle a ajouté et qui ne figure pas dans le PDF", async () => {
+    const { groundExtraction } = await import("../src/index.js");
+    const pdfText =
+      "Sam Durand\nDéveloppeur chez ACME\nRefonte du site vitrine en 2021\nCompétences : PHP, Symfony";
+    const extracted = {
+      basics: {
+        name: "Sam Durand",
+        label: null,
+        email: null,
+        phone: null,
+        city: null,
+        countryCode: null,
+        url: null,
+        summary: null,
+      },
+      work: [
+        {
+          name: "ACME",
+          position: "Développeur",
+          location: null,
+          startDate: null,
+          endDate: null,
+          summary: null,
+          highlights: ["Refonte du site vitrine en 2021", "Pilotage d'une équipe de 8 personnes"],
+        },
+      ],
+      education: [],
+      skills: [
+        { name: "PHP", keywords: ["Symfony", "Laravel"] },
+        { name: "Kubernetes", keywords: [] },
+      ],
+      languages: [],
+    };
+
+    const { profile, dropped } = groundExtraction(extracted, pdfText);
+
+    expect(profile.work[0]!.highlights).toEqual(["Refonte du site vitrine en 2021"]);
+    expect(profile.skills).toEqual([{ name: "PHP", keywords: ["Symfony"] }]);
+    expect(dropped).toBe(3);
+  });
+});

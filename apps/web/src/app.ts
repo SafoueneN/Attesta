@@ -318,7 +318,7 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
 }
 
 function isNotGeneration(req: Request) {
-  return !req.path.startsWith("/generer");
+  return !(req.path.startsWith("/generer") || req.path === "/import");
 }
 
 function isNotExport(req: Request) {

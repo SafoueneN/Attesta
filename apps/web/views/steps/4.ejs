@@ -69,6 +69,7 @@
     <p>Chaque ligne rédigée est présentée avec l'information de votre profil dont elle découle. Corrigez ou retirez ce qui ne vous convient pas.</p>
     <form method="post" action="/cv/generation/corrections">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="generation" value="<%= generation.id %>">
 <% lines.forEach(({ path, line, where }, i) => { const check = status(path); const edited = generation.edited.includes(path); -%>
       <fieldset class="trace<%= check && check.status === 'unsupported' ? ' trace--warning' : '' %>">
         <legend>Ligne <%= i + 1 %> – <%= where %><% if (edited) { %> (modifiée par vous)<% } %></legend>

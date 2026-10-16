@@ -88,3 +88,23 @@ describe("AnthropicProvider (contrat)", () => {
     await expect(provider.generate(request)).rejects.toBeInstanceOf(LlmUnavailableError);
   });
 });
+
+describe("AnthropicProvider : sortie non analysable", () => {
+  it("convertit l'erreur d'analyse du SDK sans en recopier le contenu", async () => {
+    const parse = vi.fn(async () => {
+      throw new Anthropic.AnthropicError(
+        `Unexpected token 'J', "Je ne peux pas, Léa Martin"... is not valid JSON`,
+      );
+    });
+    const provider = new AnthropicProvider({ messages: { parse } } as never, {
+      model: "claude-opus-5-5",
+      timeoutMs: 1000,
+    });
+
+    const error = await provider.generate(request).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(LlmSchemaError);
+    expect((error as Error).message).not.toContain("Léa");
+    expect((error as Error & { cause?: unknown }).cause).toBeUndefined();
+  });
+});

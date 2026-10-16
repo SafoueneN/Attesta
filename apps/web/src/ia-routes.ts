@@ -1,11 +1,12 @@
 import { randomBytes } from "node:crypto";
 import express, { type Request, type Response } from "express";
 import multer from "multer";
-import type { OfferAnalysis } from "@attesta/schema";
+import type { OfferAnalysis, Profile } from "@attesta/schema";
 import {
   extractPdfText,
   extractProfile,
   generateTailoredCv,
+  groundExtraction,
   MAX_PDF_BYTES,
   PdfImportError,
   type GenerationResult,
@@ -24,8 +25,10 @@ export interface IaOptions {
 }
 
 type Outcome =
-  | { kind: "ok"; supported: number; checked: number }
-  | { kind: "degraded" | "quota" | "incomplete"; message: string };
+  | { kind: "ok" }
+  /** Session effacée pendant l'appel au modèle : rien n'est réécrit. */
+  | { kind: "erased" }
+  | { kind: "degraded" | "quota" | "incomplete" | "busy"; message: string };
 
 const DEGRADED_MESSAGES: Record<string, string> = {
   indisponible:
@@ -52,6 +55,24 @@ export function progressMessage(event: ProgressEvent): string {
   }
 }
 
+const saveSession = (req: Request) =>
+  new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
+
+/** Recharge la session depuis le store ; `false` si elle a été détruite entre-temps. */
+const reloadSession = (req: Request) =>
+  new Promise<boolean>((resolve) => req.session.reload((err) => resolve(!err)));
+
+/**
+ * Détache une session détruite de la requête : express-session ne la réécrit
+ * pas, et un effacement demandé pendant l'appel au modèle reste effectif.
+ */
+const forgetSession = (req: Request) => {
+  (req as { session?: unknown }).session = undefined;
+};
+
+/** Type d'erreur seulement : un message d'erreur peut citer du contenu personnel. */
+const errorType = (error: unknown) => (error instanceof Error ? error.name : typeof error);
+
 /**
  * Routes du pipeline IA : génération (classique et SSE), corrections, import PDF.
  * Le routeur renvoyé doit être monté après la vérification CSRF ; `multipart`, avant.
@@ -61,6 +82,38 @@ export function createIaRoutes(options: IaOptions) {
   const cv = express.Router();
   const analysisCache = new Map<string, OfferAnalysis>();
   const draftOf = (req: Request): Draft => (req.session.draft ??= emptyDraft());
+  /** Sessions ayant un appel au modèle en cours (verrou d'instance ; partagé en base en Phase 3). */
+  const running = new Set<string>();
+
+  /**
+   * Un seul appel au modèle à la fois par session, et quota du jour (générations
+   * et imports confondus) enregistré dans le store **avant** l'appel.
+   */
+  async function withReservation(req: Request, work: () => Promise<Outcome>): Promise<Outcome> {
+    const id = req.sessionID;
+    if (running.has(id)) {
+      return {
+        kind: "busy",
+        message: "Un traitement par l'IA est déjà en cours pour votre session. Patientez quelques instants.",
+      };
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const quota = req.session.quota?.day === today ? req.session.quota : { day: today, count: 0 };
+    if (quota.count >= options.dailyQuota) {
+      return {
+        kind: "quota",
+        message: `Limite de ${options.dailyQuota} appels à l'IA par jour atteinte. Votre CV non adapté reste exportable.`,
+      };
+    }
+    running.add(id);
+    try {
+      req.session.quota = { day: today, count: quota.count + 1 };
+      await saveSession(req);
+      return await work();
+    } finally {
+      running.delete(id);
+    }
+  }
 
   async function runGeneration(
     req: Request,
@@ -69,22 +122,24 @@ export function createIaRoutes(options: IaOptions) {
   ): Promise<Outcome> {
     const draft = draftOf(req);
     const profile = validProfile(draft);
-    if (!profile || !provider)
+    if (!profile || !provider) {
       return { kind: "incomplete", message: "Complétez d'abord votre profil et l'offre." };
-
-    const today = new Date().toISOString().slice(0, 10);
-    const quota = req.session.quota?.day === today ? req.session.quota : { day: today, count: 0 };
-    if (quota.count >= options.dailyQuota) {
-      return {
-        kind: "quota",
-        message: `Limite de ${options.dailyQuota} générations par jour atteinte. Votre CV non adapté reste exportable.`,
-      };
     }
-    req.session.quota = { day: today, count: quota.count + 1 };
+    return withReservation(req, () => generate(req, provider, profile, draft, onProgress, signal));
+  }
 
+  async function generate(
+    req: Request,
+    llm: LlmProvider,
+    profile: Profile,
+    draft: Draft,
+    onProgress: (e: ProgressEvent) => void,
+    signal: AbortSignal,
+  ): Promise<Outcome> {
+    const key = generationKey(profile, draft);
     const result: GenerationResult = await generateTailoredCv(
       {
-        provider,
+        provider: llm,
         maxCostUsd: options.maxCostUsd,
         analysisCache,
         onUsage: (usage) => logger.info({ event: "llm_usage", ...usage }, "llm"),
@@ -93,10 +148,21 @@ export function createIaRoutes(options: IaOptions) {
       { onProgress, signal },
     );
 
+    if (!(await reloadSession(req))) {
+      forgetSession(req);
+      return { kind: "erased" };
+    }
     const costUsd = result.usage.reduce((sum, u) => sum + u.costUsd, 0);
     if (result.status === "degraded") {
       logger.warn({ event: "generation", status: "degraded", reason: result.reason, costUsd }, "generation");
       return { kind: "degraded", message: DEGRADED_MESSAGES[result.reason]! };
+    }
+    const current = validProfile(draftOf(req));
+    if (!current || generationKey(current, draftOf(req)) !== key) {
+      return {
+        kind: "degraded",
+        message: "Votre profil ou l'offre ont changé pendant la génération. Relancez-la.",
+      };
     }
     logger.info(
       {
@@ -111,7 +177,8 @@ export function createIaRoutes(options: IaOptions) {
       "generation",
     );
     req.session.generation = {
-      key: generationKey(profile, draft),
+      id: randomBytes(12).toString("base64url"),
+      key,
       cv: result.cv,
       report: result.report,
       removed: result.removed,
@@ -120,19 +187,23 @@ export function createIaRoutes(options: IaOptions) {
       model: result.model,
       pipelineVersion: result.pipelineVersion,
     };
-    return { kind: "ok", supported: result.report.supportedLines, checked: result.report.checkedLines };
+    return { kind: "ok" };
   }
 
   const notify = (req: Request, outcome: Outcome) => {
-    if (outcome.kind !== "ok") req.session.notice = { kind: "error", text: outcome.message };
+    if (outcome.kind !== "ok" && outcome.kind !== "erased") {
+      req.session.notice = { kind: "error", text: outcome.message };
+    }
   };
+  const redirectAfter = (outcome: Outcome) => (outcome.kind === "erased" ? "/?efface=1" : "/cv/etape/4");
 
   // Sans JavaScript : génération pendant la requête, puis retour à l'aperçu.
   cv.post("/generer", async (req, res) => {
     const controller = new AbortController();
     res.on("close", () => controller.abort());
-    notify(req, await runGeneration(req, () => undefined, controller.signal));
-    res.redirect(303, "/cv/etape/4");
+    const outcome = await runGeneration(req, () => undefined, controller.signal);
+    notify(req, outcome);
+    res.redirect(303, redirectAfter(outcome));
   });
 
   // Avec JavaScript : même génération, progression diffusée en SSE. Le jeton à
@@ -160,13 +231,15 @@ export function createIaRoutes(options: IaOptions) {
         (e) => send("progress", { message: progressMessage(e) }),
         controller.signal,
       );
-      notify(req, outcome);
-      await new Promise<void>((resolve, reject) =>
-        req.session.save((err) => (err ? reject(err) : resolve())),
-      );
-      send("done", { redirect: "/cv/etape/4" });
+      if (outcome.kind !== "erased") {
+        notify(req, outcome);
+        await saveSession(req);
+      }
+      send("done", { redirect: redirectAfter(outcome) });
     } catch (error) {
-      if (!controller.signal.aborted) logger.error({ err: error }, "generation: erreur inattendue");
+      if (!controller.signal.aborted) {
+        logger.error({ errorType: errorType(error) }, "generation: erreur inattendue");
+      }
       send("failure", { message: "Une erreur inattendue est survenue. Réessayez dans un instant." });
     } finally {
       res.end();
@@ -177,7 +250,16 @@ export function createIaRoutes(options: IaOptions) {
     const profile = validProfile(draftOf(req));
     const { generation } = currentGeneration(req.session.generation, profile, draftOf(req));
     if (!generation || !profile) return res.redirect(303, "/cv/etape/4");
-    req.session.generation = applyCorrections(generation, profile, req.body);
+    // Formulaire affiché pour une génération précédente (autre onglet) : les
+    // numéros de ligne ne correspondent plus, on refuse plutôt que d'écraser.
+    if (req.body.generation !== generation.id) {
+      req.session.notice = {
+        kind: "error",
+        text: "Ces corrections concernent une version précédente de votre CV. Elles n'ont pas été appliquées.",
+      };
+      return res.redirect(303, "/cv/etape/4#relecture");
+    }
+    req.session.generation = applyCorrections(generation, profile, draftOf(req).offer.rawText, req.body);
     req.session.notice = { kind: "info", text: "Vos corrections sont enregistrées." };
     res.redirect(303, "/cv/etape/4#relecture");
   });
@@ -194,35 +276,59 @@ export function createIaRoutes(options: IaOptions) {
   });
 
   cv.post("/import", async (req: Request, res: Response) => {
-    const back = () => res.redirect(303, "/cv/etape/1");
     if (!provider || provider.kind !== "ia") {
       req.session.notice = { kind: "error", text: "L'import de CV n'est pas disponible sur ce serveur." };
-      return back();
+      return res.redirect(303, "/cv/etape/1");
     }
     const file = req.file;
     if (!file) {
       req.session.notice = { kind: "error", text: "Choisissez un fichier PDF à importer." };
-      return back();
+      return res.redirect(303, "/cv/etape/1");
     }
+
+    let text: string;
     try {
-      const text = await extractPdfText(new Uint8Array(file.buffer));
-      const { profile, usage } = await extractProfile(provider, text);
-      logger.info({ event: "llm_usage", ...usage }, "llm");
-      req.session.draft = { ...draftOf(req), ...draftFromExtraction(profile) };
-      delete req.session.generation;
-      req.session.notice = {
-        kind: "info",
-        text: "Profil pré-rempli à partir de votre CV. Relisez et corrigez chaque champ : rien ne sera utilisé sans votre validation.",
-      };
+      text = await extractPdfText(new Uint8Array(file.buffer));
     } catch (error) {
-      const message =
-        error instanceof PdfImportError
-          ? error.publicMessage
-          : "L'import est indisponible pour le moment. Vous pouvez saisir votre profil à la main.";
-      if (!(error instanceof PdfImportError)) logger.warn({ err: error }, "import: échec");
-      req.session.notice = { kind: "error", text: message };
+      req.session.notice = {
+        kind: "error",
+        text: error instanceof PdfImportError ? error.publicMessage : "Ce PDF n'a pas pu être lu.",
+      };
+      return res.redirect(303, "/cv/etape/1");
     }
-    back();
+
+    const outcome = await withReservation(req, async () => {
+      try {
+        const { profile, usage } = await extractProfile(provider, text);
+        logger.info({ event: "llm_usage", ...usage }, "llm");
+        if (!(await reloadSession(req))) {
+          forgetSession(req);
+          return { kind: "erased" };
+        }
+        // Tout élément extrait doit se retrouver dans le texte du PDF.
+        const { profile: grounded, dropped } = groundExtraction(profile, text);
+        req.session.draft = { ...draftOf(req), ...draftFromExtraction(grounded) };
+        delete req.session.generation;
+        req.session.notice = {
+          kind: "info",
+          text:
+            "Profil pré-rempli à partir de votre CV. Relisez et corrigez chaque champ : rien ne sera utilisé sans votre validation." +
+            (dropped
+              ? ` ${dropped} élément(s) proposé(s) par l'IA mais absent(s) de votre PDF ont été écarté(s).`
+              : ""),
+        };
+        return { kind: "ok" };
+      } catch (error) {
+        logger.warn({ errorType: errorType(error) }, "import: échec");
+        return {
+          kind: "degraded",
+          message: "L'import est indisponible pour le moment. Vous pouvez saisir votre profil à la main.",
+        };
+      }
+    });
+    if (outcome.kind === "erased") return res.redirect(303, "/?efface=1");
+    notify(req, outcome);
+    res.redirect(303, "/cv/etape/1");
   });
 
   return {
