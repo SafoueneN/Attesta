@@ -122,12 +122,11 @@ jobs:
           cache: npm
       - run: docker compose up -d --build --wait
       - name: Vulnérabilités de l'image (critiques et hautes, corrigeables)
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
-        with:
-          image-ref: attesta-web
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "1"
+        # Image Docker de Trivy, version figée (comme dans cd.yml) : l'action trivy-action
+        # dépendait d'une version de setup-trivy retirée par son éditeur.
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.57.0
+          image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 --quiet attesta-web
       - run: node scripts/smoke.mjs http://localhost:3080
       - run: npm ci && npx playwright install --with-deps chromium
       - run: npx playwright test
