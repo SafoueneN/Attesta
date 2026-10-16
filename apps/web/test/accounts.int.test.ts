@@ -103,6 +103,14 @@ describe.skipIf(!url)("comptes et veille (PostgreSQL)", () => {
     ).toBe(410);
   });
 
+  it("connexion : l'adresse saisie dans le CV est proposée par défaut", async () => {
+    const { agent } = setup();
+    await submit(agent, 1, { ...validBasics, "basics[email]": "lea.martin@example.org" });
+    const page = await agent.get("/compte/connexion");
+    expect(page.text).toContain('value="lea.martin@example.org"');
+    expect(page.text).toContain("un seul e-mail par jour");
+  });
+
   it("demande de lien : même réponse que l'adresse ait un compte ou non", async () => {
     const { agent, mailer } = setup();
     await login(agent, mailer, "connu@example.org");

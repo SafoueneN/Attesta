@@ -2,7 +2,7 @@
   <h1><%= t.account.loginTitle %></h1>
 <%- include("../partials/error-summary") %>
   <p>Un compte sert à enregistrer votre profil et à recevoir la veille emploi. Pas de mot de passe : nous vous envoyons un lien de connexion, valable 15 minutes.</p>
-  <p class="hint">Ouvrez le lien dans ce même navigateur pour garder le CV en cours.</p>
+  <p class="hint">C'est à cette adresse que vous recevrez la veille : un seul e-mail par jour, avec les deux rapports PDF en pièces jointes. Ouvrez le lien de connexion dans ce même navigateur pour garder le CV en cours.</p>
   <form method="post" action="/compte/connexion" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include("../partials/field", { id: "email", name: "email", label: "Adresse e-mail", value: values.email ?? "", type: "email", autocomplete: "email", required: true, maxlength: 254 }) %>

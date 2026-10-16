@@ -7,6 +7,8 @@
 # Identités : Workload Identity Federation, un compte de déploiement par
 # environnement GitHub (variable GCP_DEPLOYER_SA définie dans chaque environnement).
 # Variables du dépôt : GCP_WIF_PROVIDER, REGISTRY (sorties de infra/terraform/shared).
+# Tant que GCP_WIF_PROVIDER n'est pas défini (Google Cloud pas encore configuré),
+# aucun job ne part : la CI reste seule active.
 name: cd
 
 on:
@@ -33,7 +35,8 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      vars.GCP_WIF_PROVIDER != ''
     runs-on: ubuntu-24.04
     environment:
       name: preprod
@@ -105,7 +108,7 @@ jobs:
 
   prod:
     name: Prod (promotion de l'image validée en préprod)
-    if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+    if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v') && vars.GCP_WIF_PROVIDER != ''
     runs-on: ubuntu-24.04
     environment:
       name: prod # approbation obligatoire, déploiement limité aux tags v* (règles de l'environnement)

@@ -89,7 +89,12 @@ export function createAccountRoutes(deps: AccountDeps) {
 
   compte.get("/connexion", (req, res) => {
     if (req.session.userId) return res.redirect(303, "/compte");
-    res.render("compte/connexion", { title: fr.account.loginTitle, values: {}, errors: [] });
+    // Adresse déjà saisie dans le CV : proposée par défaut, c'est elle qui recevra les rapports.
+    res.render("compte/connexion", {
+      title: fr.account.loginTitle,
+      values: { email: req.session.draft?.basics.email ?? "" },
+      errors: [],
+    });
   });
 
   compte.post("/connexion", deps.loginLimiter, deps.loginEmailLimiter, async (req, res) => {
