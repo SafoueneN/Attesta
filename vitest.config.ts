@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts"],
     testTimeout: 60_000,
+    // Démarrage de Chromium dans les beforeAll des tests de rendu PDF.
+    hookTimeout: 60_000,
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**", "apps/*/src/**"],

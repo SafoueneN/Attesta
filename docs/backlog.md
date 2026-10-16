@@ -2,29 +2,29 @@
 
 Chaque phase livre un produit utilisable. Les tailles (S, M, L) sont indicatives.
 
-## Phase 0 : Cadrage (en cours, en attente de validation)
+## Phase 0 : Cadrage (terminée)
 
 - [x] Structure du dépôt, workspaces, TypeScript strict
-- [x] Schéma Zod v1 + export JSON Schema + 11 tests
+- [x] Schéma Zod v1 + export JSON Schema + tests
 - [x] ADR 0001 à 0007, architecture, ERD, plan de tests
-- [ ] Réponses aux questions bloquantes (`docs/questions.md`)
+- [x] Réponses aux questions bloquantes Q1 à Q4 (`docs/questions.md`)
 
-## Phase 1 : Socle sans IA
+## Phase 1 : Socle sans IA (livrée le 2026-10-16)
 
-| #    | Tâche                                                                                                                                                      | Taille |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 1.1  | `packages/shared` : config validée par Zod, logger pino avec redact, erreurs typées                                                                        | S      |
-| 1.2  | ESLint + Prettier, règle de frontières entre paquets, Conventional Commits (commitlint)                                                                    | S      |
-| 1.3  | `apps/web` : Express, helmet + CSP, sessions PostgreSQL, CSRF, rate limiting, `/health`                                                                    | M      |
-| 1.4  | Formulaire en 5 étapes (EJS, amélioration progressive), « Étape n sur 5 », retour sans perte, erreurs annoncées en `aria-live`, thème clair et sombre      | L      |
-| 1.5  | Migrations initiales : `app_user`, `consent_log`, `profile`, `profile_version`, `job_offer_input`, `cv_generation`, `export` ; purge des sessions anonymes | M      |
-| 1.6  | `packages/render` : gabarit `ats` + `design`, formatage des dates, polices embarquées                                                                      | M      |
-| 1.7  | Worker + pg-boss : job `render-pdf` avec Puppeteer                                                                                                         | M      |
-| 1.8  | Export PDF ATS depuis la saisie (sans reformulation, équivalent au mode dégradé)                                                                           | S      |
-| 1.9  | Docker multi-étapes (non-root, Chromium, polices, `HEALTHCHECK`), `compose` : app, worker, PostgreSQL + pgvector, MailHog                                  | M      |
-| 1.10 | CI de base : lint, typecheck, tests unitaires, Playwright E2E, test ATS, axe-core                                                                          | M      |
+| #    | Tâche                                                                                                                | État                                                                                                                                                       |
+| ---- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.1  | `packages/shared` : config validée par Zod, logger pino avec redact, erreurs typées                                  | fait                                                                                                                                                       |
+| 1.2  | ESLint + Prettier, règle de frontières entre paquets                                                                 | fait ; **commitlint reporté en Phase 3** (s'applique en CI sur les PR, sans hook local)                                                                    |
+| 1.3  | `apps/web` : Express 5, helmet + CSP à nonce, sessions PostgreSQL, CSRF, rate limiting, `/health`                    | fait                                                                                                                                                       |
+| 1.4  | Formulaire en 5 étapes, « Étape n sur 5 », retour sans perte, erreurs annoncées et focalisées, thème clair et sombre | fait ; fonctionne sans JavaScript                                                                                                                          |
+| 1.5  | Migrations                                                                                                           | **réduit, conformément à Q3** : table `session` seulement. Les tables de comptes et de générations arrivent en Phase 2 avec leur usage (pas de code mort). |
+| 1.6  | `packages/render` : gabarit `ats` + `design`, dates uniformes, polices embarquées                                    | fait                                                                                                                                                       |
+| 1.7  | Worker + pg-boss                                                                                                     | **reporté en Phase 2** : rendu dans le processus web en attendant (ADR 0005)                                                                               |
+| 1.8  | Export PDF depuis la saisie (sans reformulation, comme le mode dégradé)                                              | fait                                                                                                                                                       |
+| 1.9  | Docker multi-étapes (non-root, Chromium, polices, `HEALTHCHECK`), `compose` : web, migration, PostgreSQL + pgvector  | fait ; **MailHog reporté en Phase 4** (aucun e-mail avant)                                                                                                 |
+| 1.10 | CI de base : lint, typecheck, couverture, ATS, Playwright + axe-core, image Docker + E2E sur conteneur               | écrite ; **jamais exécutée sur GitHub** (pas encore de dépôt distant)                                                                                      |
 
-**Sortie** : PDF généré depuis la saisie ; tests unitaires et E2E verts ; `docker compose up` suffit.
+Reste de la Phase 1, non bloquant : sections Projets et Certifications dans le formulaire (déjà dans le schéma et le gabarit).
 
 ## Phase 2 : Intelligence
 

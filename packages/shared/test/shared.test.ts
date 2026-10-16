@@ -1,6 +1,6 @@
 import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { ConfigError, createLogger, loadConfig } from "../src/index.js";
+import { AppError, ConfigError, createLogger, loadConfig } from "../src/index.js";
 
 const secret = "x".repeat(32);
 
@@ -8,6 +8,12 @@ describe("loadConfig", () => {
   it("applique les valeurs par défaut", () => {
     const config = loadConfig({ SESSION_SECRET: secret, SESSION_STORE: "memory" });
     expect(config).toMatchObject({ PORT: 3000, NODE_ENV: "development", PDF_CHROMIUM_NO_SANDBOX: false });
+  });
+
+  it("laisse HTTPS_ONLY indéfini par défaut et lit sa valeur explicite", () => {
+    const base = { SESSION_SECRET: secret, SESSION_STORE: "memory" };
+    expect(loadConfig(base).HTTPS_ONLY).toBeUndefined();
+    expect(loadConfig({ ...base, HTTPS_ONLY: "false" }).HTTPS_ONLY).toBe(false);
   });
 
   it("exige DATABASE_URL pour le stockage PostgreSQL", () => {
@@ -54,5 +60,13 @@ describe("createLogger", () => {
     expect(lines.join("")).not.toContain("lea@example.org");
     expect(lines.join("")).not.toContain("texte de l'offre");
     expect(lines.join("")).toContain("[supprimé]");
+  });
+});
+
+describe("AppError", () => {
+  it("sépare le message public du code technique", () => {
+    const error = new AppError("csrf_invalid", 403, "Rechargez la page.");
+    expect(error).toMatchObject({ code: "csrf_invalid", status: 403, publicMessage: "Rechargez la page." });
+    expect(error.message).toBe("csrf_invalid: Rechargez la page.");
   });
 });

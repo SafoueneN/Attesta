@@ -21,6 +21,13 @@ Profils **fictifs** uniquement (aucun vrai CV) : 10 profils × 3 offres pour com
 
 Le jeu de matching (Phase 4) consiste en 50 offres annotées à la main comme pertinentes ou non pour 5 profils. Il est **à constituer** par l'équipe, ce qui conditionne la mesure de précision et de rappel.
 
-## État actuel
+## État actuel (fin de Phase 1, 2026-10-16)
 
-`packages/schema` : 11 tests unitaires verts (`npm test`).
+| Niveau                       | Où                                                     | Résultat local                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Unitaire + intégration HTTP  | `packages/*/test`, `apps/web/test` (Vitest, supertest) | 53 tests verts ; couverture des lignes 95 % (seuils : 75 % global, 90 % pour `schema`)                                                    |
+| ATS                          | `packages/render/test/pdf-ats.test.ts`                 | vrai PDF Chromium, texte extrait par pdfjs-dist : tout le contenu présent, dans l'ordre, dates au format MM/AAAA, pour les deux variantes |
+| Bout en bout + accessibilité | `e2e/` (Playwright + axe-core)                         | 5 tests verts, en local **et** contre le conteneur Docker (sessions PostgreSQL)                                                           |
+| Contrat, évaluation IA       | Phase 2                                                | non commencé                                                                                                                              |
+
+Vérification manuelle restant à faire : lecteur d'écran (NVDA, VoiceOver) sur le parcours complet. axe-core ne détecte qu'une partie des critères WCAG.

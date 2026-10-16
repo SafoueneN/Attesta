@@ -1,0 +1,61 @@
+# Environnement local : `docker compose up --build`, puis http://localhost:3080
+# (port hôte modifiable : ATTESTA_PORT=9000 docker compose up).
+# MailHog et le worker arrivent avec les phases qui en ont besoin (e-mail : Phase 4,
+# worker pg-boss : Phase 2). Aucun service inutilisé n'est lancé.
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.0-pg16
+    environment:
+      POSTGRES_DB: attesta
+      POSTGRES_USER: attesta
+      POSTGRES_PASSWORD: attesta-dev-uniquement
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attesta -d attesta"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: { context: ., dockerfile: infra/Dockerfile }
+    command:
+      [
+        "npx",
+        "node-pg-migrate",
+        "up",
+        "--migrations-dir",
+        "db/migrations",
+        "--migration-file-language",
+        "sql",
+      ]
+    environment:
+      DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    build: { context: ., dockerfile: infra/Dockerfile }
+    init: true
+    ports: ["${ATTESTA_PORT:-3080}:3000"]
+    environment:
+      DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
+      SESSION_STORE: postgres
+      # Secret de développement : en préprod et en prod, il est injecté par l'hébergeur.
+      SESSION_SECRET: dev-secret-a-remplacer-hors-poste-local-0000
+      NODE_ENV: production
+      LOG_LEVEL: info
+      # Servi en http://localhost : cookies sans attribut Secure (jamais en préprod ni en prod).
+      HTTPS_ONLY: "false"
+      PDF_CHROMIUM_NO_SANDBOX: "true"
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+volumes:
+  db-data:

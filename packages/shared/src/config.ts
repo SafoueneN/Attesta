@@ -18,6 +18,14 @@ const Env = z
       .enum(["true", "false"])
       .default("false")
       .transform((v) => v === "true"),
+    /**
+     * Cookies `Secure` et upgrade-insecure-requests. Actif par défaut en production ;
+     * à désactiver seulement pour un conteneur local servi en http://localhost.
+     */
+    HTTPS_ONLY: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v === "true")),
   })
   .superRefine((env, ctx) => {
     if (env.SESSION_STORE === "postgres" && !env.DATABASE_URL) {

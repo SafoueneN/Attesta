@@ -52,6 +52,7 @@ const publicDir = fileURLToPath(new URL("../public", import.meta.url));
 export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
   const app = express();
   const production = config.NODE_ENV === "production";
+  const httpsOnly = config.HTTPS_ONLY ?? production;
 
   app.set("view engine", "ejs");
   app.set("views", viewsDir);
@@ -63,7 +64,15 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
     const start = process.hrtime.bigint();
     res.on("finish", () => {
       const ms = Number(process.hrtime.bigint() - start) / 1e6;
-      logger.info({ method: req.method, path: req.path, status: res.statusCode, ms: Math.round(ms) }, "http");
+      logger.info(
+        {
+          method: req.method,
+          path: req.originalUrl.split("?")[0],
+          status: res.statusCode,
+          ms: Math.round(ms),
+        },
+        "http",
+      );
     });
     next();
   });
@@ -86,7 +95,7 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
           formAction: ["'self'"],
           objectSrc: ["'none'"],
           baseUri: ["'none'"],
-          upgradeInsecureRequests: production ? [] : null,
+          upgradeInsecureRequests: httpsOnly ? [] : null,
         },
       },
     }),
@@ -127,7 +136,7 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
     resave: false,
     saveUninitialized: false,
     rolling: true,
-    cookie: { httpOnly: true, sameSite: "lax", secure: production, maxAge: SESSION_IDLE_MS },
+    cookie: { httpOnly: true, sameSite: "lax", secure: httpsOnly, maxAge: SESSION_IDLE_MS },
   });
 
   app.use((_req, res, next) => {
