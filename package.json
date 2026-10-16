@@ -1,0 +1,23 @@
+{
+  "name": "attesta",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Attesta, le CV qui dit vrai : CV ciblé par offre, prouvable ligne par ligne.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}
