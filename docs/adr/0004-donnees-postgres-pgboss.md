@@ -14,11 +14,11 @@
 
 La recherche plein texte native de PostgreSQL (`ts_rank_cd`) **n'est pas BM25** : elle ne normalise pas la fréquence des termes selon la longueur du document comme le fait BM25. Options :
 
-| Option | Pour | Contre |
-|---|---|---|
-| A. `ts_rank_cd` + GIN, derrière une interface `LexicalRetriever` | natif partout | approximation de BM25 |
-| B. Extension `pg_search` (ParadeDB, BM25 réel) | vrai BM25 dans PostgreSQL | rarement disponible chez les hébergeurs PostgreSQL managés de l'UE |
-| C. BM25 calculé dans l'application (index en mémoire par lot quotidien) | exact, sans dépendance | mémoire, reconstruction de l'index |
+| Option                                                                  | Pour                      | Contre                                                             |
+| ----------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------ |
+| A. `ts_rank_cd` + GIN, derrière une interface `LexicalRetriever`        | natif partout             | approximation de BM25                                              |
+| B. Extension `pg_search` (ParadeDB, BM25 réel)                          | vrai BM25 dans PostgreSQL | rarement disponible chez les hébergeurs PostgreSQL managés de l'UE |
+| C. BM25 calculé dans l'application (index en mémoire par lot quotidien) | exact, sans dépendance    | mémoire, reconstruction de l'index                                 |
 
 **Proposition** : A en Phase 4, avec la précision et le rappel mesurés sur le jeu de référence ; passage à B ou C seulement si l'écart est mesurable. La présentation mentionne « BM25 » : il faudra dire « recherche lexicale » tant que l'option A est en place.
 

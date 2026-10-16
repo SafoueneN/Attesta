@@ -1,0 +1,7 @@
+<%#
+  Ouverture commune des formulaires d'étape. Le premier bouton (masqué) rend la
+  touche Entrée équivalente à « Continuer » plutôt qu'à « Ajouter » ou « Supprimer ».
+-%>
+<form method="post" action="/cv/etape/<%= step %>" novalidate>
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <button type="submit" name="action" value="<%= locals.defaultAction || 'next' %>" class="visually-hidden" tabindex="-1" aria-hidden="true"><%= t.next %></button>

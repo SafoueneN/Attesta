@@ -1,0 +1,18 @@
+  <p>Voici votre CV tel qu'il sera exporté : l'aperçu et le PDF utilisent exactement la même mise en page.</p>
+  <form method="get" action="/cv/etape/4" class="variant-switch">
+    <fieldset>
+      <legend>Mise en page</legend>
+      <label><input type="radio" name="variant" value="ats"<% if (variant === "ats") { %> checked<% } %>> ATS (sobre, recommandée)</label>
+      <label><input type="radio" name="variant" value="design"<% if (variant === "design") { %> checked<% } %>> Design (accents de couleur)</label>
+    </fieldset>
+    <button type="submit" class="button button--secondary">Afficher cette mise en page</button>
+  </form>
+  <iframe class="preview" src="/cv/apercu?variant=<%= variant %>" title="Aperçu de votre CV, mise en page <%= variant === 'ats' ? 'ATS' : 'design' %>"></iframe>
+  <h2>Corriger</h2>
+  <ul>
+    <li><a href="/cv/etape/1">Modifier mon profil</a></li>
+    <li><a href="/cv/etape/2">Modifier mes expériences, formations et compétences</a></li>
+  </ul>
+<%- include("../partials/form-start") %>
+<%- include("../partials/nav-buttons") %>
+</form>

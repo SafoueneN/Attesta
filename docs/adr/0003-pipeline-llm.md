@@ -10,34 +10,45 @@
 ```ts
 interface LlmProvider {
   generateStructured<T>(req: {
-    system: string; messages: Message[]; schema: ZodType<T>;
-    temperature: number; maxOutputTokens: number; timeoutMs: number; signal?: AbortSignal;
-  }): Promise<{ data: T; usage: { inputTokens: number; outputTokens: number; costEur: number; latencyMs: number } }>;
+    system: string;
+    messages: Message[];
+    schema: ZodType<T>;
+    temperature: number;
+    maxOutputTokens: number;
+    timeoutMs: number;
+    signal?: AbortSignal;
+  }): Promise<{
+    data: T;
+    usage: { inputTokens: number; outputTokens: number; costEur: number; latencyMs: number };
+  }>;
 }
-interface EmbeddingProvider { embed(texts: string[]): Promise<number[][]> } // BGE-M3, séparé
+interface EmbeddingProvider {
+  embed(texts: string[]): Promise<number[][]>;
+} // BGE-M3, séparé
 ```
 
 Adaptateurs : un fournisseur réel (à choisir) et `FakeProvider`, qui rejoue des réponses enregistrées pour les tests de contrat et la CI. Aucun appel réseau en CI hors du job d'évaluation.
 
 ### Étapes
 
-| # | Étape | Entrée | Sortie validée | Modèle ? |
-|---|---|---|---|---|
-| 1 | Extraction | texte du CV PDF importé ou formulaire | `Profile` | oui pour l'import PDF ; non pour le formulaire (déjà structuré) |
-| 2 | Analyse de l'offre | `JobOfferInput` | `OfferAnalysis` | oui (mise en cache par hash de l'offre) |
-| 3 | Rédaction ciblée | `Profile` + `OfferAnalysis` | `TailoredCv` | oui |
-| 4 | Contrôle | `TailoredCv` + `Profile` | `FaithfulnessReport` | **déterministe d'abord**, juge LLM en option |
+| #   | Étape              | Entrée                                | Sortie validée       | Modèle ?                                                        |
+| --- | ------------------ | ------------------------------------- | -------------------- | --------------------------------------------------------------- |
+| 1   | Extraction         | texte du CV PDF importé ou formulaire | `Profile`            | oui pour l'import PDF ; non pour le formulaire (déjà structuré) |
+| 2   | Analyse de l'offre | `JobOfferInput`                       | `OfferAnalysis`      | oui (mise en cache par hash de l'offre)                         |
+| 3   | Rédaction ciblée   | `Profile` + `OfferAnalysis`           | `TailoredCv`         | oui                                                             |
+| 4   | Contrôle           | `TailoredCv` + `Profile`              | `FaithfulnessReport` | **déterministe d'abord**, juge LLM en option                    |
 
 Après l'étape 1 (import PDF), le candidat **relit et corrige** le profil extrait avant toute suite. C'est le profil validé par l'humain qui fait foi.
 
 ### Contrôle de fidélité (étape 4)
 
 Pour chaque ligne, avec le texte de ses sources comme référence :
+
 1. sources résolues (`findUnresolvedRefs`) ;
 2. **nombres et pourcentages** de la ligne présents dans les sources ;
 3. **dates et années** présentes dans les sources ;
 4. **entités** (noms propres, technologies) : présentes dans les sources ou dans `skills` du profil, après normalisation (casse, accents, alias simples comme « Node » et « Node.js ») ;
-5. *(option, Phase 2)* juge LLM d'implication (« la ligne découle-t-elle des sources ? ») pour attraper les verbes gonflés. Il produit un **avertissement, jamais une validation** : seuls les contrôles déterministes peuvent rendre une ligne « supported ».
+5. _(option, Phase 2)_ juge LLM d'implication (« la ligne découle-t-elle des sources ? ») pour attraper les verbes gonflés. Il produit un **avertissement, jamais une validation** : seuls les contrôles déterministes peuvent rendre une ligne « supported ».
 
 Score = lignes supportées / lignes contrôlées. Une ligne non supportée est **retirée par défaut** et montrée au candidat avec la raison ; il peut la réécrire lui-même.
 

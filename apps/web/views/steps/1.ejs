@@ -1,0 +1,12 @@
+<%- include("../partials/form-start") %>
+  <p>Ces informations forment l'en-tête de votre CV. Seul le nom est obligatoire.</p>
+<%- include("../partials/field", { id: "basics-name", name: "basics[name]", label: "Nom et prénom", value: draft.basics.name, required: true, autocomplete: "name" }) %>
+<%- include("../partials/field", { id: "basics-label", name: "basics[label]", label: "Titre professionnel", value: draft.basics.label, hint: "Ex. : Développeuse back-end", autocomplete: "organization-title" }) %>
+<%- include("../partials/field", { id: "basics-email", name: "basics[email]", label: "Adresse e-mail", value: draft.basics.email, type: "email", autocomplete: "email" }) %>
+<%- include("../partials/field", { id: "basics-phone", name: "basics[phone]", label: "Téléphone", value: draft.basics.phone, type: "tel", autocomplete: "tel" }) %>
+<%- include("../partials/field", { id: "basics-city", name: "basics[city]", label: "Ville", value: draft.basics.city, autocomplete: "address-level2" }) %>
+<%- include("../partials/field", { id: "basics-countryCode", name: "basics[countryCode]", label: "Pays", value: draft.basics.countryCode, hint: "Code à deux lettres, ex. FR, DE, BE", maxlength: 2, autocomplete: "country" }) %>
+<%- include("../partials/field", { id: "basics-url", name: "basics[url]", label: "Site web ou portfolio", value: draft.basics.url, type: "url", autocomplete: "url" }) %>
+<%- include("../partials/field", { id: "basics-summary", name: "basics[summary]", label: "Résumé de votre profil", value: draft.basics.summary, rows: 4, hint: "Deux ou trois phrases. N'indiquez que ce que vous pouvez justifier." }) %>
+<%- include("../partials/nav-buttons") %>
+</form>

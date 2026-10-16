@@ -8,16 +8,42 @@
     "node": ">=22"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "vitest run"
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "tsc -b && vitest run",
+    "test:coverage": "tsc -b && vitest run --coverage",
+    "test:e2e": "tsc -b && playwright test",
+    "start": "node apps/web/dist/server.js",
+    "db:migrate": "node-pg-migrate up --migrations-dir db/migrations --migration-file-language sql"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/ejs": "^3.1.5",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^5.0.5",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "pdfjs-dist": "^6.4.299",
+    "prettier": "^3.9.10",
+    "supertest": "^7.3.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2",
     "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "node-pg-migrate": "^9.0.0"
   }
 }

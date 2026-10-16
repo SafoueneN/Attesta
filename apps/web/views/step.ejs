@@ -1,0 +1,28 @@
+<%- include("partials/head") %>
+  <nav class="progress" aria-label="Progression">
+    <p class="progress-count"><%= t.stepOf(step, total) %></p>
+    <ol>
+<% t.steps.forEach((label, i) => { const n = i + 1; -%>
+      <li class="<%= n < step ? 'is-done' : n === step ? 'is-current' : '' %>"<% if (n === step) { %> aria-current="step"<% } %>>
+<% if (n < step) { -%>
+        <a href="/cv/etape/<%= n %>"><%= label %></a>
+<% } else { -%>
+        <span><%= label %></span>
+<% } -%>
+      </li>
+<% }) -%>
+    </ol>
+  </nav>
+  <h1><%= t.steps[step - 1] %></h1>
+<% if (errors.length) { -%>
+  <div class="error-summary" role="alert" tabindex="-1" aria-labelledby="error-summary-title" data-error-summary>
+    <h2 id="error-summary-title"><%= t.errorSummaryTitle %></h2>
+    <ul>
+<% errors.forEach((e) => { -%>
+      <li><a href="#<%= e.field %>"><%= e.message %></a></li>
+<% }) -%>
+    </ul>
+  </div>
+<% } -%>
+<%- include("steps/" + step) %>
+<%- include("partials/foot") %>

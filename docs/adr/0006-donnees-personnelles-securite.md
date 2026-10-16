@@ -5,10 +5,10 @@
 
 ## Décision : deux modes d'usage
 
-| Mode | Ce qui est stocké | Durée |
-|---|---|---|
-| **Anonyme (par défaut)** | brouillon du formulaire et dernière génération, dans une session serveur | supprimés à la fin de la session, après **2 h** d'inactivité ou au plus tard **24 h** après sa création ; le PDF est généré à la demande et jamais stocké |
-| **Compte (opt-in explicite)** | profil versionné, générations, traces, abonnement à la veille | supprimés à la demande (effet immédiat) ; purge après **12 mois** d'inactivité, précédée d'un e-mail de prévenance à 11 mois |
+| Mode                          | Ce qui est stocké                                                        | Durée                                                                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Anonyme (par défaut)**      | brouillon du formulaire et dernière génération, dans une session serveur | supprimés à la fin de la session, après **2 h** d'inactivité ou au plus tard **24 h** après sa création ; le PDF est généré à la demande et jamais stocké |
+| **Compte (opt-in explicite)** | profil versionné, générations, traces, abonnement à la veille            | supprimés à la demande (effet immédiat) ; purge après **12 mois** d'inactivité, précédée d'un e-mail de prévenance à 11 mois                              |
 
 La veille emploi exige un compte et un consentement séparé, inscrit dans `consent_log`.
 

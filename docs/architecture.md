@@ -217,26 +217,26 @@ En mode anonyme, `profile_version`, `job_offer_input` et `cv_generation` sont st
 
 ### Index prévus
 
-| Table | Index | Usage |
-|---|---|---|
-| `job_posting` | GIN sur `tsv` | recherche lexicale |
-| `job_posting` | GiST sur `location`, B-tree `(lang, contract, posted_at)` | filtres durs |
-| `job_posting` | UNIQUE `fingerprint`, UNIQUE `(source_id, external_id)` | déduplication |
-| `job_embedding` | HNSW `vector_cosine_ops` (m = 16, ef_construction = 64) | rappel sémantique |
-| `match_result` | UNIQUE `(subscription_id, posting_id, run_date)` | idempotence |
-| `report` | UNIQUE `(subscription_id, run_date, kind)` | idempotence |
-| `*` | B-tree sur `expires_at`, `last_active_at` | purge |
+| Table           | Index                                                     | Usage              |
+| --------------- | --------------------------------------------------------- | ------------------ |
+| `job_posting`   | GIN sur `tsv`                                             | recherche lexicale |
+| `job_posting`   | GiST sur `location`, B-tree `(lang, contract, posted_at)` | filtres durs       |
+| `job_posting`   | UNIQUE `fingerprint`, UNIQUE `(source_id, external_id)`   | déduplication      |
+| `job_embedding` | HNSW `vector_cosine_ops` (m = 16, ef_construction = 64)   | rappel sémantique  |
+| `match_result`  | UNIQUE `(subscription_id, posting_id, run_date)`          | idempotence        |
+| `report`        | UNIQUE `(subscription_id, run_date, kind)`                | idempotence        |
+| `*`             | B-tree sur `expires_at`, `last_active_at`                 | purge              |
 
 ### Rétention
 
-| Donnée | Durée |
-|---|---|
-| Session anonyme et générations anonymes | 2 h d'inactivité |
-| PDF exporté | servi puis supprimé ; 24 h maximum |
-| Compte inactif | 12 mois, prévenance à 11 mois |
-| `job_posting` | 60 jours après `posted_at` |
-| `consent_log` | durée du compte + 5 ans (preuve du consentement, **à valider**) |
-| `llm_usage` | 13 mois, sans contenu |
+| Donnée                                  | Durée                                                           |
+| --------------------------------------- | --------------------------------------------------------------- |
+| Session anonyme et générations anonymes | 2 h d'inactivité                                                |
+| PDF exporté                             | servi puis supprimé ; 24 h maximum                              |
+| Compte inactif                          | 12 mois, prévenance à 11 mois                                   |
+| `job_posting`                           | 60 jours après `posted_at`                                      |
+| `consent_log`                           | durée du compte + 5 ans (preuve du consentement, **à valider**) |
+| `llm_usage`                             | 13 mois, sans contenu                                           |
 
 ## Observabilité
 

@@ -1,0 +1,258 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { fileURLToPath } from "node:url";
+import connectPgSimple from "connect-pg-simple";
+import express, { type NextFunction, type Request, type Response } from "express";
+import { rateLimit } from "express-rate-limit";
+import session from "express-session";
+import helmet from "helmet";
+import type { Pool } from "pg";
+import { z } from "zod";
+import { renderCvHtml, viewFromProfile, type PdfRenderer } from "@attesta/render";
+import { AppError, type Config, type Logger } from "@attesta/shared";
+import {
+  emptyDraft,
+  emptyEducation,
+  emptyWork,
+  lastReachableStep,
+  mergeStep,
+  validateStep,
+  validProfile,
+  Variant,
+  type Draft,
+  type FieldError,
+} from "./draft.js";
+import { fr } from "./i18n.js";
+import { absoluteSessionLimit, csrfToken, cspNonce, verifyCsrf } from "./security.js";
+
+declare module "express-session" {
+  interface SessionData {
+    draft: Draft;
+    createdAt: number;
+    csrfToken: string;
+  }
+}
+
+z.config(z.locales.fr());
+
+export interface AppDeps {
+  config: Config;
+  logger: Logger;
+  renderer: PdfRenderer;
+  /** Requis si SESSION_STORE=postgres ; sert aussi au contrôle de santé. */
+  pool?: Pool;
+  /** Plafond de requêtes par fenêtre de 15 min (général, puis export PDF). */
+  limits?: { general: number; export: number };
+}
+
+const SESSION_IDLE_MS = 2 * 60 * 60 * 1000;
+const TOTAL_STEPS = 5;
+const viewsDir = fileURLToPath(new URL("../views", import.meta.url));
+const publicDir = fileURLToPath(new URL("../public", import.meta.url));
+
+export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
+  const app = express();
+  const production = config.NODE_ENV === "production";
+
+  app.set("view engine", "ejs");
+  app.set("views", viewsDir);
+  app.set("trust proxy", config.TRUST_PROXY);
+  app.disable("x-powered-by");
+
+  // Journal d'accès : méthode, chemin, statut, durée. Jamais de corps ni de paramètres.
+  app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    res.on("finish", () => {
+      const ms = Number(process.hrtime.bigint() - start) / 1e6;
+      logger.info({ method: req.method, path: req.path, status: res.statusCode, ms: Math.round(ms) }, "http");
+    });
+    next();
+  });
+
+  app.use(cspNonce);
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: [
+            "'self'",
+            (_req: IncomingMessage, res: ServerResponse) =>
+              `'nonce-${(res as unknown as Response).locals.cspNonce}'`,
+          ],
+          imgSrc: ["'self'", "data:"],
+          fontSrc: ["'self'", "data:"],
+          frameAncestors: ["'self'"],
+          formAction: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'none'"],
+          upgradeInsecureRequests: production ? [] : null,
+        },
+      },
+    }),
+  );
+
+  app.get("/health", async (_req, res) => {
+    try {
+      if (pool) await pool.query("SELECT 1");
+      res.json({ status: "ok" });
+    } catch (error) {
+      logger.error({ err: error }, "health: base de données injoignable");
+      res.status(503).json({ status: "unavailable" });
+    }
+  });
+
+  app.use("/static", express.static(publicDir, { maxAge: production ? "1h" : 0 }));
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: limits?.general ?? 300,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+    }),
+  );
+  app.use(express.urlencoded({ extended: true, limit: "200kb", parameterLimit: 2000 }));
+
+  const store =
+    config.SESSION_STORE === "postgres"
+      ? new (connectPgSimple(session))({ pool, tableName: "session", pruneSessionInterval: 15 * 60 })
+      : undefined;
+  if (config.SESSION_STORE === "postgres" && !pool)
+    throw new Error("SESSION_STORE=postgres exige un pool PostgreSQL");
+
+  const sessions = session({
+    name: "attesta.sid",
+    secret: config.SESSION_SECRET,
+    store,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: { httpOnly: true, sameSite: "lax", secure: production, maxAge: SESSION_IDLE_MS },
+  });
+
+  app.use((_req, res, next) => {
+    res.locals.t = fr;
+    res.locals.errors = [];
+    next();
+  });
+
+  app.get("/", (req, res) => {
+    res.render("home", { title: fr.tagline, cleared: req.query.efface === "1" });
+  });
+
+  // Tout le parcours CV : session, plafond de 24 h, CSRF, aucune mise en cache.
+  const cv = express.Router();
+  cv.use(sessions, absoluteSessionLimit(), csrfToken, (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
+  cv.use((req, res, next) => (req.method === "POST" ? verifyCsrf(req, res, next) : next()));
+
+  const draftOf = (req: Request): Draft => (req.session.draft ??= emptyDraft());
+  const stepParam = (req: Request) => {
+    const n = Number(req.params.n);
+    if (!Number.isInteger(n) || n < 1 || n > TOTAL_STEPS)
+      throw new AppError("not_found", 404, "Page introuvable.");
+    return n;
+  };
+
+  function renderStep(req: Request, res: Response, step: number, errors: FieldError[] = []) {
+    const draft = draftOf(req);
+    const variant = Variant.parse(req.query.variant);
+    const title =
+      (errors.length ? fr.errorTitlePrefix : "") + `${fr.steps[step - 1]} – ${fr.stepOf(step, TOTAL_STEPS)}`;
+    res
+      .status(errors.length ? 422 : 200)
+      .render("step", { title, step, total: TOTAL_STEPS, draft, errors, variant });
+  }
+
+  cv.get("/etape/:n", (req, res) => {
+    const step = stepParam(req);
+    const reachable = lastReachableStep(draftOf(req));
+    if (step > reachable) return res.redirect(303, `/cv/etape/${reachable}`);
+    renderStep(req, res, step);
+  });
+
+  cv.post("/etape/:n", async (req, res) => {
+    const step = stepParam(req);
+    const action = typeof req.body.action === "string" ? req.body.action : "next";
+    const draft = (req.session.draft = mergeStep(draftOf(req), step, req.body));
+
+    if (action === "prev") return res.redirect(303, `/cv/etape/${Math.max(1, step - 1)}`);
+
+    const entry = /^(add|remove)-(work|education)(?:-(\d+))?$/.exec(action);
+    if (step === 2 && entry) {
+      const [, op, section, index] = entry as unknown as [
+        string,
+        "add" | "remove",
+        "work" | "education",
+        string?,
+      ];
+      const list: object[] = draft[section];
+      if (op === "add" && list.length < 30) list.push(section === "work" ? emptyWork() : emptyEducation());
+      if (op === "remove") list.splice(Number(index), 1);
+      const focus = op === "add" ? `#${section}-${list.length - 1}` : `#${section}-section`;
+      return res.redirect(303, `/cv/etape/2${focus}`);
+    }
+
+    if (step === TOTAL_STEPS) return exportPdf(req, res);
+
+    const errors = validateStep(draft, step);
+    if (errors.length) return renderStep(req, res, step, errors);
+    res.redirect(303, `/cv/etape/${step + 1}`);
+  });
+
+  async function exportPdf(req: Request, res: Response) {
+    const profile = validProfile(draftOf(req));
+    if (!profile) return res.redirect(303, `/cv/etape/${lastReachableStep(draftOf(req))}`);
+    if (req.body.reviewed !== "yes") {
+      return renderStep(req, res, TOTAL_STEPS, [
+        { field: "reviewed", message: "Confirmez que vous avez relu votre CV avant de l'exporter." },
+      ]);
+    }
+    const variant = Variant.parse(req.body.variant);
+    const pdf = await renderer.render(renderCvHtml(viewFromProfile(profile), { variant }));
+    res.type("application/pdf").attachment(`cv-attesta-${variant}.pdf`).send(Buffer.from(pdf));
+  }
+
+  // Aperçu : exactement le HTML qui sera imprimé en PDF, affiché dans un iframe.
+  cv.get("/apercu", (req, res) => {
+    const profile = validProfile(draftOf(req));
+    if (!profile) return res.status(404).type("text/plain").send("Aperçu indisponible : profil incomplet.");
+    const variant = Variant.parse(req.query.variant);
+    res
+      .type("html")
+      .send(renderCvHtml(viewFromProfile(profile), { variant, styleNonce: res.locals.cspNonce }));
+  });
+
+  cv.post("/effacer", (req, res, next) => {
+    req.session.destroy((err) => {
+      if (err) return next(err);
+      res.clearCookie("attesta.sid");
+      res.redirect(303, "/?efface=1");
+    });
+  });
+
+  app.use("/cv", rateLimit({ windowMs: 15 * 60 * 1000, limit: limits?.export ?? 20, skip: isNotExport }));
+  app.use("/cv", cv);
+
+  app.use((_req, _res, next) => next(new AppError("not_found", 404, "Page introuvable.")));
+
+  // Gestionnaire d'erreurs : message public pour le candidat, détail technique au journal seulement.
+  app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+    const known = err instanceof AppError ? err : undefined;
+    const status = known?.status ?? 500;
+    if (status >= 500) logger.error({ err, path: req.path }, "erreur serveur");
+    else logger.warn({ code: known?.code, path: req.path }, "requête refusée");
+    res.status(status).render("error", {
+      title: status === 404 ? "Page introuvable" : "Une erreur est survenue",
+      message: known?.publicMessage ?? "Une erreur inattendue est survenue. Réessayez dans un instant.",
+    });
+  });
+
+  return app;
+}
+
+function isNotExport(req: Request) {
+  return !(req.method === "POST" && req.path === `/etape/${TOTAL_STEPS}`);
+}

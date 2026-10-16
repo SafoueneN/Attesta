@@ -1,0 +1,13 @@
+{
+  "name": "@attesta/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Configuration validée, logger sans données personnelles, erreurs typées.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  }
+}

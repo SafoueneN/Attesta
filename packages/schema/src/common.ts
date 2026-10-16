@@ -21,14 +21,20 @@ export function comparePartialDates(a: string, b: string): number {
  * Pointeur JSON (RFC 6901) vers un fait du profil d'origine,
  * ex. "/work/0/highlights/2" ou "/basics/summary".
  */
-export const FactPointer = z
-  .string()
-  .regex(/^(\/[a-zA-Z]+(\/\d+)?)+$/, "Pointeur de fait invalide");
+export const FactPointer = z.string().regex(/^(\/[a-zA-Z]+(\/\d+)?)+$/, "Pointeur de fait invalide");
 
 /** Pointeur vers une entrée entière d'une section, ex. "/work/1". */
 export const entryRef = (section: string) =>
   z.string().regex(new RegExp(`^/${section}/\\d+$`), `Référence attendue : /${section}/<index>`);
 
-export const ShortText = z.string().trim().min(1).max(200);
-export const LongText = z.string().trim().min(1).max(2000);
-export const Highlight = z.string().trim().min(1).max(500);
+const REQUIRED = "Ce champ est obligatoire";
+const maxLength = (n: number) => `${n} caractères maximum`;
+
+export const ShortText = z.string().trim().min(1, REQUIRED).max(200, maxLength(200));
+export const LongText = z.string().trim().min(1, REQUIRED).max(2000, maxLength(2000));
+export const Highlight = z.string().trim().min(1, REQUIRED).max(500, maxLength(500));
+export const Email = z.email("Adresse e-mail invalide");
+export const WebUrl = z.url({
+  protocol: /^https?$/,
+  error: "Adresse web invalide (exemple : https://exemple.fr)",
+});

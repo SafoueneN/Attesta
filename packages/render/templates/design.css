@@ -1,0 +1,16 @@
+/* Variante design : même balisage et même ordre de lecture, accents de couleur. */
+.cv--design .cv-header {
+  border-left: 3mm solid #1f4e79;
+  padding-left: 4mm;
+}
+.cv--design h1,
+.cv--design h2 {
+  color: #1f4e79;
+}
+.cv--design h2 {
+  border-bottom: 2px solid #1f4e79;
+}
+.cv--design .cv-period,
+.cv--design .cv-subtitle {
+  color: #4a4a4a;
+}

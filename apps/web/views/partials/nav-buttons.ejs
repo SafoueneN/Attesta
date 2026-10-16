@@ -1,0 +1,6 @@
+  <div class="actions">
+<% if (step > 1) { -%>
+    <button type="submit" name="action" value="prev" class="button button--secondary"><%= t.previous %></button>
+<% } -%>
+    <button type="submit" name="action" value="next" class="button"><%= locals.nextLabel || t.next %></button>
+  </div>

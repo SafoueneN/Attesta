@@ -1,0 +1,12 @@
+</main>
+<footer class="site-footer">
+  <p><%= t.privacyNote %></p>
+<% if (locals.csrfToken) { -%>
+  <form method="post" action="/cv/effacer">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button type="submit" class="button button--quiet"><%= t.clearData %></button>
+  </form>
+<% } -%>
+</footer>
+</body>
+</html>

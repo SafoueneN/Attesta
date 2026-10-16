@@ -15,7 +15,7 @@ Le CV doit être prouvable ligne par ligne. Les sorties du LLM doivent être val
 4. **Le modèle n'écrit que du texte libre.** `TailoredCv` ne contient que :
    - des lignes `{ text, sources[≥1] }` (accroche, résumé, puces d'expérience et de projet) ;
    - des **références** (`/work/i`, `/skills/j`, …) pour sélectionner et ordonner.
-   Employeur, poste, dates, diplômes et noms de compétences sont **recopiés par le code** depuis le profil. Le modèle ne peut donc pas inventer de date, de diplôme ou de compétence : il n'a aucun champ pour le faire.
+     Employeur, poste, dates, diplômes et noms de compétences sont **recopiés par le code** depuis le profil. Le modèle ne peut donc pas inventer de date, de diplôme ou de compétence : il n'a aucun champ pour le faire.
 5. `missingKeywords` porte les mots-clés de l'offre sans preuve : **signalés, jamais ajoutés**.
 6. `findUnresolvedRefs()` vérifie, sans recours au modèle, que chaque pointeur cité existe dans le profil.
 

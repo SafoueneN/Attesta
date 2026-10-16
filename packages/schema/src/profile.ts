@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { comparePartialDates, Highlight, LongText, PartialDate, ShortText } from "./common.js";
+import { comparePartialDates, Email, Highlight, LongText, PartialDate, ShortText, WebUrl } from "./common.js";
 
 /**
  * Profil candidat, compatible JSON Resume (https://jsonresume.org/schema).
@@ -9,13 +9,14 @@ import { comparePartialDates, Highlight, LongText, PartialDate, ShortText } from
 const Location = z.object({
   city: z.string().trim().max(100).optional(),
   region: z.string().trim().max(100).optional(),
-  countryCode: z.string().regex(/^[A-Z]{2}$/, "Code pays ISO 3166-1 alpha-2").optional(),
+  countryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Code pays ISO 3166-1 alpha-2")
+    .optional(),
 });
 
 /** Refus d'une date de fin antérieure à la date de début. */
-function withDateOrder<T extends z.ZodObject<{ startDate: z.ZodTypeAny; endDate: z.ZodTypeAny }>>(
-  schema: T,
-) {
+function withDateOrder<T extends z.ZodObject<{ startDate: z.ZodTypeAny; endDate: z.ZodTypeAny }>>(schema: T) {
   return schema.superRefine((entry, ctx) => {
     const { startDate, endDate } = entry as { startDate?: string; endDate?: string };
     if (startDate && endDate && comparePartialDates(endDate, startDate) < 0) {
@@ -31,19 +32,22 @@ function withDateOrder<T extends z.ZodObject<{ startDate: z.ZodTypeAny; endDate:
 export const Basics = z.object({
   name: ShortText,
   label: ShortText.optional(),
-  email: z.email().optional(),
+  email: Email.optional(),
   phone: z.string().trim().max(40).optional(),
-  url: z.url().optional(),
+  url: WebUrl.optional(),
   summary: LongText.optional(),
   location: Location.optional(),
-  profiles: z.array(z.object({ network: ShortText, url: z.url() })).max(10).default([]),
+  profiles: z
+    .array(z.object({ network: ShortText, url: WebUrl }))
+    .max(10)
+    .default([]),
 });
 
 export const Work = withDateOrder(
   z.object({
     name: ShortText,
     position: ShortText,
-    url: z.url().optional(),
+    url: WebUrl.optional(),
     location: z.string().trim().max(100).optional(),
     startDate: PartialDate,
     endDate: PartialDate.optional(),
@@ -82,7 +86,7 @@ export const Project = withDateOrder(
     highlights: z.array(Highlight).max(20).default([]),
     startDate: PartialDate.optional(),
     endDate: PartialDate.optional(),
-    url: z.url().optional(),
+    url: WebUrl.optional(),
   }),
 );
 
@@ -90,7 +94,7 @@ export const Certificate = z.object({
   name: ShortText,
   issuer: ShortText.optional(),
   date: PartialDate.optional(),
-  url: z.url().optional(),
+  url: WebUrl.optional(),
 });
 
 export const Profile = z.object({

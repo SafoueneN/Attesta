@@ -1,0 +1,24 @@
+<%#
+  Champ de formulaire accessible : libellé, aide et erreur reliés par aria-describedby.
+  Paramètres : id, name, label, value ; facultatifs : type, hint, rows, required, autocomplete, maxlength, inputmode.
+-%>
+<%
+  const error = errors.find((e) => e.field === id);
+  const hintId = locals.hint ? id + "-hint" : "";
+  const errorId = error ? id + "-error" : "";
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ");
+-%>
+<div class="field<%= error ? ' field--error' : '' %>">
+  <label for="<%= id %>"><%= label %><% if (!locals.required) { %> <span class="optional"><%= t.optional %></span><% } %></label>
+<% if (locals.hint) { -%>
+  <p class="hint" id="<%= hintId %>"><%= hint %></p>
+<% } -%>
+<% if (error) { -%>
+  <p class="error-message" id="<%= errorId %>"><span class="visually-hidden">Erreur : </span><%= error.message %></p>
+<% } -%>
+<% if (locals.rows) { -%>
+  <textarea id="<%= id %>" name="<%= name %>" rows="<%= rows %>"<% if (locals.required) { %> required<% } %><% if (describedBy) { %> aria-describedby="<%= describedBy %>"<% } %><% if (error) { %> aria-invalid="true"<% } %>><%= value %></textarea>
+<% } else { -%>
+  <input id="<%= id %>" name="<%= name %>" type="<%= locals.type || 'text' %>" value="<%= value %>"<% if (locals.required) { %> required<% } %><% if (locals.autocomplete) { %> autocomplete="<%= autocomplete %>"<% } %><% if (locals.maxlength) { %> maxlength="<%= maxlength %>"<% } %><% if (locals.inputmode) { %> inputmode="<%= inputmode %>"<% } %><% if (describedBy) { %> aria-describedby="<%= describedBy %>"<% } %><% if (error) { %> aria-invalid="true"<% } %>>
+<% } -%>
+</div>

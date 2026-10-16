@@ -1,0 +1,13 @@
+<%- include("partials/head") %>
+<% if (cleared) { -%>
+  <p class="notice" role="status"><%= t.dataCleared %></p>
+<% } -%>
+  <h1>Un CV ciblé pour chaque offre, prouvable ligne par ligne</h1>
+  <p class="lead">Attesta vous aide à présenter votre parcours sans rien inventer : chaque ligne de votre CV renvoie à une information que vous avez saisie.</p>
+  <ul class="principles">
+    <li>Cinq étapes guidées, avec retour en arrière sans perte.</li>
+    <li>Un PDF à une colonne, lisible par les logiciels de recrutement (ATS).</li>
+    <li>Rien n'est ajouté à votre insu : vous relisez et validez avant tout export.</li>
+  </ul>
+  <p><a class="button" href="/cv/etape/1">Commencer mon CV</a></p>
+<%- include("partials/foot") %>

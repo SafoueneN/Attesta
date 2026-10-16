@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> – <%= t.appName %></title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main"><%= t.skipLink %></a>
+<header class="site-header">
+  <a class="brand" href="/"><%= t.appName %><span class="brand-tagline"><%= t.tagline %></span></a>
+  <button type="button" class="button button--quiet" data-theme-toggle aria-pressed="false" hidden><%= t.themeToggle %></button>
+</header>
+<main id="main" tabindex="-1">

@@ -20,6 +20,8 @@ export const leaProfile: ProfileInput = {
       ],
     },
   ],
-  education: [{ institution: "INSA Lyon", studyType: "Diplôme d'ingénieur", area: "Informatique", endDate: "2019" }],
+  education: [
+    { institution: "INSA Lyon", studyType: "Diplôme d'ingénieur", area: "Informatique", endDate: "2019" },
+  ],
   skills: [{ name: "Node.js", keywords: ["Express", "PostgreSQL"] }],
 };

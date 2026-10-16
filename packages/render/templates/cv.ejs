@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="<%= view.lang %>">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:">
+<title><%= labels.documentTitle %> – <%= view.name %></title>
+<style<% if (styleNonce) { %> nonce="<%= styleNonce %>"<% } %>><%- css %></style>
+</head>
+<body class="cv cv--<%= variant %>">
+<header class="cv-header">
+  <h1><%= view.name %></h1>
+<% if (view.headline) { -%>
+  <p class="cv-headline" data-source="/basics/label"><%= view.headline %></p>
+<% } -%>
+<% if (view.contact.length) { -%>
+  <p class="cv-contact"><%= view.contact.join(" · ") %></p>
+<% } -%>
+</header>
+<main>
+<% view.sections.forEach((section) => { -%>
+  <section class="cv-section cv-section--<%= section.id %>" aria-labelledby="cv-<%= section.id %>">
+    <h2 id="cv-<%= section.id %>"><%= section.title %></h2>
+<% section.entries.forEach((entry) => { -%>
+    <article class="cv-entry" data-source="<%= entry.source %>">
+      <div class="cv-entry-head">
+        <h3><%= entry.title %></h3>
+<% if (entry.period) { -%>
+        <p class="cv-period"><%= entry.period %></p>
+<% } -%>
+      </div>
+<% if (entry.subtitle) { -%>
+      <p class="cv-subtitle"><%= entry.subtitle %></p>
+<% } -%>
+<% if (entry.lines.length) { -%>
+      <ul>
+<% entry.lines.forEach((line) => { -%>
+        <li data-source="<%= line.source %>"><%= line.text %></li>
+<% }) -%>
+      </ul>
+<% } -%>
+    </article>
+<% }) -%>
+<% if (section.id === "summary") { -%>
+<% section.items.forEach((item) => { -%>
+    <p class="cv-summary" data-source="<%= item.source %>"><%= item.text %></p>
+<% }) -%>
+<% } else if (section.items.length) { -%>
+    <ul class="cv-items">
+<% section.items.forEach((item) => { -%>
+      <li data-source="<%= item.source %>"><%= item.text %></li>
+<% }) -%>
+    </ul>
+<% } -%>
+  </section>
+<% }) -%>
+</main>
+</body>
+</html>

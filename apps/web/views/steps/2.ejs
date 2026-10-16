@@ -1,0 +1,42 @@
+<%- include("../partials/form-start") %>
+  <section id="work-section" tabindex="-1" aria-labelledby="work-title">
+    <h2 id="work-title">Expériences professionnelles</h2>
+<% draft.work.forEach((w, i) => { const p = "work-" + i, n = "work[" + i + "]"; -%>
+    <fieldset id="work-<%= i %>" tabindex="-1">
+      <legend>Expérience <%= i + 1 %></legend>
+<%- include("../partials/field", { id: p + "-position", name: n + "[position]", label: "Poste", value: w.position, required: true }) %>
+<%- include("../partials/field", { id: p + "-name", name: n + "[name]", label: "Employeur", value: w.name, required: true, autocomplete: "organization" }) %>
+<%- include("../partials/field", { id: p + "-location", name: n + "[location]", label: "Lieu", value: w.location }) %>
+<%- include("../partials/field", { id: p + "-startDate", name: n + "[startDate]", label: "Début", value: w.startDate, required: true, hint: "Format AAAA-MM, ex. 2021-03", inputmode: "numeric" }) %>
+<%- include("../partials/field", { id: p + "-endDate", name: n + "[endDate]", label: "Fin", value: w.endDate, hint: "Format AAAA-MM. Laissez vide si le poste est en cours.", inputmode: "numeric" }) %>
+<%- include("../partials/field", { id: p + "-summary", name: n + "[summary]", label: "Description du poste", value: w.summary, rows: 2 }) %>
+<%- include("../partials/field", { id: p + "-highlights", name: n + "[highlights]", label: "Réalisations", value: w.highlights, rows: 4, hint: "Une réalisation par ligne. N'indiquez que des chiffres que vous pouvez justifier." }) %>
+      <button type="submit" name="action" value="remove-work-<%= i %>" class="button button--quiet">Supprimer l'expérience <%= i + 1 %></button>
+    </fieldset>
+<% }) -%>
+    <button type="submit" name="action" value="add-work" class="button button--secondary">Ajouter une expérience</button>
+  </section>
+
+  <section id="education-section" tabindex="-1" aria-labelledby="education-title">
+    <h2 id="education-title">Formations</h2>
+<% draft.education.forEach((e, i) => { const p = "education-" + i, n = "education[" + i + "]"; -%>
+    <fieldset id="education-<%= i %>" tabindex="-1">
+      <legend>Formation <%= i + 1 %></legend>
+<%- include("../partials/field", { id: p + "-institution", name: n + "[institution]", label: "Établissement", value: e.institution, required: true }) %>
+<%- include("../partials/field", { id: p + "-studyType", name: n + "[studyType]", label: "Diplôme", value: e.studyType, hint: "Ex. : Master, BTS, Diplôme d'ingénieur" }) %>
+<%- include("../partials/field", { id: p + "-area", name: n + "[area]", label: "Domaine", value: e.area }) %>
+<%- include("../partials/field", { id: p + "-startDate", name: n + "[startDate]", label: "Début", value: e.startDate, hint: "Format AAAA-MM ou AAAA", inputmode: "numeric" }) %>
+<%- include("../partials/field", { id: p + "-endDate", name: n + "[endDate]", label: "Fin", value: e.endDate, hint: "Format AAAA-MM ou AAAA", inputmode: "numeric" }) %>
+      <button type="submit" name="action" value="remove-education-<%= i %>" class="button button--quiet">Supprimer la formation <%= i + 1 %></button>
+    </fieldset>
+<% }) -%>
+    <button type="submit" name="action" value="add-education" class="button button--secondary">Ajouter une formation</button>
+  </section>
+
+  <section aria-labelledby="skills-title">
+    <h2 id="skills-title">Compétences et langues</h2>
+<%- include("../partials/field", { id: "skills", name: "skills", label: "Compétences", value: draft.skills, rows: 5, hint: "Une compétence par ligne, au format « Compétence : outils ». Ex. : Node.js : Express, PostgreSQL" }) %>
+<%- include("../partials/field", { id: "languages", name: "languages", label: "Langues", value: draft.languages, rows: 3, hint: "Une langue par ligne, au format « Langue : niveau ». Ex. : Anglais : C1" }) %>
+  </section>
+<%- include("../partials/nav-buttons") %>
+</form>

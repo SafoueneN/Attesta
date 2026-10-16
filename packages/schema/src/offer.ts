@@ -1,10 +1,14 @@
 import { z } from "zod";
-import { ShortText } from "./common.js";
+import { ShortText, WebUrl } from "./common.js";
 
 /** Offre collée par le candidat. Traitée comme donnée, jamais comme instruction. */
 export const JobOfferInput = z.object({
-  rawText: z.string().trim().min(50, "L'offre semble trop courte").max(20000),
-  sourceUrl: z.url().optional(),
+  rawText: z
+    .string()
+    .trim()
+    .min(50, "L'offre semble trop courte : collez le texte complet de l'annonce")
+    .max(20000, "20 000 caractères maximum"),
+  sourceUrl: WebUrl.optional(),
 });
 
 /** Sortie de l'étape 2 du pipeline : analyse structurée de l'offre. */
@@ -23,9 +27,7 @@ export const OfferAnalysis = z.object({
       }),
     )
     .max(40),
-  keywords: z
-    .array(z.object({ term: ShortText, weight: z.number().min(0).max(1) }))
-    .max(60),
+  keywords: z.array(z.object({ term: ShortText, weight: z.number().min(0).max(1) })).max(60),
 });
 
 export type JobOfferInput = z.infer<typeof JobOfferInput>;

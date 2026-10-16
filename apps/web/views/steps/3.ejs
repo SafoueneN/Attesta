@@ -1,0 +1,7 @@
+<%- include("../partials/form-start") %>
+  <p>Collez l'annonce à laquelle vous souhaitez répondre. Son texte est traité comme une donnée : il n'est jamais exécuté comme une instruction.</p>
+  <p class="notice">Version actuelle : le ciblage automatique sur l'offre arrivera avec le module d'IA. Pour l'instant, votre CV est mis en forme à partir de votre profil, sans reformulation.</p>
+<%- include("../partials/field", { id: "offer-rawText", name: "offer[rawText]", label: "Texte de l'offre", value: draft.offer.rawText, rows: 14, required: true, hint: "Le texte complet de l'annonce : missions, profil recherché, conditions." }) %>
+<%- include("../partials/field", { id: "offer-sourceUrl", name: "offer[sourceUrl]", label: "Lien de l'offre", value: draft.offer.sourceUrl, type: "url" }) %>
+<%- include("../partials/nav-buttons") %>
+</form>

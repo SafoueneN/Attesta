@@ -1,0 +1,18 @@
+<% const reviewedError = errors.find((e) => e.field === "reviewed"); -%>
+<%- include("../partials/form-start", { defaultAction: "export" }) %>
+  <fieldset>
+    <legend>Mise en page du PDF</legend>
+    <label><input type="radio" name="variant" value="ats" checked> ATS (sobre, recommandée pour les candidatures en ligne)</label>
+    <label><input type="radio" name="variant" value="design"> Design (accents de couleur)</label>
+  </fieldset>
+  <div class="field<%= reviewedError ? ' field--error' : '' %>">
+<% if (reviewedError) { -%>
+    <p class="error-message" id="reviewed-error"><span class="visually-hidden">Erreur : </span><%= reviewedError.message %></p>
+<% } -%>
+    <label class="checkbox">
+      <input type="checkbox" id="reviewed" name="reviewed" value="yes" required<% if (reviewedError) { %> aria-invalid="true" aria-describedby="reviewed-error"<% } %>>
+      J'ai relu mon CV et je confirme que chaque information est exacte.
+    </label>
+  </div>
+<%- include("../partials/nav-buttons", { nextLabel: "Télécharger mon CV (PDF)" }) %>
+</form>
