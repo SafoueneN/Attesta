@@ -22,11 +22,14 @@ import {
   type Draft,
   type FieldError,
 } from "./draft.js";
+import { createAccountRoutes } from "./account-routes.js";
+import { AccountStore } from "./accounts.js";
 import { currentGeneration, describeIssue, describePointer, type StoredGeneration } from "./generation.js";
 import { fr } from "./i18n.js";
 import { createIaRoutes } from "./ia-routes.js";
 import { absoluteSessionLimit, csrfToken, cspNonce, verifyCsrf } from "./security.js";
-import { MemoryIaQuota, PgIaQuota, PgRateLimitStore, pgUsageRecorder } from "./stores.js";
+import { pgUsageRecorder, type Mailer } from "@attesta/jobwatch";
+import { MemoryIaQuota, PgIaQuota, PgRateLimitStore } from "./stores.js";
 
 declare module "express-session" {
   interface SessionData {
@@ -37,6 +40,8 @@ declare module "express-session" {
     generationToken: string;
     /** Message à afficher une fois, à la page suivante. */
     notice: { kind: "info" | "error"; text: string };
+    /** Compte connecté (lien de connexion consommé). */
+    userId: string;
   }
 }
 
@@ -49,9 +54,11 @@ export interface AppDeps {
   /** Requis si SESSION_STORE=postgres ; sert aussi au contrôle de santé. */
   pool?: Pool;
   /** Plafonds de requêtes par IP : 15 min pour le général et l'export, 1 h pour la génération. */
-  limits?: { general: number; export: number; generation?: number };
+  limits?: { general: number; export: number; generation?: number; login?: number; loginPerEmail?: number };
   /** Pipeline IA ; absent : génération désactivée, parcours sans IA (Phase 1). */
   ia?: { provider: LlmProvider; maxCostUsd: number; dailyQuota: number };
+  /** Comptes et veille : exigent la base et un serveur d'envoi ; absents, désactivés. */
+  accounts?: { mailer: Mailer; baseUrl: string; brevoWebhookToken?: string };
 }
 
 const SESSION_IDLE_MS = 2 * 60 * 60 * 1000;
@@ -59,7 +66,7 @@ const TOTAL_STEPS = 5;
 const viewsDir = fileURLToPath(new URL("../views", import.meta.url));
 const publicDir = fileURLToPath(new URL("../public", import.meta.url));
 
-export function createApp({ config, logger, renderer, pool, limits, ia }: AppDeps) {
+export function createApp({ config, logger, renderer, pool, limits, ia, accounts }: AppDeps) {
   const app = express();
   const production = config.NODE_ENV === "production";
   const httpsOnly = config.HTTPS_ONLY ?? production;
@@ -77,7 +84,7 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
       logger.info(
         {
           method: req.method,
-          path: req.originalUrl.split("?")[0],
+          path: loggedPath(req.originalUrl),
           status: res.statusCode,
           ms: Math.round(ms),
         },
@@ -140,6 +147,11 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
       standardHeaders: "draft-8",
       legacyHeaders: false,
       store: limiterStore("general"),
+      // Appels de Brevo et désabonnements en un clic des messageries : quelques IP partagées,
+      // requêtes déjà authentifiées par jeton. Ne pas les bloquer en rafale.
+      skip: (req) =>
+        req.path.startsWith("/webhooks/") ||
+        (req.method === "POST" && req.path.startsWith("/veille/desabonner/")),
     }),
   );
   app.use(express.urlencoded({ extended: true, limit: "200kb", parameterLimit: 2000 }));
@@ -161,10 +173,16 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
     cookie: { httpOnly: true, sameSite: "lax", secure: httpsOnly, maxAge: SESSION_IDLE_MS },
   });
 
+  const accountsEnabled = Boolean(pool && accounts);
   app.use((_req, res, next) => {
     res.locals.t = fr;
     res.locals.errors = [];
+    res.locals.accountsEnabled = accountsEnabled;
     next();
+  });
+
+  app.get("/confidentialite", (_req, res) => {
+    res.render("confidentialite", { title: "Confidentialité" });
   });
 
   app.get("/", (req, res) => {
@@ -172,8 +190,9 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
   });
 
   // Tout le parcours CV : session, plafond de 24 h, CSRF, aucune mise en cache.
+  const sessionStack = [sessions, absoluteSessionLimit(), csrfToken];
   const cv = express.Router();
-  cv.use(sessions, absoluteSessionLimit(), csrfToken, (_req, res, next) => {
+  cv.use(...sessionStack, (_req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
   });
@@ -337,14 +356,44 @@ export function createApp({ config, logger, renderer, pool, limits, ia }: AppDep
   );
   app.use("/cv", cv);
 
+  if (pool && accounts) {
+    const routes = createAccountRoutes({
+      store: new AccountStore(pool),
+      mailer: accounts.mailer,
+      baseUrl: accounts.baseUrl,
+      secret: config.SESSION_SECRET,
+      logger,
+      sessionStack,
+      brevoWebhookToken: accounts.brevoWebhookToken,
+      loginLimiter: rateLimit({
+        windowMs: 15 * 60 * 1000,
+        limit: limits?.login ?? 5,
+        store: limiterStore("login"),
+      }),
+      // Par adresse (empreinte HMAC en base) : pas d'avalanche de liens vers une boîte tierce.
+      loginEmailLimiter: rateLimit({
+        windowMs: 60 * 60 * 1000,
+        limit: limits?.loginPerEmail ?? 3,
+        store: limiterStore("login-email"),
+        keyGenerator: (req) =>
+          String(req.body?.email ?? "")
+            .trim()
+            .toLowerCase() || "vide",
+      }),
+    });
+    app.use("/compte", routes.compte);
+    app.use("/veille", routes.veille);
+    app.use("/webhooks", routes.webhooks);
+  }
+
   app.use((_req, _res, next) => next(new AppError("not_found", 404, "Page introuvable.")));
 
   // Gestionnaire d'erreurs : message public pour le candidat, détail technique au journal seulement.
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     const known = err instanceof AppError ? err : undefined;
     const status = known?.status ?? 500;
-    if (status >= 500) logger.error({ err, path: req.path }, "erreur serveur");
-    else logger.warn({ code: known?.code, path: req.path }, "requête refusée");
+    if (status >= 500) logger.error({ err, path: loggedPath(req.originalUrl) }, "erreur serveur");
+    else logger.warn({ code: known?.code, path: loggedPath(req.originalUrl) }, "requête refusée");
     res.status(status).render("error", {
       title: status === 404 ? "Page introuvable" : "Une erreur est survenue",
       message: known?.publicMessage ?? "Une erreur inattendue est survenue. Réessayez dans un instant.",
@@ -360,4 +409,14 @@ function isNotGeneration(req: Request) {
 
 function isNotExport(req: Request) {
   return !(req.method === "POST" && req.path === `/etape/${TOTAL_STEPS}`);
+}
+
+/**
+ * Chemin journalisé : sans paramètres, et sans les jetons des liens envoyés par
+ * e-mail (connexion, confirmation, désabonnement), qui valent identifiants.
+ */
+export function loggedPath(originalUrl: string): string {
+  return originalUrl
+    .split("?")[0]!
+    .replace(/^\/(compte\/connexion|veille\/confirmer|veille\/desabonner)\/[^/]+/i, "/$1/:jeton");
 }

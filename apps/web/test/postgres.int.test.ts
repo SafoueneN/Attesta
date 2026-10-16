@@ -1,9 +1,11 @@
 import pg from "pg";
 import request from "supertest";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { LOCK_TIMEOUT_MS, lockTestDatabase } from "../../../test-support/db-lock.js";
 import { createLogger, loadConfig } from "@attesta/shared";
 import { createApp } from "../src/app.js";
-import { MemoryIaQuota, PgIaQuota, pgUsageRecorder, startMaintenance } from "../src/stores.js";
+import { pgUsageRecorder } from "@attesta/jobwatch";
+import { MemoryIaQuota, PgIaQuota, startMaintenance } from "../src/stores.js";
 import { csrfFrom, FakeRenderer, submit, validBasics, validParcours } from "./helpers.js";
 
 /**
@@ -19,7 +21,14 @@ if (process.env.CI && !url) throw new Error("TEST_DATABASE_URL est requis en CI"
 describe.skipIf(!url)("PostgreSQL : état partagé entre instances", () => {
   const pool = new pg.Pool({ connectionString: url });
   const logger = createLogger("silent");
-  afterAll(() => pool.end());
+  let unlock: () => Promise<void> = async () => {};
+  beforeAll(async () => {
+    unlock = await lockTestDatabase(url!);
+  }, LOCK_TIMEOUT_MS);
+  afterAll(async () => {
+    await pool.end();
+    await unlock();
+  });
   beforeEach(() => pool.query("TRUNCATE ia_quota, rate_limit, llm_usage, session"));
 
   const instance = (limits?: { general: number; export: number; generation?: number }) =>

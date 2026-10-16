@@ -6,6 +6,7 @@
 #
 #   infra/deploy/rollback.sh <service> [révision]
 #
+# Le job de veille quotidienne reprend l'image de la révision cible.
 # La base n'est pas restaurée : les migrations étant des ajouts compatibles,
 # l'ancienne révision fonctionne sur le schéma courant (docs/runbook.md).
 set -euo pipefail
@@ -13,6 +14,7 @@ set -euo pipefail
 SERVICE=${1:?service Cloud Run requis}
 TARGET=${2:-}
 REGION=${REGION:-europe-west9}
+WATCH_JOB=${WATCH_JOB:-${SERVICE}-veille}
 
 if [[ -n "$TARGET" && ! "$TARGET" =~ ^[a-z0-9-]{1,63}$ ]]; then
   echo "Nom de révision invalide : $TARGET" >&2
@@ -40,3 +42,9 @@ fi
 
 echo "[retour arrière $SERVICE] 100 % du trafic vers $TARGET"
 gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-revisions "${TARGET}=100" --quiet
+
+image=$(gcloud run revisions describe "$TARGET" --region "$REGION" --format='value(spec.containers[0].image)')
+if [[ -n "$image" ]]; then
+  echo "[retour arrière $SERVICE] job de veille $WATCH_JOB : $image"
+  gcloud run jobs update "$WATCH_JOB" --region "$REGION" --image "$image" --quiet
+fi

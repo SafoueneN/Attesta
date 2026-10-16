@@ -31,6 +31,8 @@ case "$*" in
  {"metadata":{"name":"attesta-00040","creationTimestamp":"2026-10-13T12:00:00Z"},"status":{"conditions":[{"type":"Ready","status":"True"}]}}]
 JSON
     ;;
+  "run revisions describe"*)
+    echo "img@sha256:ancienne" ;;
   "logging read"*)
     [[ -n "${ERRORS_5XX:-}" ]] && echo "2026-10-16T12:00:00Z" ;;
   "run services update-traffic"*)
@@ -69,12 +71,14 @@ run() { status=0; "$@" > /dev/null 2>&1 || status=$?; }
 scenario candidat-ko
 SMOKE_FAIL="https://candidat---attesta.example" run bash "$deploy" attesta img@sha256:1 "100"
 expect "candidat en échec : aucun trafic déplacé" "$status" 1 "update-traffic" non
+expect "candidat en échec : job de veille inchangé" "$status" 1 "jobs update attesta-veille" non
 
 scenario preprod-ok
 run bash "$deploy" attesta img@sha256:1 "100"
 expect "préprod : migrations exécutées avant la révision" "$status" 0 "jobs execute attesta-migrate" oui
 expect "préprod : la nouvelle révision part sans trafic" "$status" 0 "--no-traffic --tag candidat" oui
 expect "préprod : bascule à 100 % sur la révision candidate" "$status" 0 "to-revisions attesta-00042=100" oui
+expect "préprod : le job de veille reçoit la nouvelle image" "$status" 0 "jobs update attesta-veille --region europe-west9 --image img@sha256:1" oui
 
 scenario palier-fumee-ko
 SMOKE_PASSES=1 run bash "$deploy" attesta img@sha256:1 "10 50 100"
@@ -100,6 +104,7 @@ expect "premier déploiement : accepté sans révision précédente" "$status" 0
 scenario rollback-manuel
 run bash "$rollback" attesta
 expect "retour arrière : révision prête précédant celle qui sert (pas le candidat refusé)" "$status" 0 "to-revisions attesta-00040=100" oui
+expect "retour arrière : le job de veille reprend l'image de la révision cible" "$status" 0 "jobs update attesta-veille --region europe-west9 --image img@sha256:ancienne" oui
 
 scenario rollback-cible
 run bash "$rollback" attesta attesta-00030

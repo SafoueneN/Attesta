@@ -7,6 +7,7 @@ export const PROMPT_VERSIONS: Record<LlmStep, string> = {
   "analyse-offre": "v1",
   redaction: "v1",
   "extraction-cv": "v1",
+  "rerank-offres": "v1",
 };
 
 const promptsDir = new URL("../../../prompts/", import.meta.url);

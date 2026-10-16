@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
+import { DemoProvider } from "./demo-provider.js";
 import { estimateCostUsd } from "./pricing.js";
 import {
   LlmRefusalError,
@@ -113,4 +114,32 @@ export function createClaudeClient(config: ClaudeClientConfig): MessagesClient {
     });
   }
   return new Anthropic({ timeout: config.timeoutMs, maxRetries: 2 });
+}
+
+export interface ProviderSettings {
+  provider: "vertex" | "anthropic" | "demo" | "none";
+  model: string;
+  timeoutMs: number;
+  vertexProjectId?: string;
+  vertexRegion?: string;
+}
+
+/** Fournisseur configuré (application web et worker de veille) ; « none » : aucun. */
+export function createLlmProvider(settings: ProviderSettings): LlmProvider | undefined {
+  switch (settings.provider) {
+    case "none":
+      return undefined;
+    case "demo":
+      return new DemoProvider();
+    default:
+      return new AnthropicProvider(
+        createClaudeClient({
+          provider: settings.provider,
+          timeoutMs: settings.timeoutMs,
+          vertexProjectId: settings.vertexProjectId,
+          vertexRegion: settings.vertexRegion,
+        }),
+        { model: settings.model, timeoutMs: settings.timeoutMs },
+      );
+  }
 }

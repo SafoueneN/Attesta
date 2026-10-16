@@ -1,0 +1,10 @@
+<% if (errors.length) { -%>
+  <div class="error-summary" role="alert" tabindex="-1" aria-labelledby="error-summary-title" data-error-summary>
+    <h2 id="error-summary-title"><%= t.errorSummaryTitle %></h2>
+    <ul>
+<% errors.forEach((e) => { -%>
+      <li><a href="#<%= e.field %>"><%= e.message %></a></li>
+<% }) -%>
+    </ul>
+  </div>
+<% } -%>

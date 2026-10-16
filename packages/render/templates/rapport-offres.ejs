@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:">
+<title>Attesta – Offres du <%= view.date %></title>
+<style><%- css %></style>
+</head>
+<body class="report">
+<header class="report-header">
+  <p class="report-brand">Attesta · Veille emploi</p>
+  <h1>Vos offres du <%= view.date %></h1>
+  <p class="report-criteria"><%= view.criteria %></p>
+</header>
+<main>
+<% if (view.degraded) { -%>
+  <p class="report-notice">Le classement fin par l'IA n'a pas pu être fait aujourd'hui : les offres sont classées par la recherche seule.</p>
+<% } -%>
+  <ol class="offers">
+<% view.offers.forEach((offer) => { -%>
+    <li class="offer">
+      <h2><a href="<%= offer.url %>"><%= offer.title %></a></h2>
+      <p class="offer-meta"><%= [offer.company, offer.city, `publiée le ${offer.postedAt}`].filter(Boolean).join(" · ") %></p>
+      <p class="offer-scores">
+<% if (offer.pertinence !== null) { -%>
+        <span>Pertinence : <%= offer.pertinence %>/100</span>
+<% } -%>
+        <span>Proximité du texte : <%= offer.similarity === null ? "non calculée" : `${offer.similarity} %` %></span>
+        <span>Compétences couvertes : <%= offer.coverage === null ? "non calculable" : `${offer.coverage} %` %></span>
+        <span>Lieu : <%= offer.location === null ? "non précisé" : `${offer.location} %` %></span>
+      </p>
+<% if (offer.missingSkills.length) { -%>
+      <p class="offer-missing">Il vous manque, d'après l'offre : <%= offer.missingSkills.join(", ") %>.</p>
+<% } else { -%>
+      <p class="offer-missing">Aucune compétence manquante repérée dans l'offre.</p>
+<% } -%>
+      <p class="offer-source">Source : <a href="<%= offer.url %>"><%= offer.source %></a><% if (offer.attribution) { %> · <a href="<%= offer.attribution.url %>"><%= offer.attribution.text %></a><% } %></p>
+    </li>
+<% }) -%>
+  </ol>
+</main>
+<footer class="report-footer">
+  <p>Classement calculé automatiquement à partir de votre profil, sans votre nom ni vos coordonnées. Les « compétences manquantes » sont recopiées des offres et vérifiées : elles sont absentes de votre profil. Si vous les avez, ajoutez-les à votre profil avec ce qui les prouve.</p>
+  <p>Pour ne plus recevoir ces rapports : lien de désabonnement dans l'e-mail.</p>
+</footer>
+</body>
+</html>

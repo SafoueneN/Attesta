@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-export type LlmStep = "analyse-offre" | "redaction" | "extraction-cv";
+export type LlmStep = "analyse-offre" | "redaction" | "extraction-cv" | "rerank-offres";
 export type Effort = "low" | "medium" | "high";
 
 export interface LlmMessage {

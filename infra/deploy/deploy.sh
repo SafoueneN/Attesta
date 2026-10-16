@@ -10,7 +10,8 @@
 # 3. nouvelle révision sans trafic, étiquetée « candidat », testée sur sa propre URL ;
 # 4. bascule par paliers ; à chaque palier, test de fumée du candidat et recherche
 #    d'erreurs 5xx sur sa révision ; au moindre échec, à une erreur ou à une
-#    interruption (annulation du job), 100 % du trafic revient à la révision précédente.
+#    interruption (annulation du job), 100 % du trafic revient à la révision précédente ;
+# 5. une fois la bascule réussie, le job de veille quotidienne reçoit la même image.
 set -euo pipefail
 
 SERVICE=${1:?service Cloud Run requis}
@@ -18,6 +19,7 @@ IMAGE=${2:?image (avec digest) requise}
 STEPS=${3:-100}
 REGION=${REGION:-europe-west9}
 MIGRATION_JOB=${MIGRATION_JOB:-${SERVICE}-migrate}
+WATCH_JOB=${WATCH_JOB:-${SERVICE}-veille}
 SMOKE_CMD=${SMOKE_CMD:-node scripts/smoke.mjs}
 STEP_PAUSE_SECONDS=${STEP_PAUSE_SECONDS:-300}
 
@@ -102,3 +104,7 @@ done
 
 trap - ERR INT TERM
 log "déploiement terminé : 100 % sur $candidate"
+
+# La veille tourne avec le code servi : jamais avec une image refusée.
+log "image du job de veille $WATCH_JOB"
+gcloud run jobs update "$WATCH_JOB" --region "$REGION" --image "$IMAGE" --quiet

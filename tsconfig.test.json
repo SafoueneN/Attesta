@@ -4,5 +4,12 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["packages/*/test/**/*.ts", "apps/*/test/**/*.ts", "e2e/**/*.ts", "*.config.ts", "evals/**/*.ts"]
+  "include": [
+    "packages/*/test/**/*.ts",
+    "apps/*/test/**/*.ts",
+    "e2e/**/*.ts",
+    "*.config.ts",
+    "evals/**/*.ts",
+    "test-support/**/*.ts"
+  ]
 }

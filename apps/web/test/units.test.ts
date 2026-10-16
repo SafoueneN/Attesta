@@ -1,3 +1,4 @@
+import { loggedPath } from "../src/app.js";
 import type { NextFunction, Request, Response } from "express";
 import { describe, expect, it, vi } from "vitest";
 import { draftToProfile, emptyDraft, mergeStep, validProfile } from "../src/draft.js";
@@ -67,5 +68,16 @@ describe("plafond absolu de session", () => {
     const { session, next } = run(0, SESSION_ABSOLUTE_MS + 1);
     expect(session.regenerate).toHaveBeenCalledOnce();
     expect(next).toHaveBeenCalledWith(undefined);
+  });
+});
+
+describe("journal d'accès", () => {
+  it("masque les jetons des liens envoyés par e-mail et les paramètres", () => {
+    expect(loggedPath("/compte/connexion/abcDEF123_-xyz?x=1")).toBe("/compte/connexion/:jeton");
+    expect(loggedPath("/veille/confirmer/abc")).toBe("/veille/confirmer/:jeton");
+    expect(loggedPath("/veille/desabonner/abc")).toBe("/veille/desabonner/:jeton");
+    expect(loggedPath("/cv/etape/2?variant=ats")).toBe("/cv/etape/2");
+    // Le routage Express ignore la casse : le masquage aussi.
+    expect(loggedPath("/Veille/Desabonner/abcDEF123456789012345")).not.toContain("abcDEF");
   });
 });

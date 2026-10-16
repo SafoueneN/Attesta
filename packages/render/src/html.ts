@@ -52,7 +52,8 @@ function embeddedFontFaces(): string {
     .join("\n");
 }
 
-const fontFaces = embeddedFontFaces();
+/** Polices du CV, reprises par les rapports de veille (même rendu, aucune ressource réseau). */
+export const fontFaces = embeddedFontFaces();
 
 export interface RenderOptions {
   variant: CvVariant;

@@ -1,7 +1,29 @@
 # Environnement local : `docker compose up --build`, puis http://localhost:3080
 # (port hôte modifiable : ATTESTA_PORT=9000 docker compose up).
-# MailHog et le worker arrivent avec les phases qui en ont besoin (e-mail : Phase 4,
-# worker pg-boss : Phase 2). Aucun service inutilisé n'est lancé.
+# E-mails envoyés (connexion, confirmation, rapports) : Mailpit, http://localhost:8025.
+# Veille quotidienne, à la demande : `docker compose run --rm veille`.
+# Avec les vrais vecteurs BGE-M3 (2 Go à télécharger au premier lancement) :
+#   docker compose --profile tei up -d tei
+#   EMBEDDINGS_PROVIDER=tei docker compose run --rm veille
+
+x-durci: &durci
+  read_only: true
+  tmpfs: ["/tmp"]
+  cap_drop: [ALL]
+  # Sandbox de Chromium active grâce à un profil seccomp dédié (docs/adr/0009).
+  security_opt: ["no-new-privileges:true", "seccomp=./infra/seccomp/chromium.json"]
+
+x-env: &env
+  DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
+  # Poste local : mode développement (cookies sans Secure sur http://localhost,
+  # fournisseur de démonstration autorisé). L'image est la même qu'en production.
+  NODE_ENV: development
+  LOG_LEVEL: info
+  # demo : génération et rerank sans IA. Pour Claude sur Vertex AI (UE), voir docs/runbook.md.
+  LLM_PROVIDER: demo
+  SMTP_URL: smtp://mailpit:1025
+  MAIL_FROM: Attesta <ne-pas-repondre@attesta.localhost>
+  APP_BASE_URL: http://localhost:${ATTESTA_PORT:-3080}
 
 services:
   db:
@@ -35,29 +57,49 @@ services:
     depends_on:
       db: { condition: service_healthy }
 
+  # Boîte de réception de développement : aucun e-mail ne sort du poste.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["${MAILPIT_PORT:-8025}:8025"]
+
   web:
     build: { context: ., dockerfile: infra/Dockerfile }
     init: true
     ports: ["${ATTESTA_PORT:-3080}:3000"]
     environment:
-      DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
+      <<: *env
       SESSION_STORE: postgres
       # Secret de développement : en préprod et en prod, il est injecté par l'hébergeur.
       SESSION_SECRET: dev-secret-a-remplacer-hors-poste-local-0000
-      # Poste local : mode développement (cookies sans Secure sur http://localhost,
-      # fournisseur de démonstration autorisé). L'image est la même qu'en production.
-      NODE_ENV: development
-      LOG_LEVEL: info
-      # demo : génération sans IA. Pour Claude sur Vertex AI (UE), voir docs/runbook.md.
-      LLM_PROVIDER: demo
-    read_only: true
-    tmpfs: ["/tmp"]
-    cap_drop: [ALL]
-    # Sandbox de Chromium active grâce à un profil seccomp dédié (docs/adr/0009).
-    security_opt: ["no-new-privileges:true", "seccomp=./infra/seccomp/chromium.json"]
+    <<: *durci
     depends_on:
       migrate: { condition: service_completed_successfully }
+      mailpit: { condition: service_started }
     restart: unless-stopped
+
+  # Exécution quotidienne de la veille (en production : Cloud Run Job planifié).
+  veille:
+    build: { context: ., dockerfile: infra/Dockerfile }
+    profiles: ["veille"]
+    init: true
+    command: ["node", "apps/worker/dist/main.js"]
+    environment:
+      <<: *env
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-hash}
+      TEI_URL: http://tei:80
+    <<: *durci
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      mailpit: { condition: service_started }
+
+  # BGE-M3 servi par Text Embeddings Inference (CPU), décision Q15.
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+    profiles: ["tei"]
+    command: ["--model-id", "BAAI/bge-m3", "--max-client-batch-size", "32"]
+    volumes:
+      - tei-models:/data
 
 volumes:
   db-data:
+  tei-models:

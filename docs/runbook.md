@@ -12,7 +12,20 @@ docker compose up --build
 
 Puis ouvrir http://localhost:3080. Si le port est déjà pris : `ATTESTA_PORT=9000 docker compose up`.
 
-La pile comprend PostgreSQL 16 + pgvector, une migration unique (`migrate`) et l'application (`web`). L'application démarre seulement si la migration a réussi. Chromium y tourne **avec sa sandbox**, grâce au profil seccomp `infra/seccomp/chromium.json`. Le fournisseur d'IA est `demo` : aucun appel au modèle.
+La pile comprend PostgreSQL 16 + pgvector, une migration unique (`migrate`), l'application (`web`) et **Mailpit**, qui reçoit tous les e-mails (connexion, confirmation, rapports) : http://localhost:8025. Aucun e-mail ne sort du poste. L'application démarre seulement si la migration a réussi. Chromium y tourne **avec sa sandbox**, grâce au profil seccomp `infra/seccomp/chromium.json`. Le fournisseur d'IA est `demo` : aucun appel au modèle (le rerank garde l'ordre de la recherche).
+
+### Veille emploi en local
+
+1. Remplir un CV (étapes 1 à 3), puis « Mon compte et ma veille » : saisir une adresse, ouvrir le lien reçu dans Mailpit, enregistrer le profil, activer la veille (pays, ville, rayon), puis la confirmer depuis Mailpit.
+2. Lancer l'exécution quotidienne, à la demande :
+   ```bash
+   docker compose run --rm veille                    # vecteurs de développement (sans sémantique)
+   docker compose --profile tei up -d tei            # BGE-M3 : 2 Go téléchargés au premier lancement
+   EMBEDDINGS_PROVIDER=tei docker compose run --rm veille
+   ```
+3. Le rapport arrive dans Mailpit, avec ses deux PDF. Relancer le même jour n'envoie rien de plus ; `--date=AAAA-MM-JJ` rejoue une date (`docker compose run --rm veille node apps/worker/dist/main.js --date=2026-10-17`).
+
+La veille interroge les **vraies** API publiques de BA Jobsuche et d'ESCO (sans clé). Hors ligne : `ESCO_ENABLED=false`.
 
 ### Sans Docker
 
@@ -76,7 +89,24 @@ DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate && npm test
 
    Chaque environnement GitHub n'obtient que **son** compte de déploiement : la condition de fédération porte sur « dépôt:environnement ». Un job sans environnement n'obtient aucune identité, et le compte préprod n'a aucun droit sur la prod.
 
-7. **Extension pgvector**, au premier besoin (Phase 4) : `CREATE EXTENSION vector;` par une migration.
+7. **Extension pgvector** : créée par la migration `1760900000000_veille-emploi.sql` (`CREATE EXTENSION IF NOT EXISTS vector`), disponible sur Cloud SQL PostgreSQL 16.
+8. **Envoi d'e-mails (Brevo)**, avant le premier déploiement qui sert des comptes :
+   - domaine d'envoi (ex. `mail.attesta.example`) authentifié dans Brevo : enregistrements **SPF** et **DKIM** fournis par Brevo, et **DMARC** `v=DMARC1; p=quarantine; rua=mailto:<adresse>`, puis `p=reject` après un mois sans rejet légitime ;
+   - clé SMTP Brevo, saisie dans Secret Manager sans passer par le dépôt ni par Terraform :
+     ```bash
+     printf 'smtp://<login>:<clé SMTP>@smtp-relay.brevo.com:587' | \
+       gcloud secrets versions add attesta-<env>-smtp-url --data-file=-
+     ```
+   - webhook transactionnel Brevo : URL = sortie `brevo_webhook_url`, événements `spam`, `hard_bounce`, `unsubscribed`, authentification `bearer` avec le jeton `gcloud secrets versions access latest --secret attesta-<env>-brevo-webhook-token` ;
+   - DPA de Brevo signée.
+9. **TEI** : Cloud Run ne tire pas d'image depuis ghcr.io ; la recopier dans le registre, puis la passer en variable `tei_image` :
+   ```bash
+   docker pull ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+   docker tag ghcr.io/huggingface/text-embeddings-inference:cpu-1.8 <registre>/tei:cpu-1.8
+   docker push <registre>/tei:cpu-1.8
+   ```
+   Le premier démarrage télécharge le modèle (environ 2 Go) dans le bucket `<projet>-attesta-<env>-tei` ; les suivants le relisent.
+10. **Veille** : variables `app_base_url` (adresse publique en https), `mail_from` (adresse du domaine authentifié). Le job `attesta-<env>-veille` est lancé chaque jour à 7 h (Europe/Paris) par Cloud Scheduler ; `deploy.sh` lui donne l'image de chaque déploiement réussi, `rollback.sh` celle de la révision restaurée. Lancement manuel : `gcloud run jobs execute attesta-<env>-veille --region europe-west9`.
 
 ## Déployer
 
@@ -113,18 +143,20 @@ Au premier échec, à une erreur de gcloud ou à une annulation du job, le trafi
   ```bash
   gcloud sql instances clone attesta-prod attesta-prod-restau --point-in-time "2026-10-16T09:00:00Z"
   ```
-- **Données concernées** : sessions anonymes (2 h), quotas, compteurs, coûts LLM. Aucun CV n'est conservé au-delà de la session, donc une perte de base ne fait perdre aucun profil durable aux candidats à ce stade.
+- **Données concernées** : depuis la Phase 4, **comptes, profils enregistrés, veilles et consentements** (données durables des candidats), en plus des sessions, quotas, compteurs, coûts et offres. Une perte de base fait perdre des comptes : la restauration doit être testée avant l'ouverture des comptes au public.
 - **Restauration testée** : à faire en préprod avant l'ouverture, puis chaque trimestre. **Non faite à ce jour** (pas de projet Google Cloud).
 
 ## Surveillance et alertes
 
 Définies dans [monitoring.tf](../infra/terraform/environment/monitoring.tf), notifiées par e-mail à l'astreinte :
 
-| Alerte              | Déclenchement                             | Première action                                                                                   |
-| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Service injoignable | `/health` en échec pendant 5 min          | Cloud Run → révisions : la dernière est-elle saine ? Retour arrière si elle vient d'être déployée |
-| Erreurs serveur     | plus de 5 réponses 5xx en 5 min           | journaux `severity>=ERROR` ; retour arrière si c'est lié au déploiement                           |
-| IA en mode dégradé  | plus de 5 générations dégradées en 15 min | journaux `jsonPayload.event="generation"`, champ `reason` (ci-dessous)                            |
+| Alerte              | Déclenchement                              | Première action                                                                                                      |
+| ------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Service injoignable | `/health` en échec pendant 5 min           | Cloud Run → révisions : la dernière est-elle saine ? Retour arrière si elle vient d'être déployée                    |
+| Erreurs serveur     | plus de 5 réponses 5xx en 5 min            | journaux `severity>=ERROR` ; retour arrière si c'est lié au déploiement                                              |
+| IA en mode dégradé  | plus de 5 générations dégradées en 15 min  | journaux `jsonPayload.event="generation"`, champ `reason` (ci-dessous)                                               |
+| Veille en échec     | journal `severity>=ERROR` du job de veille | `jsonPayload.event` : `ingestion_erreur` (source, statut), `veille_terminee` (`failedJobs`) ; voir « Veille emploi » |
+| Plainte e-mail      | chaque plainte reçue par le webhook        | la veille de l'abonné est déjà arrêtée ; taux sur 30 jours : `jsonPayload.event="taux_plaintes"`                     |
 
 Métriques issues des journaux, dans Cloud Monitoring : nombre de générations par statut et par raison, **score de fidélité** (distribution), **coût par CV** (USD), **durée de génération**. La latence et le volume des requêtes viennent de Cloud Run lui-même. Le coût cumulé se lit en base :
 
@@ -148,7 +180,19 @@ FROM llm_usage GROUP BY 1, 2 ORDER BY 1 DESC;
 | 429 Too Many Requests                                         | limiteur : 300 requêtes ou 20 exports par 15 min, 10 appels à l'IA par heure et par IP           | derrière un proxy, vérifier `TRUST_PROXY` (sinon toutes les requêtes semblent venir du proxy)                                                                                                    |
 | « Ce PDF est trop long à analyser » ou « n'a pas pu être lu » | délai de 10 s, plafond mémoire de 768 Mo ou temps CPU de 15 s dépassé par le processus d'analyse | comportement attendu pour un PDF piégé ; l'instance n'est pas affectée ; saisie manuelle                                                                                                         |
 | « Trop d'imports sont en cours »                              | une analyse à la fois par instance, 3 en attente au plus                                         | réessayer ; augmenter les instances si c'est fréquent                                                                                                                                            |
-| Erreurs « too many clients » de PostgreSQL                    | `max_instances × PG_POOL_MAX` dépasse `max_connections`                                          | réduire `pg_pool_max` ou `max_instances`, ou agrandir la base (tfvars)                                                                                                                           |
+| Erreurs « too many clients » de PostgreSQL                    | `max_instances × PG_POOL_MAX` dépasse `max_connections` (le job de veille en ajoute 7)           | réduire `pg_pool_max` ou `max_instances`, ou agrandir la base (tfvars)                                                                                                                           |
+
+### Veille emploi
+
+| Symptôme                                                | Cause probable                                                                                 | Action                                                                                                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ingestion_erreur`, `source: ba`, `errorType: ZodError` | BA Jobsuche a changé de format (API non officielle)                                            | comparer une réponse réelle aux schémas de `packages/jobwatch/src/sources/ba.ts` ; les autres sources et les abonnés continuent             |
+| `ingestion_erreur`, `status: 403` ou `429`              | clé client BA refusée, quota d'une source atteint                                              | vérifier https://github.com/bundesAPI/jobsuche-api ; réduire `DAILY_REQUEST_LIMITS` (`apps/worker/src/main.ts`)                             |
+| Aucun e-mail reçu par un abonné                         | aucune offre nouvelle (comportement voulu), veille non confirmée, désabonnée ou suspendue      | `summary.subscribers` dans `veille_terminee` ; état de la veille dans « Mon compte »                                                        |
+| `rerank_degrade`                                        | Vertex indisponible ou budget `JOBWATCH_LLM_MAX_COST_USD` atteint                              | les rapports partent quand même, classés par la recherche, avec une mention dans le rapport                                                 |
+| Erreur « TEI injoignable » ou « jeton d'identité »      | service TEI arrêté, droit `run.invoker` manquant, premier démarrage (téléchargement du modèle) | relancer le job ; vérifier `google_cloud_run_v2_service_iam_member.tei_invoker`                                                             |
+| Job relancé après un incident                           | —                                                                                              | sans risque : une offre n'est stockée qu'une fois, un abonné ne reçoit qu'un e-mail par jour (même un envoi interrompu n'est jamais refait) |
+| Taux de plaintes au-delà de 0,1 %                       | envois non désirés                                                                             | suspendre le Cloud Scheduler (`gcloud scheduler jobs pause`), examiner les critères et le contenu ; Gmail bloque au-delà de 0,3 %           |
 
 ## Données
 
@@ -157,3 +201,5 @@ FROM llm_usage GROUP BY 1, 2 ORDER BY 1 DESC;
 - Quotas et compteurs : identifiants de session et IP stockés sous forme d'empreinte (HMAC), jamais en clair ; purgés après 1 jour.
 - Coûts LLM (`llm_usage`) : ni contenu ni session ; conservés 13 mois.
 - Effacement immédiat : bouton « Effacer mes données ». Un effacement pendant une génération reste effectif (test d'intégration).
+- Comptes : liens de connexion et de confirmation stockés sous forme d'empreinte ; jetons masqués dans les journaux (`/compte/connexion/:jeton`). Export et suppression depuis « Mon compte ».
+- Veille : purge quotidienne par le job (offres de plus de 60 jours, comptes sans connexion depuis 18 mois, veilles non confirmées après 7 jours). Retours du fournisseur d'e-mail : un compteur, sans adresse.

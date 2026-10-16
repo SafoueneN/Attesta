@@ -8,4 +8,5 @@ export * from "./pipeline.js";
 export * from "./pricing.js";
 export * from "./prompts.js";
 export * from "./provider.js";
+export * from "./rerank.js";
 export * from "./scripted-provider.js";

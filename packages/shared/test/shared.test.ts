@@ -1,6 +1,6 @@
 import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { AppError, ConfigError, createLogger, loadConfig } from "../src/index.js";
+import { AppError, ConfigError, createLogger, loadConfig, loadWorkerConfig } from "../src/index.js";
 
 const secret = "x".repeat(32);
 
@@ -68,5 +68,46 @@ describe("AppError", () => {
     const error = new AppError("csrf_invalid", 403, "Rechargez la page.");
     expect(error).toMatchObject({ code: "csrf_invalid", status: 403, publicMessage: "Rechargez la page." });
     expect(error.message).toBe("csrf_invalid: Rechargez la page.");
+  });
+});
+
+describe("configuration du worker de veille", () => {
+  const worker = { DATABASE_URL: "postgres://x", SMTP_URL: "smtp://mailpit:1025" };
+
+  it("n'exige pas de secret de session, mais la base et le serveur d'envoi", () => {
+    expect(loadWorkerConfig(worker).JOBWATCH_SOURCES).toEqual(["ba"]);
+    expect(() => loadWorkerConfig({})).toThrow(/DATABASE_URL.*\n.*SMTP_URL/);
+  });
+
+  it("production : vecteurs « hash » interdits, https obligatoire", () => {
+    expect(() => loadWorkerConfig({ ...worker, NODE_ENV: "production" })).toThrow(/EMBEDDINGS_PROVIDER/);
+    expect(() =>
+      loadWorkerConfig({
+        ...worker,
+        NODE_ENV: "production",
+        EMBEDDINGS_PROVIDER: "tei",
+        TEI_URL: "http://tei",
+      }),
+    ).toThrow(/APP_BASE_URL/);
+  });
+
+  it("source adzuna : clés requises ; source inconnue refusée", () => {
+    expect(() => loadWorkerConfig({ ...worker, JOBWATCH_SOURCES: "ba,adzuna" })).toThrow(/ADZUNA/);
+    expect(
+      loadWorkerConfig({ ...worker, JOBWATCH_SOURCES: "ba, adzuna", ADZUNA_APP_ID: "i", ADZUNA_APP_KEY: "k" })
+        .JOBWATCH_SOURCES,
+    ).toEqual(["ba", "adzuna"]);
+    expect(() => loadWorkerConfig({ ...worker, JOBWATCH_SOURCES: "indeed" })).toThrow();
+  });
+
+  it("application web en production : serveur d'envoi requis", () => {
+    expect(() =>
+      loadConfig({
+        SESSION_SECRET: "s".repeat(32),
+        NODE_ENV: "production",
+        DATABASE_URL: "postgres://x",
+        APP_BASE_URL: "https://attesta.example",
+      }),
+    ).toThrow(/SMTP_URL/);
   });
 });

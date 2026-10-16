@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Image unique d'Attesta : compilation TypeScript, puis exécution non-root avec
 # Chromium et polices système (rendu PDF). Lancer avec --init (cf. compose.yaml).
+# Commande par défaut : l'application web ; la veille quotidienne utilise la même
+# image avec « node apps/worker/dist/main.js » (Cloud Run Job, service compose « veille »).
 
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
@@ -9,7 +11,10 @@ COPY package.json package-lock.json ./
 COPY packages/schema/package.json packages/schema/
 COPY packages/shared/package.json packages/shared/
 COPY packages/render/package.json packages/render/
+COPY packages/llm/package.json packages/llm/
+COPY packages/jobwatch/package.json packages/jobwatch/
 COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
 RUN npm ci --no-audit --no-fund
 COPY tsconfig.json tsconfig.base.json ./
 COPY packages packages

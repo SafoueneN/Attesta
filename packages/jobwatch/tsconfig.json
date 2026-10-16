@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../schema"
+    },
+    {
+      "path": "../shared"
+    },
+    {
+      "path": "../llm"
+    },
+    {
+      "path": "../render"
+    }
+  ]
+}

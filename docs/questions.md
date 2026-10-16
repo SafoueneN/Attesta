@@ -34,15 +34,17 @@ Révision de Q3 : les **comptes** passent en **Phase 3**, avec les droits RGPD (
 
 Révision : les **comptes** passent en Phase 4, avec l'e-mail ([ADR 0009](adr/0009-hebergement-et-execution.md), décision 3).
 
-## Bloquantes pour la Phase 4
+## Phase 4 : décisions prises le 2026-10-16
 
-| #   | Question                                                                           | Proposition par défaut                                                            |
-| --- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Q14 | Accès effectif à France Travail, Adzuna et Jooble (clés, conditions) ?             | Pilote DE avec BA Jobsuche d'abord                                                |
-| Q15 | BGE-M3 autohébergé (TEI) ou API ?                                                  | TEI autohébergé sur CPU                                                           |
-| Q16 | Formule de priorité du rapport 2 (fréquence + écart de salaire + effort) : poids ? | 0,5 × fréquence + 0,3 × écart de salaire normalisé − 0,2 × effort (**hypothèse**) |
-| Q17 | Jeu annoté pour la précision et le rappel du matching : qui le constitue ?         | L'équipe ; 50 offres × 5 profils                                                  |
-| Q18 | SES ou Brevo ?                                                                     | Brevo (UE, simplicité) ; SES si le volume l'exige                                 |
+| #   | Question                                  | Décision                                                                                                                          | Justification                                                                                                                   |
+| --- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Q14 | Accès aux sources                         | **BA Jobsuche** pour le pilote DE (sans clé) ; **Adzuna** prêt, activé par des clés ; Jooble et France Travail en attente d'accès | BA est vérifiée sur des données réelles ; Adzuna est testé sur réponses fictives. [ADR 0010](adr/0010-veille-comptes-envoi.md). |
+| Q15 | BGE-M3 : TEI autohébergé ou API ?         | **TEI autohébergé (CPU)**, service Cloud Run privé à Paris                                                                        | Les textes ne quittent pas l'infrastructure ; coût fixe ; vérifié en local avec le vrai modèle.                                 |
+| Q16 | Formule de priorité du rapport 2          | **0,5 × fréquence + 0,3 × écart de salaire − 0,2 × effort**, affichée comme **hypothèse** dans le rapport                         | Proposition par défaut ; à valider avec des candidats.                                                                          |
+| Q17 | Jeu annoté pour la précision et le rappel | **Toujours à constituer par l'équipe** (50 offres × 5 profils)                                                                    | Seuils provisoires en attendant (similarité 0,45, pertinence 20).                                                               |
+| Q18 | SES ou Brevo ?                            | **Brevo**, par son relais SMTP ; Mailpit en local                                                                                 | Société française, données dans l'UE ; le code ne dépend que de SMTP.                                                           |
+
+À trancher avant l'ouverture au public : nom de domaine d'envoi (SPF, DKIM, DMARC), compte Brevo et sa DPA, constitution du jeu annoté, traduction allemande des rapports pour le pilote DE.
 
 ## Hors code : à confirmer, non bloquant
 

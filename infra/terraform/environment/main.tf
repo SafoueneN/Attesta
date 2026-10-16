@@ -215,6 +215,11 @@ locals {
     PDF_CHROMIUM_NO_SANDBOX = tostring(var.chromium_no_sandbox)
     PG_POOL_MAX             = tostring(var.pg_pool_max)
   }
+  # Envoi d'e-mails (comptes, veille) : relais SMTP Brevo, UE (décision Q18).
+  mail_env = {
+    APP_BASE_URL = var.app_base_url
+    MAIL_FROM    = var.mail_from
+  }
 }
 
 resource "google_cloud_run_v2_service" "web" {
@@ -254,7 +259,7 @@ resource "google_cloud_run_v2_service" "web" {
       }
 
       dynamic "env" {
-        for_each = local.env
+        for_each = merge(local.env, local.mail_env)
         content {
           name  = env.key
           value = env.value
@@ -274,6 +279,24 @@ resource "google_cloud_run_v2_service" "web" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.app["database-url"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "SMTP_URL"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.smtp_url.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "BREVO_WEBHOOK_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.brevo_webhook.secret_id
             version = "latest"
           }
         }
@@ -310,7 +333,11 @@ resource "google_cloud_run_v2_service" "web" {
     ]
   }
 
-  depends_on = [google_secret_manager_secret_iam_member.runtime, google_project_iam_member.runtime]
+  depends_on = [
+    google_secret_manager_secret_iam_member.runtime,
+    google_secret_manager_secret_iam_member.runtime_mail,
+    google_project_iam_member.runtime,
+  ]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public" {

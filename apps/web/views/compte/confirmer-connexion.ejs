@@ -1,0 +1,9 @@
+<%- include("../partials/head") %>
+  <h1><%= t.account.loginTitle %></h1>
+  <p>Confirmez la connexion au compte Attesta <strong><%= maskedEmail %></strong>.</p>
+  <p class="hint">Si ce n'est pas votre adresse, ne continuez pas : ce lien ne vous est pas destiné.</p>
+  <form method="post" action="/compte/connexion/<%= token %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button type="submit" class="button">Me connecter</button>
+  </form>
+<%- include("../partials/foot") %>

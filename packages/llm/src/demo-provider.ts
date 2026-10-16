@@ -35,6 +35,14 @@ export class DemoProvider implements LlmProvider {
       };
       return { data: request.schema.parse(demoDraft(analysis, facts, outline)), usage };
     }
+    if (request.step === "rerank-offres") {
+      // Sans modèle : l'ordre de l'étage de rappel est conservé, aucune compétence citée.
+      const { offres } = request.input as { offres: { id: string }[] };
+      const data = {
+        offres: offres.map((o, i) => ({ id: o.id, pertinence: 100 - i, competencesManquantes: [] })),
+      };
+      return { data: request.schema.parse(data), usage };
+    }
     throw new LlmUnavailableError("Import de CV indisponible en mode démonstration");
   }
 }

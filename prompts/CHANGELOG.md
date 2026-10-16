@@ -7,3 +7,7 @@ Chaque prompt est versionné dans `prompts/<étape>/vN.md`. Une nouvelle version
 - `analyse-offre/v1` : exigences (`must` / `nice`) et mots-clés pondérés, recopiés tels qu'écrits dans l'offre ; consignes injectées dans l'offre ignorées ; aucune variable protégée.
 - `redaction/v1` : rédaction ligne par ligne à partir de faits désignés par pointeur JSON ; interdiction explicite d'inventer ou de gonfler ; compétences absentes jamais ajoutées ; exemple positif et négatif.
 - `extraction-cv/v1` : recopie d'un CV PDF dans le formulaire, sans reformulation ni complétion ; aucune donnée sensible extraite.
+
+## 2026-10-16 : rerank-offres v1 (Phase 4)
+
+- `rerank-offres/v1` : reclassement des 20 meilleures offres de la veille et compétences manquantes recopiées mot pour mot depuis l'offre ; le code rejette toute compétence absente de l'offre ou présente dans le profil ; consignes injectées dans les offres ignorées ; aucune variable protégée.

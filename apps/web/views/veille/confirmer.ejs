@@ -1,0 +1,7 @@
+<%- include("../partials/head") %>
+  <h1><%= t.account.confirmTitle %></h1>
+  <p>Vous recevrez un e-mail les jours où de nouvelles offres correspondent à votre profil, avec deux rapports PDF : les offres, et les points à améliorer. Désabonnement en un clic dans chaque e-mail.</p>
+  <form method="post" action="/veille/confirmer/<%= token %>">
+    <button type="submit" class="button">Confirmer ma veille</button>
+  </form>
+<%- include("../partials/foot") %>

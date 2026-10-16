@@ -133,7 +133,16 @@ jobs:
       - run: npx playwright test
         env:
           E2E_BASE_URL: http://localhost:3080
+          # Comptes et veille : e-mails lus dans Mailpit (e2e/compte.spec.ts).
+          MAILPIT_URL: http://localhost:8025
+      # Le worker démarre dans l'image, migre la file pg-boss, purge et s'arrête :
+      # aucun abonné, donc aucune requête vers les sources (pas de réseau externe).
+      - name: Worker de veille dans l'image
+        run: docker compose run --rm -e ESCO_ENABLED=false veille
       - name: Aucune donnée saisie dans les journaux
-        run: "! docker compose logs web | grep -e 'Léa' -e 'lea.martin'"
+        # Noms et adresses saisis par les tests E2E, jetons des liens envoyés par e-mail.
+        run: |
+          ! docker compose logs web | grep -e 'Léa' -e 'lea.martin' -e 'Camille' -e '@attesta.localhost' \
+            -e '/connexion/[A-Za-z0-9_-]\{20,\}' -e '/confirmer/[A-Za-z0-9_-]\{20,\}' -e '/desabonner/[A-Za-z0-9_-]\{20,\}'
       - if: always()
         run: docker compose down -v

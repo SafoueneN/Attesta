@@ -368,3 +368,11 @@ input[type="file"] {
   font: inherit;
   max-width: 100%;
 }
+.header-link {
+  margin-left: auto;
+  margin-right: 1rem;
+}
+select {
+  font: inherit;
+  padding: 0.4rem;
+}

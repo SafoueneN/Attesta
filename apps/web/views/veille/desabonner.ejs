@@ -1,0 +1,7 @@
+<%- include("../partials/head") %>
+  <h1><%= t.account.unsubscribeTitle %></h1>
+  <p>Vous ne recevrez plus les rapports de veille. Votre compte et votre profil sont conservés ; vous pouvez les supprimer depuis votre compte.</p>
+  <form method="post" action="/veille/desabonner/<%= token %>">
+    <button type="submit" class="button">Me désabonner</button>
+  </form>
+<%- include("../partials/foot") %>

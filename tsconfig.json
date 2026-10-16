@@ -14,7 +14,13 @@
       "path": "packages/render"
     },
     {
+      "path": "packages/jobwatch"
+    },
+    {
       "path": "apps/web"
+    },
+    {
+      "path": "apps/worker"
     }
   ]
 }

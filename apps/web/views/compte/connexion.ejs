@@ -1,0 +1,18 @@
+<%- include("../partials/head") %>
+  <h1><%= t.account.loginTitle %></h1>
+<%- include("../partials/error-summary") %>
+  <p>Un compte sert à enregistrer votre profil et à recevoir la veille emploi. Pas de mot de passe : nous vous envoyons un lien de connexion, valable 15 minutes.</p>
+  <p class="hint">Ouvrez le lien dans ce même navigateur pour garder le CV en cours.</p>
+  <form method="post" action="/compte/connexion" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<%- include("../partials/field", { id: "email", name: "email", label: "Adresse e-mail", value: values.email ?? "", type: "email", autocomplete: "email", required: true, maxlength: 254 }) %>
+<% const policyError = errors.find((e) => e.field === "policy"); -%>
+    <div class="field<%= policyError ? ' field--error' : '' %>">
+<% if (policyError) { -%>
+      <p class="error-message" id="policy-error"><span class="visually-hidden">Erreur : </span><%= policyError.message %></p>
+<% } -%>
+      <label class="checkbox"><input type="checkbox" id="policy" name="policy" value="yes"<% if (policyError) { %> aria-invalid="true" aria-describedby="policy-error"<% } %>> J'ai lu la <a href="/confidentialite">politique de confidentialité</a> et j'accepte la création d'un compte.</label>
+    </div>
+    <button type="submit" class="button">Recevoir mon lien de connexion</button>
+  </form>
+<%- include("../partials/foot") %>

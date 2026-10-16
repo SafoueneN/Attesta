@@ -1,6 +1,6 @@
 # Architecture d'Attesta
 
-Statut : à jour à la fin de la Phase 3 (2026-10-16). Décisions détaillées : [adr/](adr/README.md).
+Statut : à jour à la fin de la Phase 4 (2026-10-16). Décisions détaillées : [adr/](adr/README.md).
 
 ## Vue d'ensemble
 
@@ -8,21 +8,49 @@ Statut : à jour à la fin de la Phase 3 (2026-10-16). Décisions détaillées :
 flowchart LR
   U[Candidat · navigateur] -->|HTTPS, formulaires, SSE| W
   subgraph CR[Cloud Run · europe-west9]
-    W[apps/web<br/>Express 5 + EJS]
-    W --> L[packages/llm<br/>pipeline, contrôle de fidélité]
-    W --> R[packages/render<br/>gabarit unique + Chromium sandboxé]
-    W --> T[processus enfant<br/>analyse PDF plafonnée]
+    W[apps/web<br/>Express 5 + EJS<br/>CV, comptes, veille]
+    J[apps/worker<br/>Cloud Run Job quotidien]
+    T[TEI · BGE-M3<br/>service privé]
   end
-  W --> DB[(Cloud SQL PostgreSQL 16<br/>sessions · quotas · compteurs · coûts)]
-  L -->|identité du service, sans clé| V[(Vertex AI région eu<br/>Claude)]
-  L & R & W --> SC[packages/schema<br/>contrat Zod]
+  CS[Cloud Scheduler<br/>7 h, Europe/Paris] --> J
+  W & J --> DB[(Cloud SQL PostgreSQL 16 + pgvector<br/>sessions · comptes · offres · vecteurs · pg-boss)]
+  W & J -->|identité du service, sans clé| V[(Vertex AI région eu<br/>Claude)]
+  J -->|jeton d'identité Google| T
+  J -->|API publiques| S[(BA Jobsuche · ESCO<br/>Adzuna si clés)]
+  W & J -->|SMTP| B[(Brevo, UE)]
+  B -->|webhook : plaintes, rebonds| W
   GH[GitHub Actions] -->|WIF, sans clé| AR[(Artifact Registry)]
-  GH -->|deploy.sh : révision, test de fumée, paliers| CR
+  GH -->|deploy.sh : révision, test de fumée, paliers, image du job| CR
 ```
 
-- **Un seul service** (`apps/web`) sert les pages, la génération (avec progression SSE), l'aperçu et l'export PDF. Il n'y a pas de worker séparé ([ADR 0009](adr/0009-hebergement-et-execution.md)) : Chromium est un processus à part et borné, et l'analyse des PDF importés tourne dans un processus enfant plafonné par le noyau (mémoire, CPU, délai), sans aucun secret.
-- **Sans état local** : sessions, verrou et quota d'IA, limiteur de requêtes et coûts sont dans PostgreSQL, avec des mises à jour atomiques. Le service peut donc tourner sur plusieurs instances.
-- **pg-boss** arrivera en Phase 4 pour la veille planifiée (`packages/jobwatch`).
+- **Un service web** (`apps/web`) sert le parcours CV, les comptes (connexion par lien), la gestion de la veille, le désabonnement et le webhook du fournisseur d'e-mail. Chromium est un processus à part et borné ; l'analyse des PDF importés tourne dans un processus enfant plafonné par le noyau, sans aucun secret ([ADR 0009](adr/0009-hebergement-et-execution.md)).
+- **Un job quotidien** (`apps/worker`, même image) exécute la veille : purge, ingestion, vecteurs, matching, rapports, envoi. Les jobs passent par **pg-boss** (relances, une file par clé) ; l'idempotence repose sur les contraintes de la base ([ADR 0010](adr/0010-veille-comptes-envoi.md)).
+- **Sans état local** : sessions, verrous, compteurs, coûts et données de veille sont dans PostgreSQL. Le service web peut tourner sur plusieurs instances ; le job tourne en une seule tâche, à cause des budgets de requêtes tenus en mémoire.
+
+## Flux de la veille quotidienne
+
+```mermaid
+sequenceDiagram
+  participant J as Job de veille
+  participant S as Sources (BA, ESCO)
+  participant DB as PostgreSQL
+  participant T as TEI (BGE-M3)
+  participant M as Claude (Vertex eu)
+  participant B as Brevo
+  J->>DB: purge (offres de plus de 60 j, comptes inactifs depuis 18 mois…)
+  J->>S: métiers voisins (ESCO, en cache 30 j), puis offres par intitulé, ville, rayon
+  J->>DB: offres normalisées, dédupliquées (source + identifiant, empreinte)
+  J->>T: vecteurs des nouvelles offres
+  loop un job pg-boss par abonné
+    J->>T: vecteur du profil anonymisé
+    J->>DB: filtres durs + recherche lexicale + recherche vectorielle (HNSW)
+    J->>J: fusion RRF, 20 premières
+    J->>M: rerank et compétences manquantes (vérifiées dans l'offre)
+    J->>DB: résultats ; réservation de l'envoi du jour
+    J->>B: e-mail + 2 PDF (rien s'il n'y a pas d'offre nouvelle)
+  end
+  J->>DB: taux de plaintes sur 30 jours (alerte au-delà de 0,1 %)
+```
 
 ## Flux de génération d'un CV
 
@@ -46,34 +74,29 @@ sequenceDiagram
 
 ## Modèle de données (ERD)
 
-Modèle **cible**. Tables en place à la fin de la Phase 3 : `session`, `ia_quota`, `rate_limit`, `llm_usage`. Les autres (comptes, générations conservées, veille) arrivent en Phase 4 avec leur usage.
+Modèle **en place** à la fin de la Phase 4. Écarts assumés par rapport au modèle cible de la Phase 0 ([ADR 0010](adr/0010-veille-comptes-envoi.md)) : pas de table `profile` (le profil est la dernière `profile_version`), pas de table `report` (rapports non conservés, `email_delivery` en tient lieu), coordonnées en `double precision` (pas de PostGIS). Le parcours anonyme ne stocke rien d'autre que sa session : offre, génération, traçabilité et score de fidélité restent en session ([ADR 0009](adr/0009-hebergement-et-execution.md)).
 
 ```mermaid
 erDiagram
   app_user ||--o{ consent_log : "consent"
-  app_user ||--o{ profile : "possède"
-  profile ||--o{ profile_version : "versions"
-  app_user ||--o{ job_offer_input : "colle"
-  profile_version ||--o{ cv_generation : "source"
-  job_offer_input ||--o{ cv_generation : "cible"
-  cv_generation ||--o{ cv_line_trace : "lignes"
-  cv_generation ||--|| faithfulness_report : "contrôle"
-  cv_generation ||--o{ export : "exports"
-  cv_generation ||--o{ llm_usage : "coût"
-  job_source ||--o{ job_posting : "fournit"
-  job_posting ||--|| job_embedding : "vecteur"
-  app_user ||--o{ watch_subscription : "abonne"
-  watch_subscription ||--o{ match_result : "résultats"
+  app_user ||--o{ profile_version : "versions"
+  app_user ||--o| watch_subscription : "abonne"
+  profile_version ||--o{ watch_subscription : "profil suivi"
+  watch_subscription ||--o{ match_result : "offres proposées"
   job_posting ||--o{ match_result : "classée"
-  watch_subscription ||--o{ report : "quotidien"
-  report ||--o{ email_delivery : "envoi"
+  job_posting ||--|| job_embedding : "vecteur"
+  watch_subscription ||--o{ email_delivery : "un envoi par jour"
 
   app_user {
     uuid id PK
-    citext email UK
+    text email UK "minuscules"
     timestamptz email_verified_at
     timestamptz last_active_at
-    timestamptz created_at
+  }
+  login_token {
+    bytea token_hash PK "SHA-256"
+    text email
+    timestamptz expires_at "15 min"
   }
   consent_log {
     bigint id PK
@@ -81,169 +104,105 @@ erDiagram
     text purpose "service|veille|promo"
     bool granted
     text policy_version
-    timestamptz at
-    text ip_hash
-  }
-  profile {
-    uuid id PK
-    uuid user_id FK
-    uuid current_version_id FK
+    text ip_hash "HMAC"
   }
   profile_version {
     uuid id PK
-    uuid profile_id FK
+    uuid user_id FK
     int version
     jsonb data "Profile Zod"
     text schema_version
-    timestamptz created_at
   }
-  job_offer_input {
+  watch_subscription {
     uuid id PK
-    uuid user_id FK
-    text raw_text
-    bytea text_hash
-    jsonb analysis "OfferAnalysis"
-    text prompt_version
-  }
-  cv_generation {
-    uuid id PK
+    uuid user_id FK "UNIQUE"
     uuid profile_version_id FK
-    uuid offer_id FK
-    jsonb tailored "TailoredCv"
-    text status
-    text prompt_version
-    text model
-    bool degraded_mode
-    timestamptz reviewed_at
-  }
-  cv_line_trace {
-    bigint id PK
-    uuid generation_id FK
-    text cv_path
-    text text
-    text_array sources
-    text status
-  }
-  faithfulness_report {
-    uuid generation_id PK
-    numeric score
-    int checked
-    int supported
-    jsonb details
-  }
-  export {
-    uuid id PK
-    uuid generation_id FK
-    text variant "ats|design"
-    text storage_key
-    timestamptz expires_at
-  }
-  llm_usage {
-    bigint id PK
-    uuid generation_id FK
-    text step
-    text model
-    int input_tokens
-    int output_tokens
-    numeric cost_eur
-    int latency_ms
-    int attempt
-    bool schema_valid
-  }
-  job_source {
-    text id PK
-    text name
-    jsonb terms "quota, attribution"
-    timestamptz last_run_at
+    text_array occupations
+    text country "DE|FR"
+    text city
+    float lat
+    float lon
+    int radius_km
+    text working_time
+    text status "en_attente|active|desabonnee|suspendue"
+    bytea confirm_token_hash
+    text unsubscribe_token UK
   }
   job_posting {
     uuid id PK
-    text source_id FK
+    text source
     text external_id
     text title
     text company
     text city
-    geography location
+    float lat
+    float lon
     text lang
-    text contract
     date posted_at
     text url
     text body
+    int salary_min_eur "publié, jamais estimé"
     bytea fingerprint UK
-    tsvector tsv
-    text_array esco_occupations
+    tsvector tsv "généré, fr ou de"
   }
   job_embedding {
     uuid posting_id PK
     vector_1024 embedding
     text model
   }
-  watch_subscription {
-    uuid id PK
-    uuid user_id FK
-    uuid profile_version_id FK
-    jsonb filters
-    text status
-    timestamptz confirmed_at
-    text unsubscribe_token UK
-  }
   match_result {
     bigint id PK
     uuid subscription_id FK
     uuid posting_id FK
     date run_date
-    numeric rrf_score
-    numeric rerank_score
-    jsonb breakdown
+    int rank
+    float rrf_score
+    float similarity
+    float coverage
+    float location_score
+    int rerank_score
     jsonb missing_skills
-  }
-  report {
-    uuid id PK
-    uuid subscription_id FK
-    date run_date
-    text kind "offres|ameliorations"
-    text storage_key
   }
   email_delivery {
     uuid id PK
     uuid subscription_id FK
     date run_date
+    int offers
     text provider_message_id
-    text status
-    timestamptz sent_at
+    text status "en_cours|envoye|plainte|rebond"
   }
 ```
 
-En mode anonyme, `profile_version`, `job_offer_input` et `cv_generation` sont stockés avec `user_id` nul et `expires_at` à 2 h. Une tâche de purge pg-boss tourne toutes les 15 minutes (ADR 0006).
+Tables techniques sans donnée personnelle : `session`, `ia_quota`, `rate_limit`, `llm_usage` (Phase 3), `job_source_run` (journal d'ingestion), `email_event` (compteur de plaintes et de rebonds, sans adresse), `esco_cache`, et le schéma `pgboss`.
 
-### Index prévus
+### Index
 
-| Table           | Index                                                     | Usage              |
-| --------------- | --------------------------------------------------------- | ------------------ |
-| `job_posting`   | GIN sur `tsv`                                             | recherche lexicale |
-| `job_posting`   | GiST sur `location`, B-tree `(lang, contract, posted_at)` | filtres durs       |
-| `job_posting`   | UNIQUE `fingerprint`, UNIQUE `(source_id, external_id)`   | déduplication      |
-| `job_embedding` | HNSW `vector_cosine_ops` (m = 16, ef_construction = 64)   | rappel sémantique  |
-| `match_result`  | UNIQUE `(subscription_id, posting_id, run_date)`          | idempotence        |
-| `report`        | UNIQUE `(subscription_id, run_date, kind)`                | idempotence        |
-| `*`             | B-tree sur `expires_at`, `last_active_at`                 | purge              |
+| Table                                    | Index                                                   | Usage                                |
+| ---------------------------------------- | ------------------------------------------------------- | ------------------------------------ |
+| `job_posting`                            | GIN sur `tsv`                                           | recherche lexicale                   |
+| `job_posting`                            | B-tree `(country, posted_at)`                           | filtres durs                         |
+| `job_posting`                            | UNIQUE `fingerprint`, UNIQUE `(source, external_id)`    | déduplication                        |
+| `job_embedding`                          | HNSW `vector_cosine_ops` (m = 16, ef_construction = 64) | rappel sémantique                    |
+| `match_result`                           | UNIQUE `(subscription_id, posting_id)`                  | une offre n'est proposée qu'une fois |
+| `email_delivery`                         | UNIQUE `(subscription_id, run_date)`                    | un e-mail par abonné et par jour     |
+| `app_user`, `login_token`, `email_event` | B-tree sur `last_active_at`, `expires_at`, `at`         | purge                                |
 
 ### Rétention
 
-| Donnée                                  | Durée                                                           |
-| --------------------------------------- | --------------------------------------------------------------- |
-| Session anonyme et générations anonymes | 2 h d'inactivité                                                |
-| PDF exporté                             | servi puis supprimé ; 24 h maximum                              |
-| Compte inactif                          | 12 mois, prévenance à 11 mois                                   |
-| `job_posting`                           | 60 jours après `posted_at`                                      |
-| `consent_log`                           | durée du compte + 5 ans (preuve du consentement, **à valider**) |
-| `llm_usage`                             | 13 mois, sans contenu                                           |
+| Donnée                                         | Durée                                                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Session anonyme                                | 2 h d'inactivité, 24 h au plus                                                           |
+| PDF (CV et rapports)                           | jamais stockés                                                                           |
+| Compte, profils, veille, envois, consentements | jusqu'à la suppression du compte, ou 18 mois sans connexion (**sans préavis** : backlog) |
+| Lien de connexion ; confirmation de veille     | 15 min ; 48 h (veille non confirmée supprimée après 7 jours)                             |
+| `job_posting` (et vecteurs, résultats liés)    | 60 jours après la publication                                                            |
+| `email_event`, `job_source_run`, `llm_usage`   | 13 mois                                                                                  |
+| `esco_cache`                                   | 30 jours                                                                                 |
 
 ## Observabilité
 
 - **Journaux** pino en JSON, au format Cloud Logging (`severity`, `message`), sans aucune donnée personnelle. Événements métier : `generation` (statut, raison, score, coût, durée, tentatives), `llm_usage` (jetons, coût, latence), `pdf_export` (durée).
 - **Métriques** : tirées des journaux par Terraform (générations par statut, score de fidélité, coût par CV, durée de génération), plus les métriques natives de Cloud Run (latence, 5xx, instances). Pas d'exposition Prometheus : Cloud Run n'en a pas besoin.
-- **Alertes** : service injoignable, erreurs 5xx, IA en mode dégradé (voir [runbook](runbook.md#surveillance-et-alertes)).
+- **Alertes** : service injoignable, erreurs 5xx, IA en mode dégradé, veille en échec, plainte e-mail (voir [runbook](runbook.md#surveillance-et-alertes)).
 - **Coûts** : table `llm_usage` (13 mois).
-
-Le taux de plaintes e-mail sera ajouté avec la veille (Phase 4).
+- **Veille** : événements `veille_terminee` (offres ingérées, envois, jobs en échec), `ingestion_erreur`, `rerank_degrade`, `taux_plaintes` (30 jours), `email_plainte`.

@@ -1,0 +1,87 @@
+<%- include("../partials/head") %>
+  <h1><%= t.account.title %></h1>
+<%- include("../partials/error-summary") %>
+<% if (notice) { -%>
+  <p class="notice notice--<%= notice.kind %>" role="<%= notice.kind === "error" ? "alert" : "status" %>"><%= notice.text %></p>
+<% } -%>
+  <p>Connecté avec <strong><%= user.email %></strong>.</p>
+
+  <section aria-labelledby="profil-titre">
+    <h2 id="profil-titre">Mon profil</h2>
+<% if (profile) { -%>
+    <p>Profil enregistré : version <%= profile.version %>, le <%= profile.createdAt.toLocaleDateString("fr-FR") %>.</p>
+<% } else { -%>
+    <p>Aucun profil enregistré. La veille compare les offres à votre profil : remplissez <a href="/cv/etape/1">votre CV</a> (étapes 1 à 3), puis enregistrez-le ici.</p>
+<% } -%>
+<% if (draftReady) { -%>
+    <form method="post" action="/compte/profil">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="button button--secondary">Enregistrer le CV de cette session comme profil</button>
+    </form>
+<% } -%>
+  </section>
+
+  <section aria-labelledby="veille-titre">
+    <h2 id="veille-titre">Ma veille emploi</h2>
+<% if (subscription) { -%>
+    <p>État : <strong><%= { en_attente: "en attente de confirmation (voir votre messagerie)", active: "active", desabonnee: "arrêtée", suspendue: "suspendue (adresse injoignable)" }[subscription.status] %></strong>.</p>
+<% } -%>
+<% if (profile) { -%>
+    <p>Chaque matin, les offres publiées par les sources autorisées (Bundesagentur für Arbeit pour l'Allemagne) sont comparées à votre profil, sans votre nom ni vos coordonnées. Pas d'offre nouvelle : pas d'e-mail.</p>
+    <form method="post" action="/compte/veille" novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<%- include("../partials/field", { id: "sub-occupations", name: "occupations", label: "Métiers recherchés", hint: "Un à cinq intitulés, séparés par des virgules (par exemple : développeur web, développeur back-end).", value: values.occupations ?? "", required: true, maxlength: 450 }) %>
+      <div class="field">
+        <label for="sub-country">Pays</label>
+        <select id="sub-country" name="country">
+          <option value="DE"<% if (values.country === "DE") { %> selected<% } %>>Allemagne (pilote)</option>
+          <option value="FR"<% if (values.country === "FR") { %> selected<% } %>>France</option>
+        </select>
+      </div>
+<%- include("../partials/field", { id: "sub-city", name: "city", label: "Ville", hint: "Ville de plus de 15 000 habitants ; les noms français sont acceptés (Munich, Cologne).", value: values.city ?? "", required: true, maxlength: 100, autocomplete: "address-level2" }) %>
+      <div class="field">
+        <label for="sub-radiusKm">Rayon</label>
+        <select id="sub-radiusKm" name="radiusKm">
+<% radii.forEach((r) => { -%>
+          <option value="<%= r %>"<% if (String(values.radiusKm) === String(r)) { %> selected<% } %>><%= r %> km</option>
+<% }) -%>
+        </select>
+      </div>
+      <fieldset>
+        <legend>Temps de travail</legend>
+<% [["indifferent", "Indifférent"], ["plein", "Temps plein"], ["partiel", "Temps partiel"]].forEach(([v, label]) => { -%>
+        <label><input type="radio" name="workingTime" value="<%= v %>"<% if ((values.workingTime ?? "indifferent") === v) { %> checked<% } %>> <%= label %></label>
+<% }) -%>
+      </fieldset>
+<% const consentError = errors.find((e) => e.field === "sub-consent"); -%>
+      <div class="field<%= consentError ? ' field--error' : '' %>">
+<% if (consentError) { -%>
+        <p class="error-message" id="sub-consent-error"><span class="visually-hidden">Erreur : </span><%= consentError.message %></p>
+<% } -%>
+        <label class="checkbox"><input type="checkbox" id="sub-consent" name="consent" value="yes"<% if (consentError) { %> aria-invalid="true" aria-describedby="sub-consent-error"<% } %>> J'accepte de recevoir chaque jour, par e-mail, les rapports de veille. Je peux retirer ce consentement à tout moment.</label>
+      </div>
+      <button type="submit" class="button"><%= subscription && subscription.status === "active" ? "Mettre à jour mes critères" : "Activer ma veille" %></button>
+    </form>
+<% if (subscription && subscription.status !== "desabonnee") { -%>
+    <form method="post" action="/compte/veille/arreter">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="button button--quiet">Arrêter ma veille</button>
+    </form>
+<% } -%>
+<% } -%>
+  </section>
+
+  <section aria-labelledby="donnees-titre">
+    <h2 id="donnees-titre">Mes données</h2>
+    <p><a href="/compte/export">Télécharger toutes mes données (JSON)</a></p>
+    <form method="post" action="/compte/supprimer">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="checkbox"><input type="checkbox" name="confirm" value="yes"> Je veux supprimer définitivement mon compte, mon profil, ma veille et l'historique des envois.</label>
+      <button type="submit" class="button button--quiet">Supprimer mon compte</button>
+    </form>
+    <form method="post" action="/compte/deconnexion">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="button button--quiet">Me déconnecter</button>
+    </form>
+  </section>
+<%- include("../partials/foot") %>

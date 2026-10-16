@@ -1,6 +1,6 @@
 # ADR 0007 : Veille emploi, sources, matching en deux étages, envoi
 
-- Statut : proposé (mise en œuvre en Phase 4)
+- Statut : accepté ; précisé et mis en œuvre par l'[ADR 0010](0010-veille-comptes-envoi.md)
 - Date : 2026-10-16
 
 ## Décision

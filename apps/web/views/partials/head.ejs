@@ -11,6 +11,9 @@
 <a class="skip-link" href="#main"><%= t.skipLink %></a>
 <header class="site-header">
   <a class="brand" href="/"><%= t.appName %><span class="brand-tagline"><%= t.tagline %></span></a>
+<% if (locals.accountsEnabled) { -%>
+  <a class="header-link" href="/compte"><%= t.accountLink %></a>
+<% } -%>
   <button type="button" class="button button--quiet" data-theme-toggle aria-pressed="false" hidden><%= t.themeToggle %></button>
 </header>
 <main id="main" tabindex="-1">

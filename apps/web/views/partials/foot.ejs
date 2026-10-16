@@ -1,6 +1,6 @@
 </main>
 <footer class="site-footer">
-  <p><%= t.privacyNote %></p>
+  <p><%= t.privacyNote %> <a href="/confidentialite"><%= t.privacyLink %></a></p>
 <% if (locals.csrfToken) { -%>
   <form method="post" action="/cv/effacer">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">

@@ -44,7 +44,8 @@
     "supertest": "^7.3.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "@types/nodemailer": "^8.0.2"
   },
   "dependencies": {
     "node-pg-migrate": "^9.0.0"

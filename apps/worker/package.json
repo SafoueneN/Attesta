@@ -1,0 +1,16 @@
+{
+  "name": "@attesta/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Exécution quotidienne de la veille emploi (Cloud Run Job).",
+  "type": "module",
+  "main": "dist/main.js",
+  "dependencies": {
+    "@attesta/jobwatch": "0.1.0",
+    "@attesta/llm": "0.1.0",
+    "@attesta/render": "0.1.0",
+    "@attesta/shared": "0.1.0",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.38.0"
+  }
+}

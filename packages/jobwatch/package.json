@@ -1,0 +1,19 @@
+{
+  "name": "@attesta/jobwatch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Veille emploi : connecteurs, matching hybride, rapports, envoi.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@attesta/llm": "0.1.0",
+    "@attesta/render": "0.1.0",
+    "@attesta/schema": "0.1.0",
+    "@attesta/shared": "0.1.0",
+    "nodemailer": "^10.1.2",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.38.0",
+    "zod": "^4.6.7"
+  }
+}
