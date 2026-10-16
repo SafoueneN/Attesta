@@ -44,10 +44,12 @@ services:
       SESSION_STORE: postgres
       # Secret de développement : en préprod et en prod, il est injecté par l'hébergeur.
       SESSION_SECRET: dev-secret-a-remplacer-hors-poste-local-0000
-      NODE_ENV: production
+      # Poste local : mode développement (cookies sans Secure sur http://localhost,
+      # fournisseur de démonstration autorisé). L'image est la même qu'en production.
+      NODE_ENV: development
       LOG_LEVEL: info
-      # Servi en http://localhost : cookies sans attribut Secure (jamais en préprod ni en prod).
-      HTTPS_ONLY: "false"
+      # demo : génération sans IA. Pour Claude sur Vertex AI (UE), voir docs/runbook.md.
+      LLM_PROVIDER: demo
       PDF_CHROMIUM_NO_SANDBOX: "true"
     read_only: true
     tmpfs: ["/tmp"]

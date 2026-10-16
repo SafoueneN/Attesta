@@ -1,3 +1,18 @@
+<% if (ia.importAvailable) { -%>
+  <section class="import" aria-labelledby="import-title">
+    <h2 id="import-title">Gagner du temps : importer un CV existant</h2>
+    <p>Votre CV au format PDF (5 Mo au plus) pré-remplit le formulaire. Le fichier n'est pas conservé ; vous relisez chaque champ avant de continuer.</p>
+    <form method="post" action="/cv/import" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="field">
+        <label for="cv-file">Fichier PDF <span class="optional"><%= t.optional %></span></label>
+        <input id="cv-file" name="cv" type="file" accept="application/pdf,.pdf">
+      </div>
+      <button type="submit" class="button button--secondary">Importer et pré-remplir</button>
+    </form>
+  </section>
+  <h2>Votre profil</h2>
+<% } -%>
 <%- include("../partials/form-start") %>
   <p>Ces informations forment l'en-tête de votre CV. Seul le nom est obligatoire.</p>
 <%- include("../partials/field", { id: "basics-name", name: "basics[name]", label: "Nom et prénom", value: draft.basics.name, required: true, autocomplete: "name" }) %>

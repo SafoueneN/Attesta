@@ -1,4 +1,58 @@
-  <p>Voici votre CV tel qu'il sera exporté : l'aperçu et le PDF utilisent exactement la même mise en page.</p>
+<% const lines = generation ? [
+     ...(generation.cv.headline ? [{ path: "/headline", line: generation.cv.headline, where: "Titre" }] : []),
+     ...generation.cv.summary.map((line, i) => ({ path: "/summary/" + i, line, where: "Accroche" })),
+     ...generation.cv.work.flatMap((e, i) => e.highlights.map((line, j) => ({ path: "/work/" + i + "/highlights/" + j, line, where: profile.work[Number(e.ref.split("/")[2])].position }))),
+     ...generation.cv.projects.flatMap((e, i) => e.highlights.map((line, j) => ({ path: "/projects/" + i + "/highlights/" + j, line, where: profile.projects[Number(e.ref.split("/")[2])].name }))),
+   ] : [];
+   const status = (path) => generation.report.lines.find((l) => l.path === path); -%>
+<% if (stale) { -%>
+  <p class="notice notice--error" role="status">Votre profil ou l'offre ont changé depuis la dernière génération. L'aperçu montre votre CV non adapté ; générez à nouveau pour l'adapter.</p>
+<% } -%>
+<% if (!generation) { -%>
+  <section aria-labelledby="generation-title">
+    <h2 id="generation-title">Adapter mon CV à l'offre</h2>
+<% if (ia.available) { -%>
+    <p>L'IA reformule votre parcours pour cette offre <strong>à partir de vos seules informations</strong>. Chaque ligne est ensuite vérifiée : une ligne qui contient un chiffre, un outil ou une compétence absents de votre profil est retirée. Les compétences demandées que vous n'avez pas déclarées sont signalées, jamais ajoutées.</p>
+<% if (ia.demo) { -%>
+    <p class="notice">Mode démonstration : aucun modèle d'IA n'est appelé. Vos lignes sont recopiées et réordonnées selon l'offre.</p>
+<% } -%>
+    <form method="post" action="/cv/generer" data-generation data-stream="/cv/generer/flux?jeton=<%= ia.token %>">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="button">Générer mon CV</button>
+    </form>
+    <p class="generation-status" role="status" aria-live="polite" data-generation-status></p>
+<% } else { -%>
+    <p>La génération par IA n'est pas activée sur ce serveur. Votre CV est mis en forme à partir de votre profil, sans reformulation.</p>
+<% } -%>
+  </section>
+<% } else { -%>
+  <p class="ai-banner" role="note"><strong><%= generation.providerKind === "demo" ? "Démonstration : contenu recopié de votre profil, sans IA." : "Contenu généré par une IA, à relire." %></strong> Vous restez seul juge de ce qui figure dans votre CV.</p>
+
+  <section aria-labelledby="fidelity-title">
+    <h2 id="fidelity-title">Fidélité à votre profil</h2>
+    <p class="score"><strong><%= Math.round(generation.report.score * 100) %> %</strong> des lignes rédigées sont rattachées à votre profil (<%= generation.report.supportedLines %> sur <%= generation.report.checkedLines %>).</p>
+<% if (generation.removed.length) { -%>
+    <h3>Lignes retirées car non prouvées par votre profil</h3>
+    <ul class="removed">
+<% generation.removed.forEach((r) => { -%>
+      <li><q><%= r.text %></q> : <%= r.issues.map(describeIssue).join(" ; ") %>.</li>
+<% }) -%>
+    </ul>
+<% } -%>
+<% if (generation.cv.missingKeywords.length) { -%>
+    <h3>Demandé par l'offre, absent de votre profil</h3>
+    <p>Signalé, jamais ajouté. Si vous possédez l'une de ces compétences, ajoutez-la à votre profil (<a href="/cv/etape/2">étape 2</a>), puis générez à nouveau.</p>
+    <ul class="keywords">
+<% generation.cv.missingKeywords.forEach((k) => { -%>
+      <li><%= k %></li>
+<% }) -%>
+    </ul>
+<% } -%>
+  </section>
+<% } -%>
+
+  <h2>Aperçu</h2>
+  <p>L'aperçu et le PDF utilisent exactement la même mise en page.</p>
   <form method="get" action="/cv/etape/4" class="variant-switch">
     <fieldset>
       <legend>Mise en page</legend>
@@ -8,7 +62,48 @@
     <button type="submit" class="button button--secondary">Afficher cette mise en page</button>
   </form>
   <iframe class="preview" src="/cv/apercu?variant=<%= variant %>" title="Aperçu de votre CV, mise en page <%= variant === 'ats' ? 'ATS' : 'design' %>"></iframe>
-  <h2>Corriger</h2>
+
+<% if (generation) { -%>
+  <section id="relecture" tabindex="-1" aria-labelledby="review-title">
+    <h2 id="review-title">Relecture ligne par ligne</h2>
+    <p>Chaque ligne rédigée est présentée avec l'information de votre profil dont elle découle. Corrigez ou retirez ce qui ne vous convient pas.</p>
+    <form method="post" action="/cv/generation/corrections">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<% lines.forEach(({ path, line, where }, i) => { const check = status(path); const edited = generation.edited.includes(path); -%>
+      <fieldset class="trace<%= check && check.status === 'unsupported' ? ' trace--warning' : '' %>">
+        <legend>Ligne <%= i + 1 %> – <%= where %><% if (edited) { %> (modifiée par vous)<% } %></legend>
+        <label for="line_<%= i %>">Texte</label>
+        <textarea id="line_<%= i %>" name="line_<%= i %>" rows="2" aria-describedby="source_<%= i %>"><%= line.text %></textarea>
+        <div class="trace-sources" id="source_<%= i %>">
+          <p>Source<%= line.sources.length > 1 ? "s" : "" %> dans votre profil :</p>
+          <ul>
+<% line.sources.forEach((pointer) => { -%>
+            <li><%= describePointer(profile, pointer) %></li>
+<% }) -%>
+          </ul>
+<% if (check && check.status === "unsupported") { -%>
+          <p class="trace-warning">Attention : <%= check.issues.map(describeIssue).join(" ; ") %>.</p>
+<% } -%>
+        </div>
+        <label class="checkbox"><input type="checkbox" name="remove_<%= i %>" value="yes"> Retirer cette ligne</label>
+      </fieldset>
+<% }) -%>
+      <button type="submit" class="button button--secondary">Enregistrer mes corrections</button>
+    </form>
+    <div class="actions">
+      <form method="post" action="/cv/generer">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="button button--secondary">Générer à nouveau</button>
+      </form>
+      <form method="post" action="/cv/generation/abandonner">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="button button--quiet">Revenir à mon CV non adapté</button>
+      </form>
+    </div>
+  </section>
+<% } -%>
+
+  <h2>Corriger mon profil</h2>
   <ul>
     <li><a href="/cv/etape/1">Modifier mon profil</a></li>
     <li><a href="/cv/etape/2">Modifier mes expériences, formations et compétences</a></li>

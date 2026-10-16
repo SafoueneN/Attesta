@@ -308,3 +308,63 @@ input[type="checkbox"] {
     transition: none !important;
   }
 }
+
+/* Génération et traçabilité */
+.notice--error {
+  border-left-color: var(--error);
+}
+.ai-banner {
+  border: 2px solid var(--primary);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+.score {
+  font-size: 1.15rem;
+}
+.removed q {
+  font-style: italic;
+}
+.keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+.keywords li {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.75rem;
+}
+.generation-status:not(:empty) {
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+.trace-sources {
+  background: var(--surface);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+}
+.trace-sources p,
+.trace-sources ul {
+  margin: 0.15rem 0;
+}
+.trace--warning {
+  border-left: 4px solid var(--error);
+}
+.trace-warning {
+  color: var(--error);
+  font-weight: 600;
+}
+.import {
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 0.25rem 1rem 1rem;
+  margin: 1rem 0 2rem;
+}
+input[type="file"] {
+  font: inherit;
+  max-width: 100%;
+}

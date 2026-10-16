@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts"],
+    include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts", "evals/**/*.eval.test.ts"],
     testTimeout: 60_000,
     // Démarrage de Chromium dans les beforeAll des tests de rendu PDF.
     hookTimeout: 60_000,

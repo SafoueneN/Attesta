@@ -34,6 +34,7 @@ COPY --from=build --chown=root:root /app/node_modules node_modules
 COPY --from=build --chown=root:root /app/packages packages
 COPY --from=build --chown=root:root /app/apps apps
 COPY --chown=root:root db db
+COPY --chown=root:root prompts prompts
 # Code en lecture seule pour l'utilisateur d'exécution.
 USER node
 EXPOSE 3000

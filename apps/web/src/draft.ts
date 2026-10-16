@@ -1,3 +1,4 @@
+import type { ExtractedProfileOutput } from "@attesta/llm";
 import { Basics, JobOfferInput, Profile } from "@attesta/schema";
 import { z } from "zod";
 
@@ -272,3 +273,47 @@ export function validProfile(draft: Draft): Profile | undefined {
 }
 
 export const Variant = z.enum(["ats", "design"]).catch("ats");
+
+/** Brouillon pré-rempli depuis un CV importé : le candidat relit chaque champ avant usage. */
+export function draftFromExtraction(
+  ex: ExtractedProfileOutput,
+): Pick<Draft, "basics" | "work" | "education" | "skills" | "languages"> {
+  const s = (v: string | null | undefined) => (v ?? "").trim();
+  const work = ex.work.map((w) => ({
+    name: s(w.name),
+    position: s(w.position),
+    location: s(w.location),
+    startDate: s(w.startDate),
+    endDate: s(w.endDate),
+    summary: s(w.summary),
+    highlights: w.highlights
+      .map((h) => h.trim())
+      .filter(Boolean)
+      .join("\n"),
+  }));
+  const education = ex.education.map((e) => ({
+    institution: s(e.institution),
+    studyType: s(e.studyType),
+    area: s(e.area),
+    startDate: s(e.startDate),
+    endDate: s(e.endDate),
+  }));
+  return {
+    basics: {
+      name: s(ex.basics.name),
+      label: s(ex.basics.label),
+      email: s(ex.basics.email),
+      phone: s(ex.basics.phone),
+      city: s(ex.basics.city),
+      countryCode: s(ex.basics.countryCode).slice(0, 2),
+      url: s(ex.basics.url),
+      summary: s(ex.basics.summary),
+    },
+    work: (work.length ? work : [emptyWork()]).slice(0, 30),
+    education: (education.length ? education : [emptyEducation()]).slice(0, 30),
+    skills: ex.skills
+      .map((k) => (k.keywords.length ? `${k.name} : ${k.keywords.join(", ")}` : k.name))
+      .join("\n"),
+    languages: ex.languages.map((l) => (l.fluency ? `${l.language} : ${l.fluency}` : l.language)).join("\n"),
+  };
+}

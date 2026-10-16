@@ -24,5 +24,8 @@
     </ul>
   </div>
 <% } -%>
+<% if (notice) { -%>
+  <p class="notice notice--<%= notice.kind %>" role="<%= notice.kind === "error" ? "alert" : "status" %>"><%= notice.text %></p>
+<% } -%>
 <%- include("steps/" + step) %>
 <%- include("partials/foot") %>

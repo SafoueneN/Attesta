@@ -1,6 +1,6 @@
 # ADR 0003 : Pipeline LLM en 4 étapes, fournisseur abstrait, contrôle de fidélité
 
-- Statut : proposé. Fournisseur et modèle **à confirmer** (voir `docs/questions.md`).
+- Statut : accepté le 2026-10-16 ; fournisseur tranché par l'ADR 0008. Voir « Mise en œuvre (Phase 2) » ci-dessous pour les écarts.
 - Date : 2026-10-16
 
 ## Décision
@@ -76,3 +76,19 @@ Score = lignes supportées / lignes contrôlées. Une ligne non supportée est *
 
 - Le contrôle déterministe des entités produira des **faux positifs** (synonymes, traductions FR/DE/EN). Seuil à calibrer sur le jeu de référence.
 - Les verbes gonflés ne sont attrapés que par le juge LLM, avec une fiabilité non garantie. La relecture humaine reste obligatoire.
+
+## Mise en œuvre (Phase 2, 2026-10-16)
+
+Ce qui est livré, et en quoi cela précise ou corrige la proposition ci-dessus :
+
+- **Température** : supprimée (refusée par les modèles actuels, voir ADR 0008). Le réglage se fait par l'effort : `low` pour l'analyse et l'extraction, `medium` pour la rédaction.
+- **Faits numérotés** : le modèle reçoit une liste de faits `{pointer, text}`, sans nom, coordonnées, employeurs ni établissements. Il cite des pointeurs ; il n'écrit aucun champ factuel.
+- **Complétude garantie par le code** : expériences, projets, formations, langues et compétences que le modèle omet sont rajoutés tels quels. Le modèle choisit l'ordre et la formulation ; il ne peut ni ajouter ni faire disparaître une entrée.
+- **Mots-clés absents** : calculés de façon déterministe (termes de l'offre sans trace dans le profil), pas demandés au modèle. Une ligne qui en contient un est retirée.
+- **Contrôle de fidélité** : nombres, années, entités (sigles, termes techniques, noms propres) et compétences absentes, avec quelques alias (`nodejs` → `node js`, `postgres` → `postgresql`, `k8s` → `kubernetes`). Lignes non prouvées retirées (Q9). Les **limites** sont couvertes par un test qui les documente : un verbe gonflé ou une paraphrase infidèle sans entité nouvelle passent.
+- **Juge LLM d'implication** : **non implémenté**. C'était optionnel ; à décider après une première mesure sur le vrai modèle.
+- **Relances** : deux au plus, avec la réponse précédente et la liste exacte des écarts au contrat. Les relances réseau (429, 5xx) sont celles du SDK.
+- **Streaming** : la progression passe par SSE sur `GET /cv/generer/flux`, protégé par un **jeton à usage unique** émis dans la page (un GET n'est pas couvert par le jeton CSRF des formulaires). Sans JavaScript, `POST /cv/generer` fait la même génération pendant la requête.
+- **Exécution dans le processus web** : pg-boss et le worker sont reportés en **Phase 3** (industrialisation). La génération est liée à la requête et annulée si le navigateur se déconnecte.
+- **Cache** : analyses d'offre en mémoire, par empreinte du texte, du modèle et de la version des prompts. La génération est conservée dans la session et **ignorée dès que le profil ou l'offre changent** (empreinte), pour que les pointeurs ne désignent jamais d'autres faits.
+- **Coût** : chaque appel est journalisé (`event: llm_usage` : jetons, coût estimé, latence, sans contenu), avec un plafond par CV (`LLM_MAX_COST_USD_PER_CV`).

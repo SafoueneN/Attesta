@@ -2,7 +2,7 @@
 
 Génération de CV ciblés par offre, **prouvables ligne par ligne**. L'IA reformule, le candidat décide.
 
-> **Statut : Phase 1 livrée (socle sans IA).** Parcours en 5 étapes, aperçu et export PDF lisible par les ATS, sans reformulation par IA. Le pipeline LLM arrive en Phase 2.
+> **Statut : Phase 2 livrée (intelligence).** CV ciblé par offre, généré par Claude (Vertex AI, UE), chaque ligne vérifiée contre le profil ; mode démonstration sans IA pour le développement. Veille emploi : Phase 4.
 
 ## Démarrage rapide
 
@@ -22,6 +22,7 @@ npm run lint          # ESLint + Prettier
 npm run typecheck     # TypeScript strict
 npm test              # unitaires, intégration, extraction ATS du PDF
 npm run test:e2e      # Playwright + axe-core
+npm run evals         # évaluation de fidélité (rejeu, sans réseau)
 ```
 
 Détails et dépannage : [docs/runbook.md](docs/runbook.md).
@@ -31,7 +32,7 @@ Détails et dépannage : [docs/runbook.md](docs/runbook.md).
 ```
 apps/web/            Express 5 + EJS : parcours en 5 étapes, aperçu, export
 packages/schema/     Contrat Zod + JSON Schema : profil, offre, CV ciblé, rapport de fidélité
-packages/llm/        Pipeline 4 étapes (Phase 2)
+packages/llm/        Pipeline LLM : fournisseurs, prompts, contrôle de fidélité, import PDF
 packages/render/     Gabarit HTML/CSS unique (ats, design) + Puppeteer
 packages/jobwatch/   Veille emploi (Phase 4)
 packages/shared/     Config validée, logger sans PII, erreurs
@@ -48,5 +49,6 @@ docs/                ADR, architecture, tests, backlog, questions
 - [Décisions (ADR)](docs/adr/README.md)
 - [Plan de tests](docs/plan-de-tests.md)
 - [Runbook](docs/runbook.md)
+- [Conformité (RGPD, AI Act)](docs/conformite.md)
 - [Backlog](docs/backlog.md)
 - [Questions ouvertes](docs/questions.md)

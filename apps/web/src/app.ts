@@ -7,7 +7,8 @@ import session from "express-session";
 import helmet from "helmet";
 import type { Pool } from "pg";
 import { z } from "zod";
-import { renderCvHtml, viewFromProfile, type PdfRenderer } from "@attesta/render";
+import type { LlmProvider } from "@attesta/llm";
+import { renderCvHtml, viewFromProfile, viewFromTailored, type PdfRenderer } from "@attesta/render";
 import { AppError, type Config, type Logger } from "@attesta/shared";
 import {
   emptyDraft,
@@ -21,7 +22,9 @@ import {
   type Draft,
   type FieldError,
 } from "./draft.js";
+import { currentGeneration, describeIssue, describePointer, type StoredGeneration } from "./generation.js";
 import { fr } from "./i18n.js";
+import { createIaRoutes } from "./ia-routes.js";
 import { absoluteSessionLimit, csrfToken, cspNonce, verifyCsrf } from "./security.js";
 
 declare module "express-session" {
@@ -29,6 +32,11 @@ declare module "express-session" {
     draft: Draft;
     createdAt: number;
     csrfToken: string;
+    generation: StoredGeneration;
+    generationToken: string;
+    quota: { day: string; count: number };
+    /** Message à afficher une fois, à la page suivante. */
+    notice: { kind: "info" | "error"; text: string };
   }
 }
 
@@ -40,8 +48,10 @@ export interface AppDeps {
   renderer: PdfRenderer;
   /** Requis si SESSION_STORE=postgres ; sert aussi au contrôle de santé. */
   pool?: Pool;
-  /** Plafond de requêtes par fenêtre de 15 min (général, puis export PDF). */
-  limits?: { general: number; export: number };
+  /** Plafonds de requêtes par IP : 15 min pour le général et l'export, 1 h pour la génération. */
+  limits?: { general: number; export: number; generation?: number };
+  /** Pipeline IA ; absent : génération désactivée, parcours sans IA (Phase 1). */
+  ia?: { provider: LlmProvider; maxCostUsd: number; dailyQuota: number };
 }
 
 const SESSION_IDLE_MS = 2 * 60 * 60 * 1000;
@@ -49,7 +59,7 @@ const TOTAL_STEPS = 5;
 const viewsDir = fileURLToPath(new URL("../views", import.meta.url));
 const publicDir = fileURLToPath(new URL("../public", import.meta.url));
 
-export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
+export function createApp({ config, logger, renderer, pool, limits, ia }: AppDeps) {
   const app = express();
   const production = config.NODE_ENV === "production";
   const httpsOnly = config.HTTPS_ONLY ?? production;
@@ -155,7 +165,15 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
     res.set("Cache-Control", "no-store");
     next();
   });
+  const iaRoutes = createIaRoutes({
+    provider: ia?.provider,
+    maxCostUsd: ia?.maxCostUsd ?? 0,
+    dailyQuota: ia?.dailyQuota ?? 0,
+    logger,
+  });
+  cv.use(iaRoutes.multipart);
   cv.use((req, res, next) => (req.method === "POST" ? verifyCsrf(req, res, next) : next()));
+  cv.use(iaRoutes.router);
 
   const draftOf = (req: Request): Draft => (req.session.draft ??= emptyDraft());
   const stepParam = (req: Request) => {
@@ -165,14 +183,49 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
     return n;
   };
 
+  /** CV à afficher et exporter : la génération si elle correspond encore au profil, sinon le profil seul. */
+  function cvViewOf(req: Request) {
+    const draft = draftOf(req);
+    const profile = validProfile(draft);
+    if (!profile) return undefined;
+    const { generation, stale } = currentGeneration(req.session.generation, profile, draft);
+    return {
+      profile,
+      generation,
+      stale,
+      view: generation ? viewFromTailored(profile, generation.cv) : viewFromProfile(profile),
+    };
+  }
+
   function renderStep(req: Request, res: Response, step: number, errors: FieldError[] = []) {
     const draft = draftOf(req);
     const variant = Variant.parse(req.query.variant);
     const title =
       (errors.length ? fr.errorTitlePrefix : "") + `${fr.steps[step - 1]} – ${fr.stepOf(step, TOTAL_STEPS)}`;
-    res
-      .status(errors.length ? 422 : 200)
-      .render("step", { title, step, total: TOTAL_STEPS, draft, errors, variant });
+    const notice = req.session.notice;
+    delete req.session.notice;
+    const current = step >= 4 ? cvViewOf(req) : undefined;
+    res.status(errors.length ? 422 : 200).render("step", {
+      title,
+      step,
+      total: TOTAL_STEPS,
+      draft,
+      errors,
+      variant,
+      notice,
+      ia: {
+        available: Boolean(ia),
+        importAvailable: ia?.provider.kind === "ia",
+        demo: ia?.provider.kind === "demo",
+        token: step === 4 && ia ? iaRoutes.issueToken(req) : undefined,
+        dailyQuota: ia?.dailyQuota,
+      },
+      profile: current?.profile,
+      generation: current?.generation,
+      stale: current?.stale ?? false,
+      describePointer,
+      describeIssue,
+    });
   }
 
   cv.get("/etape/:n", (req, res) => {
@@ -212,26 +265,24 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
   });
 
   async function exportPdf(req: Request, res: Response) {
-    const profile = validProfile(draftOf(req));
-    if (!profile) return res.redirect(303, `/cv/etape/${lastReachableStep(draftOf(req))}`);
+    const current = cvViewOf(req);
+    if (!current) return res.redirect(303, `/cv/etape/${lastReachableStep(draftOf(req))}`);
     if (req.body.reviewed !== "yes") {
       return renderStep(req, res, TOTAL_STEPS, [
         { field: "reviewed", message: "Confirmez que vous avez relu votre CV avant de l'exporter." },
       ]);
     }
     const variant = Variant.parse(req.body.variant);
-    const pdf = await renderer.render(renderCvHtml(viewFromProfile(profile), { variant }));
+    const pdf = await renderer.render(renderCvHtml(current.view, { variant }));
     res.type("application/pdf").attachment(`cv-attesta-${variant}.pdf`).send(Buffer.from(pdf));
   }
 
   // Aperçu : exactement le HTML qui sera imprimé en PDF, affiché dans un iframe.
   cv.get("/apercu", (req, res) => {
-    const profile = validProfile(draftOf(req));
-    if (!profile) return res.status(404).type("text/plain").send("Aperçu indisponible : profil incomplet.");
+    const current = cvViewOf(req);
+    if (!current) return res.status(404).type("text/plain").send("Aperçu indisponible : profil incomplet.");
     const variant = Variant.parse(req.query.variant);
-    res
-      .type("html")
-      .send(renderCvHtml(viewFromProfile(profile), { variant, styleNonce: res.locals.cspNonce }));
+    res.type("html").send(renderCvHtml(current.view, { variant, styleNonce: res.locals.cspNonce }));
   });
 
   cv.post("/effacer", (req, res, next) => {
@@ -243,6 +294,10 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
   });
 
   app.use("/cv", rateLimit({ windowMs: 15 * 60 * 1000, limit: limits?.export ?? 20, skip: isNotExport }));
+  app.use(
+    "/cv",
+    rateLimit({ windowMs: 60 * 60 * 1000, limit: limits?.generation ?? 10, skip: isNotGeneration }),
+  );
   app.use("/cv", cv);
 
   app.use((_req, _res, next) => next(new AppError("not_found", 404, "Page introuvable.")));
@@ -260,6 +315,10 @@ export function createApp({ config, logger, renderer, pool, limits }: AppDeps) {
   });
 
   return app;
+}
+
+function isNotGeneration(req: Request) {
+  return !req.path.startsWith("/generer");
 }
 
 function isNotExport(req: Request) {

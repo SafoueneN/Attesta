@@ -1,6 +1,7 @@
 import pg from "pg";
+import { AnthropicProvider, createClaudeClient, DemoProvider, type LlmProvider } from "@attesta/llm";
 import { PuppeteerPdfRenderer } from "@attesta/render";
-import { createLogger, loadConfig } from "@attesta/shared";
+import { createLogger, loadConfig, type Config } from "@attesta/shared";
 import { createApp } from "./app.js";
 
 const config = loadConfig();
@@ -15,8 +16,52 @@ const renderer = new PuppeteerPdfRenderer({
   noSandbox: config.PDF_CHROMIUM_NO_SANDBOX,
 });
 
-const server = createApp({ config, logger, renderer, pool }).listen(config.PORT, () => {
-  logger.info({ port: config.PORT, sessionStore: config.SESSION_STORE }, "Attesta démarré");
+function llmProvider(c: Config): LlmProvider | undefined {
+  switch (c.LLM_PROVIDER) {
+    case "none":
+      return undefined;
+    case "demo":
+      return new DemoProvider();
+    default:
+      return new AnthropicProvider(
+        createClaudeClient({
+          provider: c.LLM_PROVIDER,
+          timeoutMs: c.LLM_TIMEOUT_MS,
+          vertexProjectId: c.VERTEX_PROJECT_ID,
+          vertexRegion: c.VERTEX_REGION,
+        }),
+        { model: c.LLM_MODEL, timeoutMs: c.LLM_TIMEOUT_MS },
+      );
+  }
+}
+
+const provider = llmProvider(config);
+if (config.LLM_PROVIDER === "anthropic") {
+  logger.warn(
+    "LLM_PROVIDER=anthropic : traitement hors UE, réservé au développement avec des données fictives",
+  );
+}
+
+const app = createApp({
+  config,
+  logger,
+  renderer,
+  pool,
+  ia: provider
+    ? { provider, maxCostUsd: config.LLM_MAX_COST_USD_PER_CV, dailyQuota: config.LLM_DAILY_QUOTA }
+    : undefined,
+});
+
+const server = app.listen(config.PORT, () => {
+  logger.info(
+    {
+      port: config.PORT,
+      sessionStore: config.SESSION_STORE,
+      llmProvider: config.LLM_PROVIDER,
+      model: provider?.model,
+    },
+    "Attesta démarré",
+  );
 });
 
 async function shutdown(signal: string) {

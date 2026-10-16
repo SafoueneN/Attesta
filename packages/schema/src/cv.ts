@@ -11,12 +11,13 @@ import { entryRef, FactPointer } from "./common.js";
  * il ne crée pas.
  */
 export const CvLine = z.object({
-  text: z.string().trim().min(1).max(300),
+  // 500 : longueur maximale d'un fait du profil, recopié tel quel quand le modèle ne le reprend pas.
+  text: z.string().trim().min(1).max(500),
   sources: z.array(FactPointer).min(1, "Chaque ligne doit citer au moins une source").max(5),
 });
 
 const EntryWithLines = (section: string) =>
-  z.object({ ref: entryRef(section), highlights: z.array(CvLine).max(6) });
+  z.object({ ref: entryRef(section), highlights: z.array(CvLine).max(20) });
 
 export const TailoredCv = z.object({
   headline: CvLine.optional(),

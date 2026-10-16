@@ -22,6 +22,7 @@ export default defineConfig({
           SESSION_STORE: "memory",
           SESSION_SECRET: "e2e-secret-non-utilise-en-production-000",
           LOG_LEVEL: "warn",
+          LLM_PROVIDER: "demo",
         },
       },
 });

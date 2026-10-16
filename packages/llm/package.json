@@ -1,0 +1,16 @@
+{
+  "name": "@attesta/llm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pipeline LLM en 4 étapes, fournisseurs interchangeables, contrôle de fidélité.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@anthropic-ai/vertex-sdk": "^0.21.0",
+    "@attesta/schema": "0.1.0",
+    "pdfjs-dist": "^6.4.299",
+    "zod": "^4.6.7"
+  }
+}

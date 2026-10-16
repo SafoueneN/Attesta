@@ -130,3 +130,49 @@ test.describe("thème sombre", () => {
     await expectAccessible(page);
   });
 });
+
+test("génération ciblée : progression en direct, fidélité, relecture et export", async ({ page }) => {
+  await page.goto("/cv/etape/1");
+  await fillProfile(page);
+  await fillParcours(page);
+  await page
+    .getByLabel("Texte de l'offre")
+    .fill(
+      "Développeur back-end Node.js. Vous concevez des API avec PostgreSQL. Une expérience de Kubernetes est un plus.",
+    );
+  await page.getByRole("button", { name: "Continuer" }).click();
+
+  // Le navigateur passe par le flux SSE (et non par le repli sans JavaScript).
+  const [stream] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/cv/generer/flux")),
+    page.getByRole("button", { name: "Générer mon CV" }).click(),
+  ]);
+  expect(stream.headers()["content-type"]).toContain("text/event-stream");
+
+  await expect(page.getByText("Démonstration : contenu recopié de votre profil, sans IA.")).toBeVisible();
+  await expect(page.getByText("des lignes rédigées sont rattachées à votre profil")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Demandé par l'offre, absent de votre profil" }),
+  ).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: /^Kubernetes$/ })).toBeVisible();
+  const firstLine = page.getByRole("group", { name: /^Ligne 1/ });
+  await expect(firstLine.getByText("Source dans votre profil")).toBeVisible();
+  await expectAccessible(page);
+
+  await firstLine.getByLabel("Texte").fill("Développeuse back-end Node.js et PostgreSQL");
+  await page.getByRole("button", { name: "Enregistrer mes corrections" }).click();
+  await expect(page.getByText("Vos corrections sont enregistrées.")).toBeVisible();
+  await expect(page.getByRole("group", { name: /^Ligne 1 .*\(modifiée par vous\)/ })).toBeVisible();
+  await expect(
+    page.frameLocator("iframe.preview").getByText("Développeuse back-end Node.js et PostgreSQL"),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Continuer" }).click();
+  await expect(page.getByText("Vous exportez la version adaptée à l'offre")).toBeVisible();
+  await page.getByLabel("J'ai relu mon CV").check();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Télécharger mon CV (PDF)" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe("cv-attesta-ats.pdf");
+});

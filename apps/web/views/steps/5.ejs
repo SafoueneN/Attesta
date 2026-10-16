@@ -1,4 +1,9 @@
 <% const reviewedError = errors.find((e) => e.field === "reviewed"); -%>
+<% if (generation) { -%>
+  <p class="notice">Vous exportez la version adaptée à l'offre (fidélité : <%= Math.round(generation.report.score * 100) %> %<%= generation.edited.length ? ", avec vos corrections" : "" %>).</p>
+<% } else { -%>
+  <p class="notice">Vous exportez votre CV tel que vous l'avez saisi, sans adaptation à l'offre.</p>
+<% } -%>
 <%- include("../partials/form-start", { defaultAction: "export" }) %>
   <fieldset>
     <legend>Mise en page du PDF</legend>

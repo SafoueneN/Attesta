@@ -21,13 +21,15 @@ Profils **fictifs** uniquement (aucun vrai CV) : 10 profils × 3 offres pour com
 
 Le jeu de matching (Phase 4) consiste en 50 offres annotées à la main comme pertinentes ou non pour 5 profils. Il est **à constituer** par l'équipe, ce qui conditionne la mesure de précision et de rappel.
 
-## État actuel (fin de Phase 1, 2026-10-16)
+## État actuel (fin de Phase 2, 2026-10-16)
 
-| Niveau                       | Où                                                     | Résultat local                                                                                                                            |
-| ---------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Unitaire + intégration HTTP  | `packages/*/test`, `apps/web/test` (Vitest, supertest) | 53 tests verts ; couverture des lignes 95 % (seuils : 75 % global, 90 % pour `schema`)                                                    |
-| ATS                          | `packages/render/test/pdf-ats.test.ts`                 | vrai PDF Chromium, texte extrait par pdfjs-dist : tout le contenu présent, dans l'ordre, dates au format MM/AAAA, pour les deux variantes |
-| Bout en bout + accessibilité | `e2e/` (Playwright + axe-core)                         | 5 tests verts, en local **et** contre le conteneur Docker (sessions PostgreSQL)                                                           |
-| Contrat, évaluation IA       | Phase 2                                                | non commencé                                                                                                                              |
+| Niveau                       | Où                                                                 | Résultat local                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Unitaire + intégration HTTP  | `packages/*/test`, `apps/web/test`                                 | tous verts (`npm run test:coverage`)                                                                                         |
+| Contrat LLM                  | `packages/llm/test/anthropic-provider.test.ts`, `pipeline.test.ts` | réponses enregistrées : succès, refus, sortie tronquée, non conforme, réseau ; relances bornées ; mode dégradé               |
+| Évaluation IA (rejeu)        | `evals/fidelity.eval.test.ts`                                      | 4 cas (dont injection et offre en allemand) : 7 inventions étiquetées sur 7 retirées, aucun faux positif, CV exporté à 100 % |
+| Évaluation IA (modèle réel)  | `npm run evals:live`                                               | **non exécutée** : aucun identifiant Vertex disponible                                                                       |
+| ATS                          | `packages/render/test/pdf-ats.test.ts`                             | vert                                                                                                                         |
+| Bout en bout + accessibilité | `e2e/` (Playwright + axe-core)                                     | 6 tests verts, en local et contre le conteneur, dont la génération avec progression SSE                                      |
 
-Vérification manuelle restant à faire : lecteur d'écran (NVDA, VoiceOver) sur le parcours complet. axe-core ne détecte qu'une partie des critères WCAG.
+Restent à faire : la mesure du taux d'invention brut du vrai modèle, le jeu annoté de matching (Phase 4), et une vérification manuelle au lecteur d'écran.
