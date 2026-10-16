@@ -27,9 +27,9 @@ La pile comprend PostgreSQL 16 + pgvector, une migration unique (`migrate`), l'a
 
 La veille interroge les **vraies** API publiques de BA Jobsuche et d'ESCO (sans clé). Hors ligne : `ESCO_ENABLED=false`.
 
-### Envoi réel par Brevo depuis le poste
+### Envoi réel depuis le poste (Gmail, Mailjet, Brevo…)
 
-Remplir `.env.brevo` (modèle commenté, ignoré par Git et par Docker) avec l'identifiant et la clé SMTP de Brevo et l'expéditeur vérifié, puis `docker compose --env-file .env.brevo up -d` (et `docker compose --env-file .env.brevo run --rm veille`). Sans ce fichier, les e-mails restent dans Mailpit. Le webhook des plaintes et rebonds exige une adresse publique : il n'est branché qu'en préprod.
+Remplir `.env.smtp` (modèle commenté, ignoré par Git et par Docker) avec l'URL SMTP du fournisseur et l'expéditeur, puis `docker compose --env-file .env.smtp up -d` (et `docker compose --env-file .env.smtp run --rm veille`). Sans ce fichier, les e-mails restent dans Mailpit. Le webhook des plaintes et rebonds exige une adresse publique : il n'est branché qu'en préprod.
 
 ### Sans Docker
 

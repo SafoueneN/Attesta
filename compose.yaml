@@ -21,8 +21,8 @@ x-env: &env
   LOG_LEVEL: info
   # demo : génération et rerank sans IA. Pour Claude sur Vertex AI (UE), voir docs/runbook.md.
   LLM_PROVIDER: demo
-  # Mailpit par défaut. Pour un vrai envoi par Brevo : fichier .env.brevo (jamais commité),
-  # puis `docker compose --env-file .env.brevo up -d` (docs/runbook.md).
+  # Mailpit par défaut. Pour un vrai envoi (Gmail, Mailjet…) : fichier .env.smtp (jamais commité),
+  # puis `docker compose --env-file .env.smtp up -d` (docs/runbook.md).
   SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
   MAIL_FROM: ${MAIL_FROM:-Attesta <ne-pas-repondre@attesta.localhost>}
   APP_BASE_URL: http://localhost:${ATTESTA_PORT:-3080}
