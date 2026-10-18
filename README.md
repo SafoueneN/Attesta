@@ -23,13 +23,29 @@ npm run typecheck     # TypeScript strict
 npm test              # unitaires, intégration, extraction ATS du PDF
 npm run test:e2e      # Playwright + axe-core
 npm run evals         # évaluation de fidélité (rejeu, sans réseau)
+npm run test:parite   # parité fonctionnelle de la migration (serveur local)
 ```
+
+Ou, sans rien installer d'autre que Docker et VS Code : « Dev Containers : Rouvrir dans le conteneur »
+(Node 22, bases, Mailpit et base de test fournis).
 
 Détails et dépannage : [docs/runbook.md](docs/runbook.md).
 
 ## Structure
 
+**Migration en cours vers 6 microservices** ([ADR 0011](docs/adr/0011-microservices-extraction.md)) : le
+monolithe ci-dessous reste servi et gelé par le tag `v0.4-monolithe` ; chaque service en est extrait sans
+réécriture, sous le contrôle de la suite de parité `e2e/parite`. Suivi : [TASKS.md](TASKS.md).
+
 ```
+services/            Cible : auth, profiles, cv-generation, jobs-matching, job-watch, letters-export
+gateway/             Cible : point d'entrée de l'API (JWT, débit, corrélation)
+packages/            Cible : shared-schemas, llm-client, logger, config, http-kit (sans logique métier)
+e2e/parite/          Suite de parité Playwright, verte avant et après chaque extraction
+infra/postgres/      Bases et rôles cloisonnés par service (db-init)
+.vscode/ .devcontainer/   Poste de développement en une commande
+
+Monolithe v0.4 (en cours d'extraction) :
 apps/web/            Express 5 + EJS : parcours en 5 étapes, aperçu, export, comptes, veille
 apps/worker/         Exécution quotidienne de la veille (Cloud Run Job)
 packages/schema/     Contrat Zod + JSON Schema : profil, offre, CV ciblé, rapport de fidélité
@@ -52,7 +68,8 @@ docs/                ADR, architecture, tests, backlog, questions
 - [Plan de tests](docs/plan-de-tests.md)
 - [Runbook](docs/runbook.md)
 - [Conformité (RGPD, AI Act)](docs/conformite.md)
-- [Backlog](docs/backlog.md)
+- [Backlog](docs/backlog.md) et [suivi des tâches](TASKS.md)
+- [Consignes pour les assistants de code](CLAUDE.md)
 - [Questions ouvertes](docs/questions.md)
 
 ## Licence

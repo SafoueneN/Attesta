@@ -1,6 +1,34 @@
 # Backlog
 
-Chaque phase livre un produit utilisable. Les tailles (S, M, L) sont indicatives.
+Chaque phase livre un produit utilisable. Les tailles (S, M, L) sont indicatives. Suivi au jour le jour :
+[TASKS.md](../TASKS.md).
+
+# Migration en 6 microservices (depuis le 2026-10-18)
+
+Décisions : [ADR 0011 à 0021](adr/README.md). Contrôle permanent : la suite `e2e/parite` reste verte
+après chaque extraction. Aucune phase ne commence sans l'accord du chef de projet.
+
+| Phase | Contenu                                                                                                      | Taille | Critère de fin                                                                  | État     |
+| ----- | ------------------------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------- | -------- |
+| M0    | Cadrage : architecture cible, ADR, risques, décisions Q1 à Q5                                                | S      | feu vert du chef de projet                                                      | faite    |
+| M1    | Fondations : tag de gel, ADR, arborescence, VS Code, devcontainer, compose 7 bases, CI en matrice, parité    | M      | `compose --profile core up` démarre ; parité verte ; tag posé                   | en revue |
+| M2    | Socle : logger, config, http-kit, gateway, auth (lien magique, JWT RS256, refresh, JWKS), `/health` `/ready` | M      | connexion de bout en bout via la gateway ; ≥ 80 % sur la logique métier         | à faire  |
+| M3    | Service gabarit `profiles` : CRUD, import PDF, migrations, OpenAPI, tests, `services/_template`              | M      | gabarit validé par le chef de projet                                            | à faire  |
+| M4    | cv-generation, jobs-matching, job-watch, letters-export (lettres : fonction nouvelle), auth finalisé (RGPD)  | L      | parité verte après chaque extraction ; contrats ; suppression et export agrégés | à faire  |
+| M5    | Interface via la gateway, jetons de design, textes, accessibilité, E2E des parcours, coûts LLM               | M      | E2E verts sur `--profile full` ; zéro violation axe-core critique               | à faire  |
+| M6    | Sécurité, RGPD, performance, dette, checklist de déploiement, documentation finale, tag `v1.0`               | M      | installation à froid en moins de 15 min en suivant le README                    | à faire  |
+
+Écarts connus portés en M2 et au-delà :
+
+- plafonds de débit configurables par variable (la génération est plafonnée à 10 par heure et par IP en
+  dur dans le monolithe, ce qui limite les passages de parité sur la pile compose) ;
+- `apps/worker` n'a pas de test (point d'entrée) : remplacé par `services/job-watch`, testé, en M4 ;
+- le monolithe se connecte avec le superutilisateur PostgreSQL `attesta` : les services utilisent des
+  rôles cloisonnés, et la base `attesta` disparaît avec le monolithe ;
+- tableau de projet GitHub à créer (colonnes À faire, En cours, En revue, Terminé ; champs Service,
+  Phase, Priorité, alignés sur `.github/labels.json`).
+
+# Plan initial (monolithe modulaire, gelé au tag `v0.4-monolithe`)
 
 ## Phase 0 : Cadrage (terminée)
 
