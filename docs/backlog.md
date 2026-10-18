@@ -8,15 +8,15 @@ Chaque phase livre un produit utilisable. Les tailles (S, M, L) sont indicatives
 Décisions : [ADR 0011 à 0021](adr/README.md). Contrôle permanent : la suite `e2e/parite` reste verte
 après chaque extraction. Aucune phase ne commence sans l'accord du chef de projet.
 
-| Phase | Contenu                                                                                                      | Taille | Critère de fin                                                                  | État     |
-| ----- | ------------------------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------- | -------- |
-| M0    | Cadrage : architecture cible, ADR, risques, décisions Q1 à Q5                                                | S      | feu vert du chef de projet                                                      | faite    |
-| M1    | Fondations : tag de gel, ADR, arborescence, VS Code, devcontainer, compose 7 bases, CI en matrice, parité    | M      | `compose --profile core up` démarre ; parité verte ; tag posé                   | en revue |
-| M2    | Socle : logger, config, http-kit, gateway, auth (lien magique, JWT RS256, refresh, JWKS), `/health` `/ready` | M      | connexion de bout en bout via la gateway ; ≥ 80 % sur la logique métier         | à faire  |
-| M3    | Service gabarit `profiles` : CRUD, import PDF, migrations, OpenAPI, tests, `services/_template`              | M      | gabarit validé par le chef de projet                                            | à faire  |
-| M4    | cv-generation, jobs-matching, job-watch, letters-export (lettres : fonction nouvelle), auth finalisé (RGPD)  | L      | parité verte après chaque extraction ; contrats ; suppression et export agrégés | à faire  |
-| M5    | Interface via la gateway, jetons de design, textes, accessibilité, E2E des parcours, coûts LLM               | M      | E2E verts sur `--profile full` ; zéro violation axe-core critique               | à faire  |
-| M6    | Sécurité, RGPD, performance, dette, checklist de déploiement, documentation finale, tag `v1.0`               | M      | installation à froid en moins de 15 min en suivant le README                    | à faire  |
+| Phase | Contenu                                                                                                                                 | Taille | Critère de fin                                                                  | État     |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------- | -------- |
+| M0    | Cadrage : architecture cible, ADR, risques, décisions Q1 à Q5                                                                           | S      | feu vert du chef de projet                                                      | faite    |
+| M1    | Fondations : tag de gel, ADR, arborescence, VS Code, devcontainer, compose 7 bases, CI en matrice, parité                               | M      | `compose --profile core up` démarre ; parité verte ; tag posé                   | faite    |
+| M2    | Socle : logger, config, http-kit, gateway, auth (lien magique, JWT RS256, refresh, JWKS, rôles), `/health` `/ready`, lockfile par unité | M      | connexion de bout en bout via la gateway ; ≥ 80 % sur la logique métier         | en cours |
+| M3    | Service gabarit `profiles` : CRUD, import PDF, migrations, OpenAPI, tests, `services/_template`                                         | M      | gabarit validé par le chef de projet                                            | à faire  |
+| M4    | cv-generation, jobs-matching, job-watch, letters-export (lettres : fonction nouvelle), auth finalisé (RGPD)                             | L      | parité verte après chaque extraction ; contrats ; suppression et export agrégés | à faire  |
+| M5    | `frontend/` React + Vite (ADR 0022), administration, jetons de design, textes, accessibilité, E2E, retrait d'`apps/web`                 | M      | E2E verts sur `--profile full` ; zéro violation axe-core critique               | à faire  |
+| M6    | Sécurité, RGPD, performance, dette, checklist de déploiement, documentation finale, tag `v1.0`                                          | M      | installation à froid en moins de 15 min en suivant le README                    | à faire  |
 
 Écarts connus portés en M2 et au-delà :
 

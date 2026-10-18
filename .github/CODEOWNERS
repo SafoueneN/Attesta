@@ -1,0 +1,20 @@
+# Responsables de revue par dossier (une PR qui touche un dossier demande la revue de son responsable).
+# Les @membreN sont des emplacements : remplacer par les identifiants GitHub de l'équipe.
+# La dernière règle qui correspond l'emporte : les règles générales sont en tête.
+
+*                           @membre1
+/docs/adr/                  @membre1 @membre2 @membre3 @membre4 @membre5 @membre6
+/.github/                   @membre1
+/compose.yaml               @membre1
+/infra/                     @membre1
+/packages/                  @membre1 @membre3
+
+/services/auth/             @membre1
+/gateway/                   @membre1
+/services/profiles/         @membre2
+/services/cv-generation/    @membre3
+/packages/llm-client/       @membre3
+/services/jobs-matching/    @membre4
+/services/job-watch/        @membre5
+/services/letters-export/   @membre6
+/frontend/                  @membre2 @membre6

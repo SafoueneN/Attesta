@@ -1,7 +1,8 @@
 # ADR 0017 : Contrats d'API, OpenAPI généré depuis Zod, tests de contrat
 
 - Statut : accepté le 2026-10-18 ; prolonge l'[ADR 0002](0002-schema-contrat-unique.md) (schéma Zod comme
-  contrat unique) aux échanges entre services
+  contrat unique) aux échanges entre services ; OpenAPI versionné en `openapi.yaml` par
+  l'[ADR 0023](0023-autonomie-des-services.md)
 - Décideurs : chef de projet, équipe
 
 ## Contexte

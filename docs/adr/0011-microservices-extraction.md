@@ -1,6 +1,8 @@
 # ADR 0011 : Six microservices extraits du monolithe modulaire
 
-- Statut : accepté le 2026-10-18 ; **remplace l'[ADR 0001](0001-monolithe-modulaire-typescript.md)**
+- Statut : accepté le 2026-10-18 ; **remplace l'[ADR 0001](0001-monolithe-modulaire-typescript.md)** ;
+  interface EJS remplacée par l'[ADR 0022](0022-frontend-react.md), workspaces amendés par
+  l'[ADR 0023](0023-autonomie-des-services.md)
 - Décideurs : chef de projet (décision Q1 de la Phase 0 de migration), équipe de 6
 
 ## Contexte

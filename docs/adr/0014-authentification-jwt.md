@@ -1,7 +1,8 @@
 # ADR 0014 : Authentification par lien magique, JWT RS256 et refresh rotatif
 
 - Statut : accepté le 2026-10-18 (décision Q5) ; précise l'[ADR 0010](0010-veille-comptes-envoi.md) pour
-  la partie comptes
+  la partie comptes ; **point 4 amendé par l'[ADR 0022](0022-frontend-react.md)**, revendication `role`
+  ajoutée par l'[ADR 0024](0024-roles.md)
 - Décideurs : chef de projet
 
 ## Contexte

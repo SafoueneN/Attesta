@@ -12,17 +12,20 @@
 | [0008](0008-fournisseur-llm.md)                | Fournisseur LLM : Claude sur Vertex AI, région UE                                   | accepté, amendé par 0016           |
 | [0009](0009-hebergement-et-execution.md)       | Google Cloud Paris ; pas de worker pour le parcours interactif ; comptes en Phase 4 | accepté, hébergement gelé par 0021 |
 | [0010](0010-veille-comptes-envoi.md)           | Veille emploi, comptes sans mot de passe, envoi par Brevo, job quotidien            | accepté, précisé par 0014          |
-| [0011](0011-microservices-extraction.md)       | Six microservices extraits progressivement du monolithe                             | accepté                            |
+| [0011](0011-microservices-extraction.md)       | Six microservices extraits progressivement du monolithe                             | accepté, amendé par 0022 et 0023   |
 | [0012](0012-communication-entre-services.md)   | REST synchrone, jetons relayés ou de service, outbox et pg-boss local               | accepté                            |
 | [0013](0013-une-base-par-service.md)           | Une base et un rôle par service, une instance PostgreSQL en local                   | accepté                            |
-| [0014](0014-authentification-jwt.md)           | Lien magique, JWT RS256 de 15 min, refresh rotatif, JWKS, jeton d'invité            | accepté                            |
+| [0014](0014-authentification-jwt.md)           | Lien magique, JWT RS256 de 15 min, refresh rotatif, JWKS, jeton d'invité            | accepté, amendé par 0022 et 0024   |
 | [0015](0015-gateway.md)                        | Gateway Express : routage, identité, débit, en-têtes, corrélation                   | accepté                            |
 | [0016](0016-llm-client.md)                     | `llm-client` partagé, budget de 20 € par mois réparti, prompts versionnés           | accepté                            |
-| [0017](0017-contrats-openapi-zod.md)           | OpenAPI généré depuis Zod, format d'erreur commun, tests de contrat                 | accepté                            |
+| [0017](0017-contrats-openapi-zod.md)           | OpenAPI généré depuis Zod, format d'erreur commun, tests de contrat                 | accepté, amendé par 0023           |
 | [0018](0018-rendu-pdf-centralise.md)           | Rendu PDF centralisé dans letters-export                                            | accepté                            |
 | [0019](0019-rgpd-distribue.md)                 | RGPD réparti : suppression par outbox, export agrégé, consentements                 | accepté                            |
 | [0020](0020-observabilite.md)                  | Journaux corrélés, `/health` et `/ready`                                            | accepté                            |
 | [0021](0021-cible-execution-et-outillage.md)   | docker-compose local, profils, ports, devcontainer, Vitest, Google Cloud gelé       | accepté                            |
+| [0022](0022-frontend-react.md)                 | Frontend React + Vite + Tailwind, même origine, jeton d'accès en mémoire            | accepté                            |
+| [0023](0023-autonomie-des-services.md)         | Lockfile par service, paquets en `file:`, bouchons, `openapi.yaml` versionné        | accepté                            |
+| [0024](0024-roles.md)                          | Rôles candidat et administrateur, sans accès aux données des candidats              | accepté                            |
 
 Format : contexte, décision, options considérées, conséquences. Un ADR accepté n'est jamais réécrit : on le
 remplace ou on l'amende par un nouvel ADR, et seule sa ligne de statut reçoit le renvoi.

@@ -1,15 +1,16 @@
 # Architecture d'Attesta
 
 Statut : architecture **cible** en 6 microservices ([ADR 0011](adr/0011-microservices-extraction.md)),
-mise à jour le 2026-10-18 au début de la migration. L'état de départ est le monolithe modulaire gelé par le
+mise à jour le 2026-10-18 (frontend React : [ADR 0022](adr/0022-frontend-react.md) ; rôles :
+[ADR 0024](adr/0024-roles.md) ; autonomie des services : [ADR 0023](adr/0023-autonomie-des-services.md)). L'état de départ est le monolithe modulaire gelé par le
 tag `v0.4-monolithe` (`git show v0.4-monolithe:docs/architecture.md`). Décisions : [adr/](adr/README.md).
 
 ## Vue d'ensemble (cible)
 
 ```mermaid
 flowchart LR
-  U[Candidat · navigateur] -->|HTTP, formulaires, SSE<br/>cookies HttpOnly| W[apps/web<br/>EJS, sans métier]
-  W -->|Bearer JWT, X-Request-Id| G[gateway<br/>JWKS · débit · en-têtes]
+  U[Candidat ou admin · navigateur] -->|HTTPS, même origine| W[frontend<br/>React + Vite, servi par nginx]
+  W -->|/api/* · Bearer JWT en mémoire<br/>refresh en cookie HttpOnly · X-Request-Id| G[gateway<br/>JWKS · rôles · débit · en-têtes]
   G --> A[auth]
   G --> P[profiles]
   G --> C[cv-generation]
@@ -36,9 +37,10 @@ docker, jamais par la gateway ([ADR 0012](adr/0012-communication-entre-services.
 
 | Service          | Port | Base               | Responsabilité                                                       | Appelle                             |
 | ---------------- | ---- | ------------------ | -------------------------------------------------------------------- | ----------------------------------- |
-| `apps/web`       | 3080 | `attesta_web`      | Écrans EJS, session du brouillon, cookies, CSRF                      | gateway uniquement                  |
+| `frontend`       | 8080 | aucune             | Écrans React, état serveur React Query, routes protégées par rôle    | gateway uniquement                  |
+| `apps/web`       | 3080 | `attesta_web`      | Monolithe EJS, référence de la parité jusqu'à son retrait en M5      | (sa propre base)                    |
 | `gateway`        | 4000 | aucune             | Routage `/api/<service>`, JWT, débit, en-têtes, corrélation          | tous les services                   |
-| `auth`           | 4001 | `attesta_auth`     | Lien magique, JWT RS256, refresh, JWKS, invités, consentements, RGPD | tous (outbox RGPD), SMTP            |
+| `auth`           | 4001 | `attesta_auth`     | Lien magique, JWT RS256, refresh, JWKS, invités, rôles, RGPD         | tous (outbox RGPD), SMTP            |
 | `profiles`       | 4002 | `attesta_profiles` | Profil versionné (CRUD), import de CV PDF avec extraction LLM        | LLM                                 |
 | `cv-generation`  | 4003 | `attesta_cvgen`    | Analyse, rédaction, contrôle de fidélité, traces, corrections, SSE   | profiles, jobs-matching, LLM        |
 | `jobs-matching`  | 4004 | `attesta_jobs`     | Offres saisies et collectées, analyse, ESCO, vecteurs, classement    | sources publiques, TEI, LLM         |
@@ -54,15 +56,13 @@ dépendances) est écrite dans `docs/services/<nom>.md` au moment de son extract
 ```mermaid
 sequenceDiagram
   participant N as Navigateur
-  participant W as web
   participant G as gateway
   participant C as cv-generation
   participant P as profiles
   participant J as jobs-matching
   participant M as Claude
   participant L as letters-export
-  N->>W: GET /cv/generer/flux (SSE)
-  W->>G: GET /api/cv/v1/generations/flux (Bearer, X-Request-Id)
+  N->>G: GET /api/cv/v1/generations/flux (fetch en flux, Bearer, X-Request-Id)
   G->>C: idem, JWT vérifié
   C->>P: GET /internal/v1/profiles/courant (jeton relayé)
   C->>J: GET /internal/v1/offers/{id}/analysis (jeton relayé)
@@ -70,8 +70,7 @@ sequenceDiagram
   C->>M: rédaction à partir des faits numérotés (≤ 2 relances, budget)
   C->>C: contrôle de fidélité, retrait des lignes non prouvées
   C-->>N: SSE « done »
-  N->>W: POST /cv/etape/5 (relu)
-  W->>G: POST /api/letters/v1/exports/cv
+  N->>G: POST /api/letters/v1/exports/cv (relu)
   G->>L: idem
   Note over L: lit le CV vérifié chez cv-generation, rend le PDF
 ```
@@ -80,10 +79,10 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-  participant W as web
+  participant W as frontend
   participant A as auth
   participant S as chaque service
-  W->>A: DELETE /v1/me (confirmé)
+  W->>A: DELETE /api/auth/v1/me (confirmé, via la gateway)
   A->>A: compte en suppression, jetons révoqués, 5 lignes d'outbox (une transaction)
   A-->>W: 202, « Vos données ont été effacées »
   loop pg-boss, reprises pendant 24 h
@@ -98,6 +97,7 @@ sequenceDiagram
 | Composant       | État au 2026-10-18                                     | Phase prévue |
 | --------------- | ------------------------------------------------------ | ------------ |
 | Monolithe       | en service (`apps/web`, `apps/worker`, `packages/*`)   | retiré en 4  |
+| frontend        | ADR 0022 accepté, pas encore de code                   | 5            |
 | gateway, auth   | ADR acceptés, pas encore de code                       | 2            |
 | profiles        | ADR acceptés, pas encore de code                       | 3 (gabarit)  |
 | autres services | ADR acceptés, pas encore de code                       | 4            |
