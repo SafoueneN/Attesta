@@ -20,6 +20,7 @@
     "test": "tsc -b && vitest run",
     "test:coverage": "tsc -b && vitest run --coverage",
     "test:e2e": "tsc -b && playwright test",
+    "test:parite": "tsc -b && playwright test e2e/parite",
     "start": "node apps/web/dist/server.js",
     "db:migrate": "node-pg-migrate up --migrations-dir db/migrations --migration-file-language sql",
     "evals": "tsc -b && vitest run evals",

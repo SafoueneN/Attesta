@@ -38,3 +38,26 @@ Le jeu de matching consiste en 50 offres annotées à la main comme pertinentes 
 | Sécurité de la chaîne        | gitleaks, Trivy, `npm audit`, actionlint, `terraform validate`            | verts en local                                                                                                                                                                                                                                                                                                                                                               |
 
 Restent à faire : la mesure du vrai modèle (génération et rerank), le jeu annoté du matching, une restauration de sauvegarde en préprod, une première exécution de la CI et du CD sur GitHub et Google Cloud, et une vérification manuelle au lecteur d'écran.
+
+## Suite de parité de la migration (ADR 0011)
+
+`e2e/parite/` décrit, du seul point de vue de l'utilisateur (libellés, rôles ARIA, URL publiques, e-mails
+reçus), tout ce que fait le monolithe `v0.4-monolithe`. Elle doit rester **verte après chaque extraction**
+de service : c'est la preuve d'équivalence fonctionnelle.
+
+| Fichier               | Couvre                                                                                                                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parcours.spec.ts`    | 5 étapes, erreurs annoncées, retour arrière, clavier, thème sombre, génération SSE, fidélité, corrections, export PDF ATS                                                                    |
+| `compte.spec.ts`      | connexion par lien, profil enregistré, veille en double opt-in, arrêt de la veille, suppression du compte                                                                                    |
+| `complements.spec.ts` | santé, en-têtes, 404, confidentialité, CSRF, garde d'étape, ajout et retrait d'expérience, gabarit design, effacement, génération sans JS, retour au CV non adapté, export JSON, déconnexion |
+
+```bash
+npm run test:parite                                                   # serveur local, comptes ignorés
+E2E_BASE_URL=http://localhost:3080 MAILPIT_URL=http://localhost:8025 \
+  npx playwright test e2e/parite                                      # pile compose --profile core, complète
+```
+
+Limites connues : la génération est plafonnée à 10 par heure et par IP (3 par passage), donc 3 passages
+par heure au plus sur la pile compose ; le désabonnement en un clic depuis un rapport n'est pas couvert
+de bout en bout (il exige une exécution réelle de la veille contre les sources publiques) et reste
+couvert par les tests d'intégration de la veille.

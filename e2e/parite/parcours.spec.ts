@@ -1,45 +1,6 @@
 import { readFile } from "node:fs/promises";
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-
-/** Aucune violation critique ou sérieuse des règles WCAG 2.2 A/AA détectables automatiquement. */
-async function expectAccessible(page: Page) {
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
-  const blocking = violations.filter((v) => v.impact === "critical" || v.impact === "serious");
-  expect(blocking.map((v) => `${v.id} : ${v.help} (${v.nodes.length})`)).toEqual([]);
-}
-
-async function fillProfile(page: Page) {
-  await page.getByLabel("Nom et prénom").fill("Léa Martin");
-  await page.getByLabel("Titre professionnel").fill("Développeuse back-end");
-  await page.getByLabel("Adresse e-mail").fill("lea.martin@example.org");
-  await page.getByLabel("Ville").fill("Lyon");
-  await page.getByRole("button", { name: "Continuer" }).click();
-}
-
-async function fillParcours(page: Page) {
-  const work = page.getByRole("group", { name: "Expérience 1" });
-  await work.getByLabel("Poste", { exact: true }).fill("Développeuse back-end");
-  await work.getByLabel("Employeur").fill("Transports Rhône");
-  await work.getByLabel("Début").fill("2021-03");
-  await work
-    .getByLabel("Réalisations")
-    .fill("Migration de 12 services Express\nRéduction de 40 % du temps de réponse");
-  const education = page.getByRole("group", { name: "Formation 1" });
-  await education.getByLabel("Établissement").fill("INSA Lyon");
-  await education.getByLabel("Fin").fill("2019");
-  await page.getByRole("textbox", { name: "Compétences" }).fill("Node.js : Express, PostgreSQL");
-  await page.getByRole("button", { name: "Continuer" }).click();
-}
-
-async function fillOffer(page: Page) {
-  await page
-    .getByLabel("Texte de l'offre")
-    .fill("Nous recherchons une développeuse ou un développeur back-end Node.js pour notre plateforme.");
-  await page.getByRole("button", { name: "Continuer" }).click();
-}
+import { expect, test } from "@playwright/test";
+import { expectAccessible, fillOffer, fillParcours, fillProfile } from "../support.js";
 
 test("parcours complet : saisie, aperçu, relecture et export PDF", async ({ page }) => {
   await page.goto("/");

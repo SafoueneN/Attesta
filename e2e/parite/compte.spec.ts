@@ -1,37 +1,12 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { expectAccessible, linkFromMail, mailpit } from "../support.js";
 
 /**
  * Compte et veille, de bout en bout, contre la pile compose : les e-mails sont lus
  * dans Mailpit (MAILPIT_URL). Sans Mailpit (serveur local des autres tests), le
  * fichier est ignoré : les comptes y sont désactivés.
  */
-const mailpit = process.env.MAILPIT_URL;
 test.skip(!mailpit, "MAILPIT_URL absent : comptes désactivés sur le serveur local");
-
-async function expectAccessible(page: Page) {
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
-  const blocking = violations.filter((v) => v.impact === "critical" || v.impact === "serious");
-  expect(blocking.map((v) => `${v.id} : ${v.help} (${v.nodes.length})`)).toEqual([]);
-}
-
-/** Lien du dernier e-mail reçu par `to`, dont le chemin commence par `path`. */
-async function linkFromMail(to: string, path: string): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const { messages } = await (
-      await fetch(`${mailpit}/api/v1/search?query=${encodeURIComponent(`to:${to}`)}`)
-    ).json();
-    for (const m of messages ?? []) {
-      const message = await (await fetch(`${mailpit}/api/v1/message/${m.ID}`)).json();
-      const match = new RegExp(`https?://[^\\s"]+(${path}/[A-Za-z0-9_-]+)`).exec(message.Text);
-      if (match) return match[1]!;
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Aucun e-mail pour ${to} contenant ${path}`);
-}
 
 test("compte : connexion par lien, profil, veille en double opt-in, désabonnement, suppression", async ({
   page,
