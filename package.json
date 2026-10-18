@@ -10,7 +10,9 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "services/*",
+    "gateway"
   ],
   "scripts": {
     "build": "tsc -b",

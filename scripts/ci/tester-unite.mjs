@@ -16,6 +16,13 @@ if (!dir || !existsSync(dir)) {
 const pkgPath = `${dir}/package.json`;
 const ownScript = existsSync(pkgPath) && Boolean(JSON.parse(readFileSync(pkgPath, "utf8")).scripts?.test);
 
+// Le Vitest de la racine ne voit que packages/*, apps/* et evals : un service ou la gateway doit
+// déclarer son propre script `test` (avec son seuil de couverture de 80 %).
+if (!ownScript && /^(services\/|gateway$)/.test(dir)) {
+  console.error(`${dir} : ajoutez un script "test" à son package.json (docs/adr/0021).`);
+  process.exit(1);
+}
+
 const [command, args] = ownScript
   ? ["npm", ["test", "--workspace", dir]]
   : dir === "evals"
