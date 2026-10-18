@@ -1,0 +1,87 @@
+{
+  // Tâches courantes (Terminal → Exécuter la tâche). Mêmes commandes que la CI et le README.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "npm",
+      "script": "build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "lint",
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": "$eslint-stylish"
+    },
+    {
+      "label": "typecheck",
+      "type": "npm",
+      "script": "typecheck",
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "tests unitaires et d'intégration",
+      "type": "npm",
+      "script": "test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "tests : couverture",
+      "type": "npm",
+      "script": "test:coverage",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "tests : parité (serveur local)",
+      "type": "npm",
+      "script": "test:parite",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "tests : parité (pile compose)",
+      "type": "shell",
+      "command": "npx playwright test e2e/parite",
+      "options": {
+        "env": { "E2E_BASE_URL": "http://localhost:3080", "MAILPIT_URL": "http://localhost:8025" }
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "compose : démarrer (core)",
+      "type": "shell",
+      "command": "docker compose --profile core up -d --build --wait",
+      "problemMatcher": []
+    },
+    {
+      "label": "compose : démarrer (full)",
+      "type": "shell",
+      "command": "docker compose --profile full up -d --build --wait",
+      "problemMatcher": []
+    },
+    {
+      "label": "compose : arrêter",
+      "type": "shell",
+      "command": "docker compose --profile full --profile veille down",
+      "problemMatcher": []
+    },
+    {
+      "label": "compose : journaux",
+      "type": "shell",
+      "command": "docker compose --profile full logs -f --tail 100",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "bases : vérifier le cloisonnement",
+      "type": "shell",
+      "command": "bash infra/postgres/verifier-cloisonnement.sh",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# Règles d'édition communes à tous les éditeurs (VS Code : extension EditorConfig recommandée).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+max_line_length = 110
+
+[*.md]
+# Deux espaces finaux forcent un retour à la ligne en Markdown : on les garde.
+trim_trailing_whitespace = false
+

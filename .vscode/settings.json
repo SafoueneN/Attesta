@@ -1,0 +1,47 @@
+{
+  // Formatage et lint automatiques, identiques pour toute l'équipe (Prettier + ESLint du dépôt).
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": ["javascript", "typescript"],
+  "prettier.requireConfig": true,
+
+  // Fins de ligne LF partout (aussi imposées par .gitattributes et .editorconfig).
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.associations": { "*.ejs": "html" },
+
+  // TypeScript du dépôt (version figée dans package-lock.json), pas celui embarqué par VS Code.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.importModuleSpecifierEnding": "js",
+
+  "search.exclude": {
+    "**/dist": true,
+    "coverage": true,
+    "playwright-report": true,
+    "test-results": true,
+    "evals/dist": true
+  },
+  "files.watcherExclude": {
+    "**/dist/**": true,
+    "coverage/**": true
+  },
+
+  // REST Client : démonstration des API (fichiers .http des services).
+  "rest-client.environmentVariables": {
+    "$shared": {},
+    "local": {
+      "web": "http://localhost:3080",
+      "gateway": "http://localhost:4000"
+    }
+  },
+
+  "[markdown]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[yaml]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[sql]": { "editor.formatOnSave": false },
+  "[shellscript]": { "files.eol": "\n" }
+}

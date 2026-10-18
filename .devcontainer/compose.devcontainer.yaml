@@ -1,0 +1,35 @@
+# Surcharge de compose.yaml pour le devcontainer (projet compose distinct de la pile de l'hôte).
+# Les ports de l'hôte sont retirés : la pile `docker compose --profile core up` de l'hôte peut tourner
+# en même temps sans conflit. Valeurs de développement uniquement.
+services:
+  dev:
+    image: mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
+    command: sleep infinity
+    # Chemin relatif au premier fichier compose (../compose.yaml), donc à la racine du dépôt.
+    volumes:
+      - .:/workspaces/attesta:cached
+    environment:
+      TEST_DATABASE_URL: postgres://postgres:test@test-db:5432/attesta_test
+      MAILPIT_URL: http://mailpit:8025
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+      test-db: { condition: service_healthy }
+
+  # Base jetable des tests d'intégration (comme le service PostgreSQL de la CI).
+  test-db:
+    image: pgvector/pgvector:0.8.0-pg16
+    environment:
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: attesta_test
+    tmpfs: ["/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d attesta_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db:
+    ports: !reset []
+
+  mailpit:
+    ports: !reset []

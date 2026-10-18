@@ -1,0 +1,38 @@
+{
+  // Poste de développement en une commande : « Dev Containers : Rouvrir dans le conteneur » (docs/adr/0021).
+  // Node 22, Docker de l'hôte, PostgreSQL + pgvector (bases des services), base de test et Mailpit.
+  "name": "Attesta",
+  "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
+  "service": "dev",
+  "runServices": ["dev", "db", "db-init", "mailpit", "test-db"],
+  "workspaceFolder": "/workspaces/attesta",
+  "shutdownAction": "stopCompose",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "forwardPorts": [3000, 3080, 4000, 8025],
+  "portsAttributes": {
+    "3000": { "label": "web (npm)" },
+    "3080": { "label": "web (compose)" },
+    "4000": { "label": "gateway" },
+    "8025": { "label": "Mailpit" }
+  },
+  // Dépendances, Chromium de Playwright, build, puis migration de la base de test.
+  "postCreateCommand": "npm ci && npx playwright install --with-deps chromium && npm run build && DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "editorconfig.editorconfig",
+        "ms-azuretools.vscode-docker",
+        "github.vscode-github-actions",
+        "humao.rest-client",
+        "ms-playwright.playwright",
+        "vitest.explorer",
+        "eamodio.gitlens",
+        "bierner.markdown-mermaid"
+      ]
+    }
+  }
+}

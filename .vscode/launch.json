@@ -1,0 +1,107 @@
+{
+  // Débogage (docs/adr/0021). Ports des débogueurs : web 9229, gateway 9230, puis un par service (9231-9236).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Monolithe : web (local, mémoire, IA de démo)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/web/dist/server.js",
+      "preLaunchTask": "build",
+      "outFiles": ["${workspaceFolder}/{apps,packages}/*/dist/**/*.js"],
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      // Valeurs de développement uniquement, comme dans compose.yaml : aucun secret réel.
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3000",
+        "SESSION_STORE": "memory",
+        "SESSION_SECRET": "dev-secret-a-remplacer-hors-poste-local-0000",
+        "LLM_PROVIDER": "demo",
+        "LOG_LEVEL": "debug"
+      }
+    },
+    {
+      "name": "Monolithe : veille quotidienne (base compose)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/worker/dist/main.js",
+      "preLaunchTask": "build",
+      "outFiles": ["${workspaceFolder}/{apps,packages}/*/dist/**/*.js"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "DATABASE_URL": "postgres://attesta:attesta-dev-uniquement@127.0.0.1:5433/attesta",
+        "SMTP_URL": "smtp://127.0.0.1:1025",
+        "LLM_PROVIDER": "demo",
+        "EMBEDDINGS_PROVIDER": "hash",
+        "ESCO_ENABLED": "false"
+      }
+    },
+    {
+      // Valable dès qu'un service ou la gateway a un script `dev` (Phases 2 à 4).
+      "name": "Service ou gateway : lancer et déboguer",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "${input:composant}"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "autoAttachChildProcesses": true
+    },
+    {
+      // Conteneur lancé avec NODE_OPTIONS=--inspect=0.0.0.0:<port> (surcharge de développement, Phase 2).
+      "name": "Conteneur : s'attacher",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": "${input:portDebogage}",
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/app",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Vitest : fichier courant",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "${relativeFile}"],
+      "preLaunchTask": "build",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "composant",
+      "type": "pickString",
+      "description": "Composant à lancer",
+      "options": [
+        "gateway",
+        "services/auth",
+        "services/profiles",
+        "services/cv-generation",
+        "services/jobs-matching",
+        "services/job-watch",
+        "services/letters-export"
+      ]
+    },
+    {
+      "id": "portDebogage",
+      "type": "pickString",
+      "description": "Port du débogueur du conteneur",
+      "options": [
+        { "label": "web", "value": "9229" },
+        { "label": "gateway", "value": "9230" },
+        { "label": "auth", "value": "9231" },
+        { "label": "profiles", "value": "9232" },
+        { "label": "cv-generation", "value": "9233" },
+        { "label": "jobs-matching", "value": "9234" },
+        { "label": "job-watch", "value": "9235" },
+        { "label": "letters-export", "value": "9236" }
+      ]
+    }
+  ]
+}
