@@ -1,8 +1,9 @@
 // Teste une unité de la matrice CI, de la même façon en local et sur GitHub Actions.
-// - unité avec son propre script `test` (services, gateway) : `npm test --workspace <dir>` ;
+// - service ou gateway (son propre package-lock.json, docs/adr/0023) : `npm ci`, types, puis tests avec
+//   couverture, dans le seul dossier de l'unité, sans rien de la racine ;
 // - unité du monolithe : Vitest de la racine, limité à ses tests, couverture limitée à son `src/` ;
 // - `evals` : évaluation de fidélité en rejeu, sans couverture.
-// Prérequis : `npm run build` (les paquets internes sont importés depuis leur dist/).
+// Prérequis pour le monolithe : `npm ci && npm run build` à la racine.
 // Usage : node scripts/ci/tester-unite.mjs packages/schema
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -13,22 +14,23 @@ if (!dir || !existsSync(dir)) {
   process.exit(2);
 }
 
-const pkgPath = `${dir}/package.json`;
-const ownScript = existsSync(pkgPath) && Boolean(JSON.parse(readFileSync(pkgPath, "utf8")).scripts?.test);
-
-// Le Vitest de la racine ne voit que packages/*, apps/* et evals : un service ou la gateway doit
-// déclarer son propre script `test` (avec son seuil de couverture de 80 %).
-if (!ownScript && /^(services\/|gateway$)/.test(dir)) {
-  console.error(`${dir} : ajoutez un script "test" à son package.json (docs/adr/0021).`);
-  process.exit(1);
+function run(command, args, cwd) {
+  console.log(`> ${command} ${args.join(" ")}${cwd ? `   (${cwd})` : ""}`);
+  const result = spawnSync(command, args, { cwd, stdio: "inherit", shell: process.platform === "win32" });
+  if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-const [command, args] = ownScript
-  ? ["npm", ["test", "--workspace", dir]]
-  : dir === "evals"
-    ? ["npx", ["vitest", "run", "evals/"]]
-    : ["npx", ["vitest", "run", `${dir}/`, "--coverage", `--coverage.include=${dir}/src/**`]];
-
-console.log(`> ${command} ${args.join(" ")}`);
-const result = spawnSync(command, args, { stdio: "inherit", shell: process.platform === "win32" });
-process.exit(result.status ?? 1);
+const autonomous = existsSync(`${dir}/package-lock.json`);
+if (autonomous) {
+  const scripts = JSON.parse(readFileSync(`${dir}/package.json`, "utf8")).scripts ?? {};
+  run("npm", ["ci", "--no-audit", "--no-fund"], dir);
+  if (scripts.typecheck) run("npm", ["run", "typecheck"], dir);
+  run("npm", ["run", scripts["test:coverage"] ? "test:coverage" : "test"], dir);
+} else if (/^(services\/|gateway$)/.test(dir)) {
+  console.error(`${dir} : un service doit avoir son propre package-lock.json (docs/adr/0023).`);
+  process.exit(1);
+} else if (dir === "evals") {
+  run("npx", ["vitest", "run", "evals/"]);
+} else {
+  run("npx", ["vitest", "run", `${dir}/`, "--coverage", `--coverage.include=${dir}/src/**`]);
+}

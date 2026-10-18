@@ -19,6 +19,18 @@ x-durci: &durci
   # Sandbox de Chromium active grâce à un profil seccomp dédié (docs/adr/0009).
   security_opt: ["no-new-privileges:true", "seccomp=./infra/seccomp/chromium.json"]
 
+# Services extraits : même durcissement, sans Chromium (seul letters-export rendra des PDF).
+x-service: &service
+  init: true
+  read_only: true
+  tmpfs: ["/tmp"]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  environment: &service-env
+    NODE_ENV: development
+    LOG_LEVEL: info
+
 x-env: &env
   DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
   # Poste local : mode développement (cookies sans Secure sur http://localhost,
@@ -81,6 +93,76 @@ services:
   mailpit:
     image: axllent/mailpit:v1.27
     ports: ["${MAILPIT_PORT:-8025}:8025"]
+
+  # --- Services (docs/adr/0011, 0023) ------------------------------------------------------
+  # Chacun démarre seul : `docker compose up <service>` (la base est démarrée avec lui).
+  # Rôle et mot de passe de développement créés par db-init (infra/postgres/init.sql).
+
+  auth:
+    <<: *service
+    build: { context: ., dockerfile: services/auth/Dockerfile }
+    profiles: ["core", "full"]
+    ports: ["${AUTH_PORT:-4001}:4001"]
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgres://attesta_auth:attesta_auth-dev-uniquement@db:5432/attesta_auth
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+
+  profiles:
+    <<: *service
+    build: { context: ., dockerfile: services/profiles/Dockerfile }
+    profiles: ["core", "full"]
+    ports: ["${PROFILES_PORT:-4002}:4002"]
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgres://attesta_profiles:attesta_profiles-dev-uniquement@db:5432/attesta_profiles
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+
+  cv-generation:
+    <<: *service
+    build: { context: ., dockerfile: services/cv-generation/Dockerfile }
+    profiles: ["core", "full"]
+    ports: ["${CV_GENERATION_PORT:-4003}:4003"]
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgres://attesta_cvgen:attesta_cvgen-dev-uniquement@db:5432/attesta_cvgen
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+
+  jobs-matching:
+    <<: *service
+    build: { context: ., dockerfile: services/jobs-matching/Dockerfile }
+    profiles: ["full"]
+    ports: ["${JOBS_MATCHING_PORT:-4004}:4004"]
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgres://attesta_jobs:attesta_jobs-dev-uniquement@db:5432/attesta_jobs
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+
+  job-watch:
+    <<: *service
+    build: { context: ., dockerfile: services/job-watch/Dockerfile }
+    profiles: ["full"]
+    ports: ["${JOB_WATCH_PORT:-4005}:4005"]
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgres://attesta_watch:attesta_watch-dev-uniquement@db:5432/attesta_watch
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+
+  letters-export:
+    <<: *service
+    build: { context: ., dockerfile: services/letters-export/Dockerfile }
+    profiles: ["core", "full"]
+    ports: ["${LETTERS_EXPORT_PORT:-4006}:4006"]
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgres://attesta_letters:attesta_letters-dev-uniquement@db:5432/attesta_letters
+    depends_on:
+      db-init: { condition: service_completed_successfully }
 
   # --- Monolithe, en cours d'extraction (profil core) ---------------------------------------
 

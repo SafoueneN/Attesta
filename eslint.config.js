@@ -29,4 +29,37 @@ export default tseslint.config(
   { files: ["apps/web/public/**/*.js"], languageOptions: { globals: { ...globals.browser } } },
   { files: ["packages/schema/src/**", "packages/shared/src/**"], rules: noInternalImports([]) },
   { files: ["packages/render/src/**"], rules: noInternalImports(["schema"]) },
+  // Paquets du socle des services (docs/adr/0023) : aucune logique métier, aucun import de service.
+  { files: ["packages/logger/src/**", "packages/config/src/**"], rules: noInternalImports([]) },
+  { files: ["packages/http-kit/src/**"], rules: noInternalImports(["logger"]) },
+  // Un service n'importe que les paquets partagés du socle, jamais un autre service ni le monolithe
+  // (règles 1 et 2 de CLAUDE.md) : il parle aux autres par leur API.
+  {
+    files: ["services/**/*.ts", "gateway/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@attesta/*",
+                "!@attesta/logger",
+                "!@attesta/config",
+                "!@attesta/http-kit",
+                "!@attesta/shared-schemas",
+                "!@attesta/llm-client",
+              ],
+              message:
+                "Un service n'importe que le socle partagé ; le code du monolithe est extrait, pas importé.",
+            },
+            {
+              group: ["../../*", "../../../*", "../../../../*"],
+              message: "Import hors du dossier du service interdit : passer par l'API de l'autre service.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

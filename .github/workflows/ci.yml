@@ -1,6 +1,7 @@
 # Intégration continue : chaque PR et chaque push sur main.
-# Tests en matrice, une entrée par unité (paquet, application, puis chaque service et la gateway dès qu'ils
-# existent : scripts/ci/unites.mjs), et suite de parité de la migration (docs/adr/0011, 0021).
+# Tests en matrice, une entrée par unité (paquet, application, service, gateway : scripts/ci/unites.mjs). Sur une
+# PR, seules les unités touchées sont testées (matrice par chemins) ; sur main, toutes. Chaque service est installé
+# et testé dans son seul dossier (docs/adr/0023). Suite de parité de la migration (docs/adr/0011, 0021).
 # Le déploiement Google Cloud (cd.yml) est gelé (docs/adr/0021) : il ne part pas sans projet configuré.
 name: ci
 
@@ -41,6 +42,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - name: Paquets partagés livrés compilés (dist/ versionné à jour, docs/adr/0025)
+        run: |
+          npx tsc -b packages/logger packages/config packages/http-kit
+          test -z "$(git status --porcelain -- packages/logger/dist packages/config/dist packages/http-kit/dist)"             || { git status --short -- packages/*/dist; echo "dist/ obsolète : node scripts/sync-packages.mjs, puis committer"; exit 1; }
       - name: Migrations (montée, descente, remontée)
         run: |
           DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
@@ -57,12 +62,23 @@ jobs:
       matrice: ${{ steps.liste.outputs.matrice }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - id: liste
-        run: echo "matrice=$(node scripts/ci/unites.mjs)" >> "$GITHUB_OUTPUT"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            echo "matrice=$(node scripts/ci/unites.mjs --depuis "origin/$BASE_REF")" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrice=$(node scripts/ci/unites.mjs)" >> "$GITHUB_OUTPUT"
+          fi
 
   tests:
     name: Tests · ${{ matrix.name }}
     needs: [unites]
+    # PR sans unité touchée (documentation seule) : aucun test à lancer.
+    if: needs.unites.outputs.matrice != '[]'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -87,12 +103,19 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            services/*/package-lock.json
+            gateway/package-lock.json
+      # Monolithe seulement : un service ou la gateway s'installe dans son dossier (tester-unite.mjs).
       # Ubuntu 24.04 restreint les espaces de noms utilisateur : sans ce réglage,
       # la sandbox de Chromium (rendu PDF) ne démarre pas.
-      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - run: npm ci
-      - run: npm run build
-      - run: DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
+      - if: ${{ !startsWith(matrix.dir, 'services/') && matrix.dir != 'gateway' }}
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          npm ci
+          npm run build
+          DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
       # Couverture limitée au src/ de l'unité ; l'entrée `evals` est la porte de fidélité (bloquante).
       - run: node scripts/ci/tester-unite.mjs ${{ matrix.dir }}
 

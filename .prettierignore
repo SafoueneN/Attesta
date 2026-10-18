@@ -4,3 +4,7 @@ package-lock.json
 playwright-report/
 test-results/
 *.ejs
+
+# Générés par npm run openapi (docs/adr/0023), vérifiés par le test openapi de chaque service
+services/*/openapi.yaml
+gateway/openapi.yaml

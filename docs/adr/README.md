@@ -24,8 +24,9 @@
 | [0020](0020-observabilite.md)                  | Journaux corrélés, `/health` et `/ready`                                            | accepté                            |
 | [0021](0021-cible-execution-et-outillage.md)   | docker-compose local, profils, ports, devcontainer, Vitest, Google Cloud gelé       | accepté                            |
 | [0022](0022-frontend-react.md)                 | Frontend React + Vite + Tailwind, même origine, jeton d'accès en mémoire            | accepté                            |
-| [0023](0023-autonomie-des-services.md)         | Lockfile par service, paquets en `file:`, bouchons, `openapi.yaml` versionné        | accepté                            |
+| [0023](0023-autonomie-des-services.md)         | Lockfile par service, paquets en `file:`, bouchons, `openapi.yaml` versionné        | accepté, précisé par 0025          |
 | [0024](0024-roles.md)                          | Rôles candidat et administrateur, sans accès aux données des candidats              | accepté                            |
+| [0025](0025-paquets-partages-compiles.md)      | Paquets du socle livrés compilés, copiés par `install-links`                        | accepté                            |
 
 Format : contexte, décision, options considérées, conséquences. Un ADR accepté n'est jamais réécrit : on le
 remplace ou on l'amende par un nouvel ADR, et seule sa ligne de statut reçoit le renvoi.

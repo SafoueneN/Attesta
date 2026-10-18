@@ -1,0 +1,66 @@
+openapi: "3.1.0"
+info:
+  title: "Attesta · job-watch"
+  version: "0.1.0"
+  description: "Abonnements, exécution quotidienne et rapports envoyés par e-mail."
+paths:
+  "/health":
+    get:
+      operationId: "health"
+      summary: "Vivacité : le processus répond"
+      tags:
+        - "santé"
+      responses:
+        "200":
+          description: "Le processus répond"
+  "/ready":
+    get:
+      operationId: "ready"
+      summary: "Disponibilité : les dépendances répondent"
+      tags:
+        - "santé"
+      responses:
+        "200":
+          description: "Prêt"
+        "503":
+          description: "Une dépendance ne répond pas"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+components:
+  securitySchemes:
+    bearer:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"

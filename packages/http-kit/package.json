@@ -1,0 +1,28 @@
+{
+  "name": "@attesta/http-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Socle HTTP commun des services : erreurs, X-Request-Id, journal d'accès, santé, validation, OpenAPI.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "helmet": "^8.3.0"
+  },
+  "peerDependencies": {
+    "@attesta/logger": "0.1.0",
+    "express": "^5.3.0",
+    "zod": "^4.6.7"
+  }
+}

@@ -1,7 +1,8 @@
 # ADR 0023 : Chaque service s'installe, se lance et se teste seul
 
 - Statut : accepté le 2026-10-18 ; **amende l'[ADR 0011](0011-microservices-extraction.md)** (workspaces
-  npm) et l'[ADR 0017](0017-contrats-openapi-zod.md) (OpenAPI versionné)
+  npm) et l'[ADR 0017](0017-contrats-openapi-zod.md) (OpenAPI versionné) ; point 2 précisé par
+  l'[ADR 0025](0025-paquets-partages-compiles.md)
 - Décideurs : chef de projet
 
 ## Contexte

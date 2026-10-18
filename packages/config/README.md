@@ -1,9 +1,16 @@
 # `@attesta/config`
 
-> Statut : **pas encore de code** ; créé en Phase 2. Décision : [0021](../../docs/adr/0021-cible-execution-et-outillage.md).
+Lecture de l'environnement d'un service, validée par Zod au démarrage. Aucune logique métier.
 
-Lecture et validation Zod des variables d'environnement, échec explicite au démarrage.
+- `loadEnv(schema)` : valide `process.env` ; en cas d'erreur, `ConfigError` liste **toutes** les variables
+  invalides, sans jamais recopier leur valeur. Le service s'arrête avant d'écouter.
+- `serviceEnv(port)` : `NODE_ENV`, `PORT` (défaut propre au service), `LOG_LEVEL`, `TRUST_PROXY`.
+- `databaseUrl`, `serviceUrl` (URL ou `mock`, [ADR 0023](../../docs/adr/0023-autonomie-des-services.md)),
+  `envBool(défaut)`.
 
-Origine : `packages/shared/src/config.ts`.
+Chaque service déclare son schéma dans `src/config.ts` et documente chaque variable dans `.env.example`.
 
-Règle : **aucune logique métier** ici. Ce paquet n'importe jamais un service ; une règle ESLint le vérifie.
+```bash
+npm run build   # dist/
+npm test        # Vitest
+```

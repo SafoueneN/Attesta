@@ -13,3 +13,8 @@ evals/dist/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Paquets partagés consommés par les services : livrés compilés, dist/ versionné (docs/adr/0025).
+!/packages/logger/dist/
+!/packages/config/dist/
+!/packages/http-kit/dist/

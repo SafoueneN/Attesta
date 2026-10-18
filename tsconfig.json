@@ -2,6 +2,15 @@
   "files": [],
   "references": [
     {
+      "path": "packages/logger"
+    },
+    {
+      "path": "packages/config"
+    },
+    {
+      "path": "packages/http-kit"
+    },
+    {
       "path": "packages/schema"
     },
     {

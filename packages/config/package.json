@@ -1,0 +1,23 @@
+{
+  "name": "@attesta/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lecture et validation de l'environnement d'un service par Zod, sans recopier les valeurs.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "zod": "^4.6.7"
+  }
+}

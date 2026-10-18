@@ -1,0 +1,14 @@
+# Contexte de l'image letters-export : uniquement son dossier et les paquets partagés compilés.
+*
+!packages/logger/package.json
+!packages/logger/dist
+!packages/config/package.json
+!packages/config/dist
+!packages/http-kit/package.json
+!packages/http-kit/dist
+!services/letters-export/package.json
+!services/letters-export/package-lock.json
+!services/letters-export/.npmrc
+!services/letters-export/tsconfig.json
+!services/letters-export/tsconfig.build.json
+!services/letters-export/src
