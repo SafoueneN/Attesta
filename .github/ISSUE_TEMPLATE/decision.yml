@@ -1,0 +1,30 @@
+name: Décision d'architecture
+description: Proposer un choix structurant, qui deviendra un ADR dans docs/adr/.
+title: "[ADR] "
+labels: ["type:decision", "a-trier"]
+body:
+  - type: textarea
+    id: contexte
+    attributes:
+      label: Contexte
+      description: Quelle situation impose une décision ? Quelles contraintes (cours, mémoire du poste, délais) ?
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options considérées
+      description: Au moins deux, avec leurs avantages, inconvénients et coûts.
+    validations:
+      required: true
+  - type: textarea
+    id: proposition
+    attributes:
+      label: Proposition
+    validations:
+      required: true
+  - type: input
+    id: remplace
+    attributes:
+      label: ADR remplacés ou amendés
+      placeholder: "aucun, ou 0004"

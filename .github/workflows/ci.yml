@@ -1,5 +1,7 @@
 # Intégration continue : chaque PR et chaque push sur main.
-# Le déploiement (préprod, prod) est dans cd.yml et ne part que si ce workflow est vert.
+# Tests en matrice, une entrée par unité (paquet, application, puis chaque service et la gateway dès qu'ils
+# existent : scripts/ci/unites.mjs), et suite de parité de la migration (docs/adr/0011, 0021).
+# Le déploiement Google Cloud (cd.yml) est gelé (docs/adr/0021) : il ne part pas sans projet configuré.
 name: ci
 
 on:
@@ -16,7 +18,7 @@ concurrency:
 
 jobs:
   qualite:
-    name: Lint, types, tests unitaires, contrats, évaluations, ATS
+    name: Lint, types, migrations, dépendances
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -36,9 +38,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      # Ubuntu 24.04 restreint les espaces de noms utilisateur : sans ce réglage,
-      # la sandbox de Chromium (rendu PDF) ne démarre pas.
-      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
@@ -47,12 +46,55 @@ jobs:
           DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
           DATABASE_URL=$TEST_DATABASE_URL npx node-pg-migrate down --count 999 --migrations-dir db/migrations --migration-file-language sql
           DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
-      # Inclut les tests d'intégration PostgreSQL (en échec, et non ignorés, si la base
-      # manque en CI) et l'évaluation de fidélité (porte bloquante).
-      - run: npm run test:coverage
       - run: npm audit --omit=dev --audit-level=high
       - name: Scripts de déploiement et de retour arrière
         run: bash infra/deploy/test/deploy.test.sh
+
+  unites:
+    name: Liste des unités testées
+    runs-on: ubuntu-24.04
+    outputs:
+      matrice: ${{ steps.liste.outputs.matrice }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: liste
+        run: echo "matrice=$(node scripts/ci/unites.mjs)" >> "$GITHUB_OUTPUT"
+
+  tests:
+    name: Tests · ${{ matrix.name }}
+    needs: [unites]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.unites.outputs.matrice) }}
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: attesta_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d attesta_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      # Les tests d'intégration échouent (et ne sont pas ignorés) si la base manque en CI.
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/attesta_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # Ubuntu 24.04 restreint les espaces de noms utilisateur : sans ce réglage,
+      # la sandbox de Chromium (rendu PDF) ne démarre pas.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: npm ci
+      - run: npm run build
+      - run: DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
+      # Couverture limitée au src/ de l'unité ; l'entrée `evals` est la porte de fidélité (bloquante).
+      - run: node scripts/ci/tester-unite.mjs ${{ matrix.dir }}
 
   secrets:
     name: Recherche de secrets
@@ -65,7 +107,7 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.21.2 detect --source /repo --no-banner --redact
 
   infra:
-    name: Terraform
+    name: Terraform (gelé, validé seulement)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -91,7 +133,7 @@ jobs:
       - uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
 
   e2e:
-    name: Bout en bout et accessibilité
+    name: Parité (serveur local) et accessibilité
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -102,7 +144,7 @@ jobs:
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npm run test:parite
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
@@ -111,9 +153,9 @@ jobs:
           retention-days: 7
 
   image:
-    name: Image Docker, vulnérabilités et test de fumée
+    name: Pile compose, parité complète, vulnérabilités
     runs-on: ubuntu-24.04
-    needs: [qualite]
+    needs: [qualite, tests]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -121,6 +163,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: docker compose --profile core up -d --build --wait
+      - name: Bases et rôles cloisonnés (docs/adr/0013)
+        run: bash infra/postgres/verifier-cloisonnement.sh
       - name: Vulnérabilités de l'image (critiques et hautes, corrigeables)
         # Image Docker de Trivy, version figée (comme dans cd.yml) : l'action trivy-action
         # dépendait d'une version de setup-trivy retirée par son éditeur.
@@ -129,10 +173,10 @@ jobs:
           image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 --quiet attesta-web
       - run: node scripts/smoke.mjs http://localhost:3080
       - run: npm ci && npx playwright install --with-deps chromium
-      - run: npx playwright test
+      - name: Suite de parité complète (comptes et veille par Mailpit)
+        run: npx playwright test e2e/parite
         env:
           E2E_BASE_URL: http://localhost:3080
-          # Comptes et veille : e-mails lus dans Mailpit (e2e/compte.spec.ts).
           MAILPIT_URL: http://localhost:8025
       # Le worker démarre dans l'image, migre la file pg-boss, purge et s'arrête :
       # aucun abonné, donc aucune requête vers les sources (pas de réseau externe).
@@ -144,4 +188,4 @@ jobs:
           ! docker compose logs web | grep -e 'Léa' -e 'lea.martin' -e 'Camille' -e '@attesta.localhost' \
             -e '/connexion/[A-Za-z0-9_-]\{20,\}' -e '/confirmer/[A-Za-z0-9_-]\{20,\}' -e '/desabonner/[A-Za-z0-9_-]\{20,\}'
       - if: always()
-        run: docker compose down -v
+        run: docker compose --profile core --profile veille down -v

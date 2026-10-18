@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Décisions d'architecture en vigueur
+    url: https://github.com/SafoueneN/Attesta/blob/main/docs/adr/README.md
+    about: Lire les ADR avant de proposer un changement structurant.

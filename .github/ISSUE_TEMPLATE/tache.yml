@@ -1,0 +1,64 @@
+name: Tâche ou évolution
+description: Un lot de travail livrable en une PR (extraction, fonctionnalité, test, documentation).
+title: "[tâche] "
+labels: ["type:tache", "a-trier"]
+body:
+  - type: dropdown
+    id: service
+    attributes:
+      label: Composant
+      options:
+        [
+          web,
+          gateway,
+          auth,
+          profiles,
+          cv-generation,
+          jobs-matching,
+          job-watch,
+          letters-export,
+          paquets partagés,
+          infra ou CI,
+          documentation,
+        ]
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        [
+          "1 - Fondations",
+          "2 - Socle commun",
+          "3 - Service gabarit",
+          "4 - Services",
+          "5 - Interface",
+          "6 - Durcissement",
+        ]
+    validations:
+      required: true
+  - type: textarea
+    id: objectif
+    attributes:
+      label: Objectif
+      description: Ce que l'utilisateur ou l'équipe obtient, en une ou deux phrases.
+    validations:
+      required: true
+  - type: textarea
+    id: criteres
+    attributes:
+      label: Critères de fin
+      value: |
+        - [ ] Tests verts (commande et résultat cités dans la PR)
+        - [ ] Couverture ≥ 80 % sur la logique métier du service
+        - [ ] Suite de parité verte
+        - [ ] OpenAPI et README du service à jour
+        - [ ] TASKS.md à jour
+    validations:
+      required: true
+  - type: input
+    id: adr
+    attributes:
+      label: ADR liés
+      placeholder: "0011, 0013"

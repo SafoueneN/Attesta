@@ -1,0 +1,28 @@
+# Synchronise les étiquettes du dépôt avec .github/labels.json (création ou mise à jour, sans suppression).
+# gh est préinstallé sur les exécuteurs GitHub : aucune action tierce.
+name: labels
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/labels.json"]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Créer ou mettre à jour les étiquettes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jq -c '.[]' .github/labels.json | while read -r label; do
+            gh label create "$(jq -r .name <<<"$label")" \
+              --color "$(jq -r .color <<<"$label")" \
+              --description "$(jq -r .description <<<"$label")" \
+              --force
+          done

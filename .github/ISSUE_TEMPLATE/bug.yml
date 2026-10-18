@@ -1,0 +1,58 @@
+name: Anomalie
+description: Un comportement observé diffère du comportement attendu.
+title: "[bug] "
+labels: ["type:bug", "a-trier"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Aucune donnée personnelle réelle** dans ce ticket : pas de nom, d'e-mail, de CV ni d'offre réels.
+        Utilisez des données fictives et le `requestId` des journaux.
+  - type: dropdown
+    id: service
+    attributes:
+      label: Composant concerné
+      options:
+        [
+          web,
+          gateway,
+          auth,
+          profiles,
+          cv-generation,
+          jobs-matching,
+          job-watch,
+          letters-export,
+          paquets partagés,
+          infra ou CI,
+          monolithe (avant extraction),
+        ]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Étapes pour reproduire
+      placeholder: "1. docker compose --profile core up\n2. Ouvrir …\n3. Cliquer sur …"
+    validations:
+      required: true
+  - type: textarea
+    id: attendu
+    attributes:
+      label: Comportement attendu, puis comportement observé
+    validations:
+      required: true
+  - type: input
+    id: request-id
+    attributes:
+      label: X-Request-Id (si disponible)
+      placeholder: 3f2b9c1e-…
+  - type: dropdown
+    id: parite
+    attributes:
+      label: La suite de parité (`npm run test:parite`) échoue-t-elle ?
+      options: [Non vérifié, Oui, Non]
+  - type: textarea
+    id: environnement
+    attributes:
+      label: Environnement
+      placeholder: "Windows 11, Docker 29, Node 22.18, profil core, commit abc1234"
