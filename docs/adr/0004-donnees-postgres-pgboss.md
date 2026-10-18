@@ -1,6 +1,6 @@
 # ADR 0004 : PostgreSQL + pgvector, SQL explicite, pg-boss
 
-- Statut : accepté, **amendé par l'[ADR 0009](0009-hebergement-et-execution.md)** (pas de worker pg-boss pour le parcours interactif ; pg-boss en Phase 4)
+- Statut : accepté, **amendé par l'[ADR 0009](0009-hebergement-et-execution.md)** (pas de worker pg-boss pour le parcours interactif ; pg-boss en Phase 4), et par l'[ADR 0013](0013-une-base-par-service.md) (une base par service)
 - Date : 2026-10-16
 
 ## Décision

@@ -1,6 +1,6 @@
 # ADR 0001 : Monolithe modulaire en TypeScript, workspaces npm
 
-- Statut : accepté le 2026-10-16
+- Statut : **remplacé** le 2026-10-18 par l'[ADR 0011](0011-microservices-extraction.md) (accepté le 2026-10-16)
 - Date : 2026-10-16
 
 ## Contexte

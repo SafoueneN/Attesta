@@ -1,80 +1,127 @@
 # Architecture d'Attesta
 
-Statut : à jour à la fin de la Phase 4 (2026-10-16). Décisions détaillées : [adr/](adr/README.md).
+Statut : architecture **cible** en 6 microservices ([ADR 0011](adr/0011-microservices-extraction.md)),
+mise à jour le 2026-10-18 au début de la migration. L'état de départ est le monolithe modulaire gelé par le
+tag `v0.4-monolithe` (`git show v0.4-monolithe:docs/architecture.md`). Décisions : [adr/](adr/README.md).
 
-## Vue d'ensemble
+## Vue d'ensemble (cible)
 
 ```mermaid
 flowchart LR
-  U[Candidat · navigateur] -->|HTTPS, formulaires, SSE| W
-  subgraph CR[Cloud Run · europe-west9]
-    W[apps/web<br/>Express 5 + EJS<br/>CV, comptes, veille]
-    J[apps/worker<br/>Cloud Run Job quotidien]
-    T[TEI · BGE-M3<br/>service privé]
-  end
-  CS[Cloud Scheduler<br/>7 h, Europe/Paris] --> J
-  W & J --> DB[(Cloud SQL PostgreSQL 16 + pgvector<br/>sessions · comptes · offres · vecteurs · pg-boss)]
-  W & J -->|identité du service, sans clé| V[(Vertex AI région eu<br/>Claude)]
-  J -->|jeton d'identité Google| T
-  J -->|API publiques| S[(BA Jobsuche · ESCO<br/>Adzuna si clés)]
-  W & J -->|SMTP| B[(Brevo, UE)]
-  B -->|webhook : plaintes, rebonds| W
-  GH[GitHub Actions] -->|WIF, sans clé| AR[(Artifact Registry)]
-  GH -->|deploy.sh : révision, test de fumée, paliers, image du job| CR
+  U[Candidat · navigateur] -->|HTTP, formulaires, SSE<br/>cookies HttpOnly| W[apps/web<br/>EJS, sans métier]
+  W -->|Bearer JWT, X-Request-Id| G[gateway<br/>JWKS · débit · en-têtes]
+  G --> A[auth]
+  G --> P[profiles]
+  G --> C[cv-generation]
+  G --> J[jobs-matching]
+  G --> WA[job-watch]
+  G --> L[letters-export]
+  C -->|/internal · jeton relayé| P
+  C -->|/internal · jeton relayé| J
+  L -->|CV vérifié| C
+  L -->|profil seul| P
+  WA -->|jeton de service| J
+  WA -->|rapports PDF| L
+  A -.->|outbox RGPD : suppression, export| P & C & J & WA & L
+  P & C & J & L -->|packages/llm-client<br/>budget par service| M[(Claude<br/>simulé en test et en démo)]
+  WA & A -->|SMTP| MP[(Mailpit en local)]
+  J -->|API publiques| S[(BA Jobsuche · ESCO)]
 ```
 
-- **Un service web** (`apps/web`) sert le parcours CV, les comptes (connexion par lien), la gestion de la veille, le désabonnement et le webhook du fournisseur d'e-mail. Chromium est un processus à part et borné ; l'analyse des PDF importés tourne dans un processus enfant plafonné par le noyau, sans aucun secret ([ADR 0009](adr/0009-hebergement-et-execution.md)).
-- **Un job quotidien** (`apps/worker`, même image) exécute la veille : purge, ingestion, vecteurs, matching, rapports, envoi. Les jobs passent par **pg-boss** (relances, une file par clé) ; l'idempotence repose sur les contraintes de la base ([ADR 0010](adr/0010-veille-comptes-envoi.md)).
-- **Sans état local** : sessions, verrous, compteurs, coûts et données de veille sont dans PostgreSQL. Le service web peut tourner sur plusieurs instances ; le job tourne en une seule tâche, à cause des budgets de requêtes tenus en mémoire.
+Chaque service a **sa base** dans une instance PostgreSQL 16 + pgvector partagée en local, avec un rôle
+cloisonné ([ADR 0013](adr/0013-une-base-par-service.md)). Les flèches internes passent par le réseau
+docker, jamais par la gateway ([ADR 0012](adr/0012-communication-entre-services.md)).
 
-## Flux de la veille quotidienne
+## Services
 
-```mermaid
-sequenceDiagram
-  participant J as Job de veille
-  participant S as Sources (BA, ESCO)
-  participant DB as PostgreSQL
-  participant T as TEI (BGE-M3)
-  participant M as Claude (Vertex eu)
-  participant B as Brevo
-  J->>DB: purge (offres de plus de 60 j, comptes inactifs depuis 18 mois…)
-  J->>S: métiers voisins (ESCO, en cache 30 j), puis offres par intitulé, ville, rayon
-  J->>DB: offres normalisées, dédupliquées (source + identifiant, empreinte)
-  J->>T: vecteurs des nouvelles offres
-  loop un job pg-boss par abonné
-    J->>T: vecteur du profil anonymisé
-    J->>DB: filtres durs + recherche lexicale + recherche vectorielle (HNSW)
-    J->>J: fusion RRF, 20 premières
-    J->>M: rerank et compétences manquantes (vérifiées dans l'offre)
-    J->>DB: résultats ; réservation de l'envoi du jour
-    J->>B: e-mail + 2 PDF (rien s'il n'y a pas d'offre nouvelle)
-  end
-  J->>DB: taux de plaintes sur 30 jours (alerte au-delà de 0,1 %)
-```
+| Service          | Port | Base               | Responsabilité                                                       | Appelle                             |
+| ---------------- | ---- | ------------------ | -------------------------------------------------------------------- | ----------------------------------- |
+| `apps/web`       | 3080 | `attesta_web`      | Écrans EJS, session du brouillon, cookies, CSRF                      | gateway uniquement                  |
+| `gateway`        | 4000 | aucune             | Routage `/api/<service>`, JWT, débit, en-têtes, corrélation          | tous les services                   |
+| `auth`           | 4001 | `attesta_auth`     | Lien magique, JWT RS256, refresh, JWKS, invités, consentements, RGPD | tous (outbox RGPD), SMTP            |
+| `profiles`       | 4002 | `attesta_profiles` | Profil versionné (CRUD), import de CV PDF avec extraction LLM        | LLM                                 |
+| `cv-generation`  | 4003 | `attesta_cvgen`    | Analyse, rédaction, contrôle de fidélité, traces, corrections, SSE   | profiles, jobs-matching, LLM        |
+| `jobs-matching`  | 4004 | `attesta_jobs`     | Offres saisies et collectées, analyse, ESCO, vecteurs, classement    | sources publiques, TEI, LLM         |
+| `job-watch`      | 4005 | `attesta_watch`    | Abonnements, double opt-in, exécution quotidienne, rapports, e-mails | jobs-matching, letters-export, SMTP |
+| `letters-export` | 4006 | `attesta_letters`  | Lettres de motivation, rendu PDF unique (CV, lettres, rapports)      | cv-generation, profiles, LLM        |
 
-## Flux de génération d'un CV
+Code partagé, **sans logique métier** : `packages/shared-schemas` (contrats Zod), `packages/llm-client`,
+`packages/logger`, `packages/config`, `packages/http-kit`. Une fiche par service (périmètre, endpoints,
+dépendances) est écrite dans `docs/services/<nom>.md` au moment de son extraction.
+
+## Flux de génération d'un CV (cible)
 
 ```mermaid
 sequenceDiagram
   participant N as Navigateur
-  participant W as Web (Cloud Run)
-  participant DB as PostgreSQL
-  participant M as Claude (Vertex eu)
-  N->>W: GET /cv/generer/flux?jeton=… (ou POST /cv/generer sans JS)
-  W->>DB: jeton consommé, verrou + quota réservés (atomique)
-  W->>M: analyse de l'offre (cache par empreinte)
-  W-->>N: SSE « Offre analysée »
-  W->>M: rédaction à partir des faits numérotés (≤ 2 relances)
-  W->>W: contrôle de fidélité déterministe, retrait des lignes non prouvées
-  W->>DB: session rechargée ; abandon si effacée ou profil modifié
-  W-->>N: SSE « done »
-  N->>W: relecture ligne par ligne, corrections, case « j'ai relu »
-  N->>W: POST /cv/etape/5 → PDF (même HTML que l'aperçu)
+  participant W as web
+  participant G as gateway
+  participant C as cv-generation
+  participant P as profiles
+  participant J as jobs-matching
+  participant M as Claude
+  participant L as letters-export
+  N->>W: GET /cv/generer/flux (SSE)
+  W->>G: GET /api/cv/v1/generations/flux (Bearer, X-Request-Id)
+  G->>C: idem, JWT vérifié
+  C->>P: GET /internal/v1/profiles/courant (jeton relayé)
+  C->>J: GET /internal/v1/offers/{id}/analysis (jeton relayé)
+  C-->>N: SSE « Offre analysée »
+  C->>M: rédaction à partir des faits numérotés (≤ 2 relances, budget)
+  C->>C: contrôle de fidélité, retrait des lignes non prouvées
+  C-->>N: SSE « done »
+  N->>W: POST /cv/etape/5 (relu)
+  W->>G: POST /api/letters/v1/exports/cv
+  G->>L: idem
+  Note over L: lit le CV vérifié chez cv-generation, rend le PDF
 ```
 
-## Modèle de données (ERD)
+## Suppression d'un compte (cible)
 
-Modèle **en place** à la fin de la Phase 4. Écarts assumés par rapport au modèle cible de la Phase 0 ([ADR 0010](adr/0010-veille-comptes-envoi.md)) : pas de table `profile` (le profil est la dernière `profile_version`), pas de table `report` (rapports non conservés, `email_delivery` en tient lieu), coordonnées en `double precision` (pas de PostGIS). Le parcours anonyme ne stocke rien d'autre que sa session : offre, génération, traçabilité et score de fidélité restent en session ([ADR 0009](adr/0009-hebergement-et-execution.md)).
+```mermaid
+sequenceDiagram
+  participant W as web
+  participant A as auth
+  participant S as chaque service
+  W->>A: DELETE /v1/me (confirmé)
+  A->>A: compte en suppression, jetons révoqués, 5 lignes d'outbox (une transaction)
+  A-->>W: 202, « Vos données ont été effacées »
+  loop pg-boss, reprises pendant 24 h
+    A->>S: DELETE /internal/v1/users/{id} (jeton de service users:delete)
+    S-->>A: 204 (idempotent)
+  end
+  A->>A: compte effacé, audit sans donnée personnelle
+```
+
+## État de la migration
+
+| Composant       | État au 2026-10-18                                     | Phase prévue |
+| --------------- | ------------------------------------------------------ | ------------ |
+| Monolithe       | en service (`apps/web`, `apps/worker`, `packages/*`)   | retiré en 4  |
+| gateway, auth   | ADR acceptés, pas encore de code                       | 2            |
+| profiles        | ADR acceptés, pas encore de code                       | 3 (gabarit)  |
+| autres services | ADR acceptés, pas encore de code                       | 4            |
+| Suite de parité | `e2e/` (Playwright), à tenir verte à chaque extraction | 1            |
+
+## Modèle de données hérité (v0.4), réparti par service
+
+Le modèle ci-dessous est celui du monolithe. Il ne change pas de forme pendant l'extraction : chaque table
+part dans la base de son service propriétaire, **sans clé étrangère entre bases**
+([ADR 0013](adr/0013-une-base-par-service.md)). Les identifiants `user_id` sont attribués par `auth` ; la
+cohérence entre bases est assurée par la suppression distribuée ([ADR 0019](adr/0019-rgpd-distribue.md)).
+
+| Tables héritées                                                       | Service propriétaire |
+| --------------------------------------------------------------------- | -------------------- |
+| `app_user`, `login_token`, `consent_log`                              | `auth`               |
+| `profile_version`                                                     | `profiles`           |
+| `ia_quota`, `llm_usage` (part génération)                             | `cv-generation`      |
+| `job_posting`, `job_embedding`, `esco_cache`, `job_source_run`        | `jobs-matching`      |
+| `watch_subscription`, `match_result`, `email_delivery`, `email_event` | `job-watch`          |
+| `session`, `rate_limit`                                               | `apps/web`           |
+
+Écarts du monolithe par rapport au modèle de la Phase 0, toujours valables : pas de table `profile` (le
+profil est la dernière `profile_version`), pas de table `report` (rapports non conservés), coordonnées en
+`double precision` (pas de PostGIS).
 
 ```mermaid
 erDiagram
@@ -201,8 +248,16 @@ Tables techniques sans donnée personnelle : `session`, `ia_quota`, `rate_limit`
 
 ## Observabilité
 
-- **Journaux** pino en JSON, au format Cloud Logging (`severity`, `message`), sans aucune donnée personnelle. Événements métier : `generation` (statut, raison, score, coût, durée, tentatives), `llm_usage` (jetons, coût, latence), `pdf_export` (durée).
-- **Métriques** : tirées des journaux par Terraform (générations par statut, score de fidélité, coût par CV, durée de génération), plus les métriques natives de Cloud Run (latence, 5xx, instances). Pas d'exposition Prometheus : Cloud Run n'en a pas besoin.
-- **Alertes** : service injoignable, erreurs 5xx, IA en mode dégradé, veille en échec, plainte e-mail (voir [runbook](runbook.md#surveillance-et-alertes)).
-- **Coûts** : table `llm_usage` (13 mois).
-- **Veille** : événements `veille_terminee` (offres ingérées, envois, jobs en échec), `ingestion_erreur`, `rerank_degrade`, `taux_plaintes` (30 jours), `email_plainte`.
+Cible locale ([ADR 0020](adr/0020-observabilite.md)) :
+
+- **Journaux** pino en JSON, un format commun (`service`, `requestId`, `event`), sans aucune donnée
+  personnelle. `X-Request-Id` est propagé de `apps/web` à la gateway puis aux services :
+  `docker compose logs | grep <requestId>` suit une requête de bout en bout.
+- **Santé** : `/health` (vivacité) et `/ready` (base, migrations, configuration) sur chaque processus ;
+  les `healthcheck` de compose utilisent `/ready`.
+- **Événements métier** conservés : `generation` (statut, score, coût, durée), `llm_usage` (jetons, coût,
+  latence), `pdf_export`, `veille_terminee`, `taux_plaintes`.
+- **Coûts LLM** : table `llm_usage` de chaque service, budget mensuel avec coupure
+  ([ADR 0016](adr/0016-llm-client.md)) ; tableau de bord agrégé en Phase 5.
+- La supervision Google Cloud (métriques tirées des journaux, alertes Terraform) est gelée avec
+  l'hébergement ([ADR 0021](adr/0021-cible-execution-et-outillage.md)).

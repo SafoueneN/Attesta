@@ -1,6 +1,6 @@
 # ADR 0009 : Hébergement sur Google Cloud (Paris), exécution sans worker pour le parcours interactif
 
-- Statut : accepté le 2026-10-16 (décision Q10 ; remplace la partie « worker pg-boss » des ADR 0004 et 0005)
+- Statut : accepté le 2026-10-16 (décision Q10 ; remplace la partie « worker pg-boss » des ADR 0004 et 0005) ; **hébergement gelé par l'[ADR 0021](0021-cible-execution-et-outillage.md)** (cible locale pour la soutenance)
 - Date : 2026-10-16
 
 ## Contexte

@@ -1,6 +1,6 @@
 # ADR 0008 : Fournisseur LLM, Claude sur Vertex AI en région UE (décision Q5)
 
-- Statut : accepté le 2026-10-16
+- Statut : accepté le 2026-10-16 ; **amendé par l'[ADR 0016](0016-llm-client.md)** (client partagé, budget de 20 € par mois)
 - Date : 2026-10-16
 - Note d'impartialité : cette décision a été proposée par un assistant fondé sur Claude. Les critères ci-dessous sont vérifiables, et l'abstraction `LlmProvider` rend le choix réversible.
 

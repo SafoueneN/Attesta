@@ -1,6 +1,6 @@
 # ADR 0003 : Pipeline LLM en 4 étapes, fournisseur abstrait, contrôle de fidélité
 
-- Statut : accepté le 2026-10-16 ; fournisseur tranché par l'ADR 0008. Voir « Mise en œuvre (Phase 2) » ci-dessous pour les écarts.
+- Statut : accepté le 2026-10-16 ; fournisseur tranché par l'ADR 0008 ; **amendé par l'[ADR 0016](0016-llm-client.md)** (pipeline réparti dans les services). Voir « Mise en œuvre (Phase 2) » ci-dessous pour les écarts.
 - Date : 2026-10-16
 
 ## Décision
