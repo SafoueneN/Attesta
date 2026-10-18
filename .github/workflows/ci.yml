@@ -120,7 +120,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: docker compose up -d --build --wait
+      - run: docker compose --profile core up -d --build --wait
       - name: Vulnérabilités de l'image (critiques et hautes, corrigeables)
         # Image Docker de Trivy, version figée (comme dans cd.yml) : l'action trivy-action
         # dépendait d'une version de setup-trivy retirée par son éditeur.

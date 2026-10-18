@@ -7,7 +7,7 @@ Génération de CV ciblés par offre, **prouvables ligne par ligne**. L'IA refor
 ## Démarrage rapide
 
 ```bash
-docker compose up --build
+docker compose --profile core up --build
 ```
 
 Puis ouvrir http://localhost:3080 (port modifiable avec `ATTESTA_PORT`). Les e-mails (connexion, confirmation, rapports) arrivent dans Mailpit : http://localhost:8025. Veille quotidienne à la demande : `docker compose run --rm veille` ([runbook](docs/runbook.md#veille-emploi-en-local)).

@@ -7,12 +7,14 @@ Trois environnements : **dev** (poste local, `docker compose`), **préprod** et 
 ### Avec Docker (recommandé)
 
 ```bash
-docker compose up --build
+docker compose --profile core up --build
 ```
 
-Puis ouvrir http://localhost:3080. Si le port est déjà pris : `ATTESTA_PORT=9000 docker compose up`.
+Puis ouvrir http://localhost:3080. Si le port est déjà pris : `ATTESTA_PORT=9000 docker compose --profile core up`.
 
-La pile comprend PostgreSQL 16 + pgvector, une migration unique (`migrate`), l'application (`web`) et **Mailpit**, qui reçoit tous les e-mails (connexion, confirmation, rapports) : http://localhost:8025. Aucun e-mail ne sort du poste. L'application démarre seulement si la migration a réussi. Chromium y tourne **avec sa sandbox**, grâce au profil seccomp `infra/seccomp/chromium.json`. Le fournisseur d'IA est `demo` : aucun appel au modèle (le rerank garde l'ordre de la recherche).
+Sans profil, seule l'infrastructure démarre ; `--profile full` ajoutera les services de veille au fil de leur extraction ([ADR 0021](adr/0021-cible-execution-et-outillage.md)). `db-init` crée à chaque démarrage, s'ils manquent, les 7 bases et rôles cloisonnés des services ([ADR 0013](adr/0013-une-base-par-service.md)) ; vérification : `bash infra/postgres/verifier-cloisonnement.sh`. PostgreSQL est joignable depuis le poste sur `127.0.0.1:5433` (variable `DB_PORT`).
+
+La pile comprend PostgreSQL 16 + pgvector, une migration unique du monolithe (`migrate`), l'application (`web`) et **Mailpit**, qui reçoit tous les e-mails (connexion, confirmation, rapports) : http://localhost:8025. Aucun e-mail ne sort du poste. L'application démarre seulement si la migration a réussi. Chromium y tourne **avec sa sandbox**, grâce au profil seccomp `infra/seccomp/chromium.json`. Le fournisseur d'IA est `demo` : aucun appel au modèle (le rerank garde l'ordre de la recherche).
 
 ### Veille emploi en local
 
@@ -29,7 +31,7 @@ La veille interroge les **vraies** API publiques de BA Jobsuche et d'ESCO (sans 
 
 ### Envoi réel depuis le poste (Gmail, Mailjet, Brevo…)
 
-Remplir `.env.smtp` (modèle commenté, ignoré par Git et par Docker) avec l'URL SMTP du fournisseur et l'expéditeur, puis `docker compose --env-file .env.smtp up -d` (et `docker compose --env-file .env.smtp run --rm veille`). Sans ce fichier, les e-mails restent dans Mailpit. Le webhook des plaintes et rebonds exige une adresse publique : il n'est branché qu'en préprod.
+Remplir `.env.smtp` (modèle commenté, ignoré par Git et par Docker) avec l'URL SMTP du fournisseur et l'expéditeur, puis `docker compose --env-file .env.smtp --profile core up -d` (et `docker compose --env-file .env.smtp run --rm veille`). Sans ce fichier, les e-mails restent dans Mailpit. Le webhook des plaintes et rebonds exige une adresse publique : il n'est branché qu'en préprod.
 
 ### Sans Docker
 

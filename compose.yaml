@@ -1,10 +1,16 @@
-# Environnement local : `docker compose up --build`, puis http://localhost:3080
-# (port hôte modifiable : ATTESTA_PORT=9000 docker compose up).
+# Environnement local, cible officielle de la soutenance (docs/adr/0021).
+#   docker compose --profile core up --build   parcours principal, puis http://localhost:3080
+#   docker compose --profile full up --build   tout, y compris la veille
+# Sans profil, seule l'infrastructure démarre (PostgreSQL, initialisation des bases, Mailpit).
+# Port hôte modifiable : ATTESTA_PORT=9000 docker compose --profile core up.
 # E-mails envoyés (connexion, confirmation, rapports) : Mailpit, http://localhost:8025.
 # Veille quotidienne, à la demande : `docker compose run --rm veille`.
 # Avec les vrais vecteurs BGE-M3 (2 Go à télécharger au premier lancement) :
 #   docker compose --profile tei up -d tei
 #   EMBEDDINGS_PROVIDER=tei docker compose run --rm veille
+#
+# Migration en cours (docs/adr/0011) : le profil `core` sert encore le monolithe (web, migrate).
+# Chaque service entre dans `core` ou `full` au moment de son extraction.
 
 x-durci: &durci
   read_only: true
@@ -22,18 +28,22 @@ x-env: &env
   # demo : génération et rerank sans IA. Pour Claude sur Vertex AI (UE), voir docs/runbook.md.
   LLM_PROVIDER: demo
   # Mailpit par défaut. Pour un vrai envoi (Gmail, Mailjet…) : fichier .env.smtp (jamais commité),
-  # puis `docker compose --env-file .env.smtp up -d` (docs/runbook.md).
+  # puis `docker compose --env-file .env.smtp --profile core up -d` (docs/runbook.md).
   SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
   MAIL_FROM: ${MAIL_FROM:-Attesta <ne-pas-repondre@attesta.localhost>}
   APP_BASE_URL: http://localhost:${ATTESTA_PORT:-3080}
 
 services:
+  # --- Infrastructure (toujours démarrée) ---------------------------------------------------
+
   db:
     image: pgvector/pgvector:0.8.0-pg16
     environment:
       POSTGRES_DB: attesta
       POSTGRES_USER: attesta
       POSTGRES_PASSWORD: attesta-dev-uniquement
+    # Exposé sur la seule boucle locale, pour les services lancés hors Docker (npm run dev).
+    ports: ["127.0.0.1:${DB_PORT:-5433}:5432"]
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -42,8 +52,41 @@ services:
       timeout: 3s
       retries: 10
 
+  # Une base et un rôle cloisonné par service (docs/adr/0013), idempotent à chaque démarrage.
+  db-init:
+    image: pgvector/pgvector:0.8.0-pg16
+    command:
+      [
+        "psql",
+        "-h",
+        "db",
+        "-U",
+        "attesta",
+        "-d",
+        "postgres",
+        "-q",
+        "-v",
+        "suffixe=-dev-uniquement",
+        "-f",
+        "/init/init.sql",
+      ]
+    environment:
+      PGPASSWORD: attesta-dev-uniquement
+    volumes:
+      - ./infra/postgres:/init:ro
+    depends_on:
+      db: { condition: service_healthy }
+
+  # Boîte de réception de développement : aucun e-mail ne sort du poste.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["${MAILPIT_PORT:-8025}:8025"]
+
+  # --- Monolithe, en cours d'extraction (profil core) ---------------------------------------
+
   migrate:
     build: { context: ., dockerfile: infra/Dockerfile }
+    profiles: ["core", "full"]
     command:
       [
         "node",
@@ -59,13 +102,9 @@ services:
     depends_on:
       db: { condition: service_healthy }
 
-  # Boîte de réception de développement : aucun e-mail ne sort du poste.
-  mailpit:
-    image: axllent/mailpit:v1.27
-    ports: ["${MAILPIT_PORT:-8025}:8025"]
-
   web:
     build: { context: ., dockerfile: infra/Dockerfile }
+    profiles: ["core", "full"]
     init: true
     ports: ["${ATTESTA_PORT:-3080}:3000"]
     environment:
@@ -76,12 +115,14 @@ services:
     <<: *durci
     depends_on:
       migrate: { condition: service_completed_successfully }
+      db-init: { condition: service_completed_successfully }
       mailpit: { condition: service_started }
     restart: unless-stopped
 
   # Exécution quotidienne de la veille (en production : Cloud Run Job planifié).
   veille:
     build: { context: ., dockerfile: infra/Dockerfile }
+    # À la demande seulement : un `up` ne doit ni interroger les sources ni envoyer d'e-mails.
     profiles: ["veille"]
     init: true
     command: ["node", "apps/worker/dist/main.js"]
