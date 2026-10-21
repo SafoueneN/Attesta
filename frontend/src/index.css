@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/* Thème sombre par classe (bouton du bandeau), initialisé avant le rendu dans index.html. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Jetons de design : couleurs sémantiques, contrastes AA vérifiés dans les deux thèmes. */
+@theme {
+  --font-sans: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+}
+
+@layer base {
+  html {
+    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  }
+  body {
+    @apply min-h-screen;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply text-balance;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900;
+  }
+  .input {
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/30 focus:outline-none aria-[invalid=true]:border-red-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100;
+  }
+  .label {
+    @apply mb-1 block text-sm font-semibold text-slate-800 dark:text-slate-200;
+  }
+  .hint {
+    @apply mt-1 text-sm text-slate-600 dark:text-slate-400;
+  }
+  .link {
+    @apply font-medium text-brand-700 underline underline-offset-2 hover:text-brand-900 dark:text-brand-100;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

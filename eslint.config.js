@@ -18,7 +18,7 @@ const noInternalImports = (allowed) => ({
 });
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "coverage/**", "playwright-report/**", "test-results/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", "playwright-report/**", "test-results/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -27,6 +27,12 @@ export default tseslint.config(
     rules: { "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }] },
   },
   { files: ["apps/web/public/**/*.js"], languageOptions: { globals: { ...globals.browser } } },
+  // Frontend (ADR 0022) : code navigateur ; il n'importe que les contrats partagés, jamais un service.
+  {
+    files: ["frontend/**/*.{js,ts,tsx}"],
+    languageOptions: { globals: { ...globals.browser } },
+    rules: noInternalImports(["shared-schemas"]),
+  },
   { files: ["packages/schema/src/**", "packages/shared/src/**"], rules: noInternalImports([]) },
   { files: ["packages/render/src/**"], rules: noInternalImports(["schema"]) },
   // Paquets du socle des services (docs/adr/0023) : aucune logique métier, aucun import de service.

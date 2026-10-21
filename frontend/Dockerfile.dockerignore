@@ -1,0 +1,14 @@
+# Contexte de l'image du frontend : son dossier et les contrats partagés compilés.
+*
+!packages/shared-schemas/package.json
+!packages/shared-schemas/dist
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/.npmrc
+!frontend/tsconfig.json
+!frontend/vite.config.ts
+!frontend/index.html
+!frontend/nginx.conf
+!frontend/public
+!frontend/src
+!frontend/security-headers.conf

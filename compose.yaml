@@ -98,6 +98,19 @@ services:
   # Chacun démarre seul : `docker compose up <service>` (la base est démarrée avec lui).
   # Rôle et mot de passe de développement créés par db-init (infra/postgres/init.sql).
 
+  # Interface React servie par nginx non-root, qui relaie /api vers la gateway (docs/adr/0022).
+  frontend:
+    build: { context: ., dockerfile: frontend/Dockerfile }
+    profiles: ["core", "full"]
+    ports: ["${FRONTEND_PORT:-8080}:8080"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    depends_on:
+      gateway: { condition: service_healthy }
+
   # Point d'entrée unique de l'API (docs/adr/0015). Le frontend la joint par nginx, même origine.
   gateway:
     <<: *service

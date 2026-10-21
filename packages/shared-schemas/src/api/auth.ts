@@ -87,3 +87,4 @@ export const AuthAdminStats = z.object({
   deletionsPending: z.number().int(),
   outboxFailed: z.number().int(),
 });
+export type AuthAdminStats = z.infer<typeof AuthAdminStats>;

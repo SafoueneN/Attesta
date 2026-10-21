@@ -117,3 +117,4 @@ export declare const AuthAdminStats: z.ZodObject<{
     deletionsPending: z.ZodNumber;
     outboxFailed: z.ZodNumber;
 }, z.core.$strip>;
+export type AuthAdminStats = z.infer<typeof AuthAdminStats>;
