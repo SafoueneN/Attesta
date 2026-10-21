@@ -18,3 +18,5 @@ evals/dist/
 !/packages/logger/dist/
 !/packages/config/dist/
 !/packages/http-kit/dist/
+!/packages/shared-schemas/dist/
+!/packages/llm-client/dist/

@@ -18,7 +18,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "helmet": "^8.3.0"
+    "helmet": "^8.3.0",
+    "jose": "^6.2.12"
   },
   "peerDependencies": {
     "@attesta/logger": "0.1.0",

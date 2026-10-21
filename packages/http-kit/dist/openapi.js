@@ -36,7 +36,11 @@ export function buildOpenApi(info, operations) {
             const mediaType = isError ? "application/problem+json" : "application/json";
             responses[status] = {
                 description: response.description,
-                ...(schema && { content: { [mediaType]: { schema: z.toJSONSchema(schema) } } }),
+                ...(schema && {
+                    content: {
+                        [mediaType]: { schema: z.toJSONSchema(schema, { io: "output", unrepresentable: "any" }) },
+                    },
+                }),
             };
         }
         (paths[op.path] ??= {})[op.method] = {
@@ -45,7 +49,12 @@ export function buildOpenApi(info, operations) {
             ...(op.tags && { tags: op.tags }),
             ...(op.auth && { security: [{ bearer: [] }] }),
             ...(op.body && {
-                requestBody: { required: true, content: { "application/json": { schema: z.toJSONSchema(op.body) } } },
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": { schema: z.toJSONSchema(op.body, { io: "input", unrepresentable: "any" }) },
+                    },
+                },
             }),
             responses,
         };

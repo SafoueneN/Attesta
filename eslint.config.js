@@ -32,6 +32,7 @@ export default tseslint.config(
   // Paquets du socle des services (docs/adr/0023) : aucune logique métier, aucun import de service.
   { files: ["packages/logger/src/**", "packages/config/src/**"], rules: noInternalImports([]) },
   { files: ["packages/http-kit/src/**"], rules: noInternalImports(["logger"]) },
+  { files: ["packages/shared-schemas/src/**", "packages/llm-client/src/**"], rules: noInternalImports([]) },
   // Un service n'importe que les paquets partagés du socle, jamais un autre service ni le monolithe
   // (règles 1 et 2 de CLAUDE.md) : il parle aux autres par leur API.
   {

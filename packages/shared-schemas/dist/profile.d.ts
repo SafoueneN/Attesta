@@ -1,0 +1,123 @@
+import { z } from "zod";
+export declare const Basics: z.ZodObject<{
+    name: z.ZodString;
+    label: z.ZodOptional<z.ZodString>;
+    email: z.ZodOptional<z.ZodEmail>;
+    phone: z.ZodOptional<z.ZodString>;
+    url: z.ZodOptional<z.ZodURL>;
+    summary: z.ZodOptional<z.ZodString>;
+    location: z.ZodOptional<z.ZodObject<{
+        city: z.ZodOptional<z.ZodString>;
+        region: z.ZodOptional<z.ZodString>;
+        countryCode: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    profiles: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        network: z.ZodString;
+        url: z.ZodURL;
+    }, z.core.$strip>>>;
+}, z.core.$strip>;
+export declare const Work: z.ZodObject<{
+    name: z.ZodString;
+    position: z.ZodString;
+    url: z.ZodOptional<z.ZodURL>;
+    location: z.ZodOptional<z.ZodString>;
+    startDate: z.ZodString;
+    endDate: z.ZodOptional<z.ZodString>;
+    summary: z.ZodOptional<z.ZodString>;
+    highlights: z.ZodDefault<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export declare const Education: z.ZodObject<{
+    institution: z.ZodString;
+    area: z.ZodOptional<z.ZodString>;
+    studyType: z.ZodOptional<z.ZodString>;
+    startDate: z.ZodOptional<z.ZodString>;
+    endDate: z.ZodOptional<z.ZodString>;
+    score: z.ZodOptional<z.ZodString>;
+    courses: z.ZodDefault<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export declare const Skill: z.ZodObject<{
+    name: z.ZodString;
+    level: z.ZodOptional<z.ZodString>;
+    keywords: z.ZodDefault<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export declare const Language: z.ZodObject<{
+    language: z.ZodString;
+    fluency: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export declare const Project: z.ZodObject<{
+    name: z.ZodString;
+    description: z.ZodOptional<z.ZodString>;
+    highlights: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    startDate: z.ZodOptional<z.ZodString>;
+    endDate: z.ZodOptional<z.ZodString>;
+    url: z.ZodOptional<z.ZodURL>;
+}, z.core.$strip>;
+export declare const Certificate: z.ZodObject<{
+    name: z.ZodString;
+    issuer: z.ZodOptional<z.ZodString>;
+    date: z.ZodOptional<z.ZodString>;
+    url: z.ZodOptional<z.ZodURL>;
+}, z.core.$strip>;
+export declare const Profile: z.ZodObject<{
+    basics: z.ZodObject<{
+        name: z.ZodString;
+        label: z.ZodOptional<z.ZodString>;
+        email: z.ZodOptional<z.ZodEmail>;
+        phone: z.ZodOptional<z.ZodString>;
+        url: z.ZodOptional<z.ZodURL>;
+        summary: z.ZodOptional<z.ZodString>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            region: z.ZodOptional<z.ZodString>;
+            countryCode: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>;
+        profiles: z.ZodDefault<z.ZodArray<z.ZodObject<{
+            network: z.ZodString;
+            url: z.ZodURL;
+        }, z.core.$strip>>>;
+    }, z.core.$strip>;
+    work: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        name: z.ZodString;
+        position: z.ZodString;
+        url: z.ZodOptional<z.ZodURL>;
+        location: z.ZodOptional<z.ZodString>;
+        startDate: z.ZodString;
+        endDate: z.ZodOptional<z.ZodString>;
+        summary: z.ZodOptional<z.ZodString>;
+        highlights: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>>>;
+    education: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        institution: z.ZodString;
+        area: z.ZodOptional<z.ZodString>;
+        studyType: z.ZodOptional<z.ZodString>;
+        startDate: z.ZodOptional<z.ZodString>;
+        endDate: z.ZodOptional<z.ZodString>;
+        score: z.ZodOptional<z.ZodString>;
+        courses: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>>>;
+    skills: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        name: z.ZodString;
+        level: z.ZodOptional<z.ZodString>;
+        keywords: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>>>;
+    languages: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        language: z.ZodString;
+        fluency: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
+    projects: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        name: z.ZodString;
+        description: z.ZodOptional<z.ZodString>;
+        highlights: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        startDate: z.ZodOptional<z.ZodString>;
+        endDate: z.ZodOptional<z.ZodString>;
+        url: z.ZodOptional<z.ZodURL>;
+    }, z.core.$strip>>>;
+    certificates: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        name: z.ZodString;
+        issuer: z.ZodOptional<z.ZodString>;
+        date: z.ZodOptional<z.ZodString>;
+        url: z.ZodOptional<z.ZodURL>;
+    }, z.core.$strip>>>;
+}, z.core.$strip>;
+export type Profile = z.infer<typeof Profile>;
+export type ProfileInput = z.input<typeof Profile>;

@@ -6,8 +6,9 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**"],
-      // Point d'entrée : lecture de l'environnement et écoute, couvert par le démarrage en compose.
-      exclude: ["src/server.ts"],
+      // server.ts : point d'entrée ; pdf-text-child.ts : exécuté dans un processus enfant, vérifié par
+      // tests/extraction.test.ts mais invisible pour la couverture du processus de test.
+      exclude: ["src/server.ts", "src/pdf-text-child.ts"],
       thresholds: { lines: 80 },
     },
   },

@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-const SHARED = ["logger", "config", "http-kit"];
+const SHARED = ["logger", "config", "http-kit", "shared-schemas", "llm-client"];
 const shell = process.platform === "win32";
 
 function run(command, args, cwd) {

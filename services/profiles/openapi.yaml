@@ -58,6 +58,2585 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/profiles/me":
+    get:
+      operationId: "monProfil"
+      summary: "Dernière version du profil de l'utilisateur (candidat ou invité)"
+      tags:
+        - "profil"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Profil"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  version:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  createdAt:
+                    type: "string"
+                  schemaVersion:
+                    type: "string"
+                  profile:
+                    type: "object"
+                    properties:
+                      basics:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          label:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          email:
+                            type: "string"
+                            format: "email"
+                            pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          phone:
+                            type: "string"
+                            maxLength: 40
+                          url:
+                            type: "string"
+                            format: "uri"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          location:
+                            type: "object"
+                            properties:
+                              city:
+                                type: "string"
+                                maxLength: 100
+                              region:
+                                type: "string"
+                                maxLength: 100
+                              countryCode:
+                                type: "string"
+                                pattern: "^[A-Z]{2}$"
+                            additionalProperties: false
+                          profiles:
+                            default: []
+                            maxItems: 10
+                            type: "array"
+                            items:
+                              type: "object"
+                              properties:
+                                network:
+                                  type: "string"
+                                  minLength: 1
+                                  maxLength: 200
+                                url:
+                                  type: "string"
+                                  format: "uri"
+                              required:
+                                - "network"
+                                - "url"
+                              additionalProperties: false
+                        required:
+                          - "name"
+                          - "profiles"
+                        additionalProperties: false
+                      work:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            position:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            url:
+                              type: "string"
+                              format: "uri"
+                            location:
+                              type: "string"
+                              maxLength: 100
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            summary:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                          required:
+                            - "name"
+                            - "position"
+                            - "startDate"
+                            - "highlights"
+                          additionalProperties: false
+                      education:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            institution:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            area:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            studyType:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            score:
+                              type: "string"
+                              maxLength: 50
+                            courses:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "institution"
+                            - "courses"
+                          additionalProperties: false
+                      skills:
+                        default: []
+                        maxItems: 50
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            level:
+                              type: "string"
+                              maxLength: 50
+                            keywords:
+                              default: []
+                              maxItems: 30
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "name"
+                            - "keywords"
+                          additionalProperties: false
+                      languages:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            language:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            fluency:
+                              type: "string"
+                              maxLength: 50
+                          required:
+                            - "language"
+                          additionalProperties: false
+                      projects:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            description:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                            - "highlights"
+                          additionalProperties: false
+                      certificates:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            issuer:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            date:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                          additionalProperties: false
+                    required:
+                      - "basics"
+                      - "work"
+                      - "education"
+                      - "skills"
+                      - "languages"
+                      - "projects"
+                      - "certificates"
+                    additionalProperties: false
+                required:
+                  - "version"
+                  - "createdAt"
+                  - "schemaVersion"
+                  - "profile"
+                additionalProperties: false
+        "404":
+          description: "Aucun profil"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    put:
+      operationId: "enregistrerProfil"
+      summary: "Enregistre une nouvelle version du profil (aucune si rien n'a changé)"
+      tags:
+        - "profil"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                profile:
+                  type: "object"
+                  properties:
+                    basics:
+                      type: "object"
+                      properties:
+                        name:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 200
+                        label:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 200
+                        email:
+                          type: "string"
+                          format: "email"
+                          pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        phone:
+                          type: "string"
+                          maxLength: 40
+                        url:
+                          type: "string"
+                          format: "uri"
+                        summary:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 2000
+                        location:
+                          type: "object"
+                          properties:
+                            city:
+                              type: "string"
+                              maxLength: 100
+                            region:
+                              type: "string"
+                              maxLength: 100
+                            countryCode:
+                              type: "string"
+                              pattern: "^[A-Z]{2}$"
+                        profiles:
+                          default: []
+                          maxItems: 10
+                          type: "array"
+                          items:
+                            type: "object"
+                            properties:
+                              network:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                              url:
+                                type: "string"
+                                format: "uri"
+                            required:
+                              - "network"
+                              - "url"
+                      required:
+                        - "name"
+                    work:
+                      default: []
+                      maxItems: 30
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          position:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          url:
+                            type: "string"
+                            format: "uri"
+                          location:
+                            type: "string"
+                            maxLength: 100
+                          startDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          endDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          highlights:
+                            default: []
+                            maxItems: 20
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 500
+                        required:
+                          - "name"
+                          - "position"
+                          - "startDate"
+                    education:
+                      default: []
+                      maxItems: 15
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          institution:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          area:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          studyType:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          startDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          endDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          score:
+                            type: "string"
+                            maxLength: 50
+                          courses:
+                            default: []
+                            maxItems: 20
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                        required:
+                          - "institution"
+                    skills:
+                      default: []
+                      maxItems: 50
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          level:
+                            type: "string"
+                            maxLength: 50
+                          keywords:
+                            default: []
+                            maxItems: 30
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                        required:
+                          - "name"
+                    languages:
+                      default: []
+                      maxItems: 15
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          language:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          fluency:
+                            type: "string"
+                            maxLength: 50
+                        required:
+                          - "language"
+                    projects:
+                      default: []
+                      maxItems: 30
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          description:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          highlights:
+                            default: []
+                            maxItems: 20
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 500
+                          startDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          endDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          url:
+                            type: "string"
+                            format: "uri"
+                        required:
+                          - "name"
+                    certificates:
+                      default: []
+                      maxItems: 30
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          issuer:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          date:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          url:
+                            type: "string"
+                            format: "uri"
+                        required:
+                          - "name"
+                  required:
+                    - "basics"
+              required:
+                - "profile"
+      responses:
+        "200":
+          description: "Profil inchangé"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  version:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  createdAt:
+                    type: "string"
+                  schemaVersion:
+                    type: "string"
+                  profile:
+                    type: "object"
+                    properties:
+                      basics:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          label:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          email:
+                            type: "string"
+                            format: "email"
+                            pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          phone:
+                            type: "string"
+                            maxLength: 40
+                          url:
+                            type: "string"
+                            format: "uri"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          location:
+                            type: "object"
+                            properties:
+                              city:
+                                type: "string"
+                                maxLength: 100
+                              region:
+                                type: "string"
+                                maxLength: 100
+                              countryCode:
+                                type: "string"
+                                pattern: "^[A-Z]{2}$"
+                            additionalProperties: false
+                          profiles:
+                            default: []
+                            maxItems: 10
+                            type: "array"
+                            items:
+                              type: "object"
+                              properties:
+                                network:
+                                  type: "string"
+                                  minLength: 1
+                                  maxLength: 200
+                                url:
+                                  type: "string"
+                                  format: "uri"
+                              required:
+                                - "network"
+                                - "url"
+                              additionalProperties: false
+                        required:
+                          - "name"
+                          - "profiles"
+                        additionalProperties: false
+                      work:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            position:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            url:
+                              type: "string"
+                              format: "uri"
+                            location:
+                              type: "string"
+                              maxLength: 100
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            summary:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                          required:
+                            - "name"
+                            - "position"
+                            - "startDate"
+                            - "highlights"
+                          additionalProperties: false
+                      education:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            institution:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            area:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            studyType:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            score:
+                              type: "string"
+                              maxLength: 50
+                            courses:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "institution"
+                            - "courses"
+                          additionalProperties: false
+                      skills:
+                        default: []
+                        maxItems: 50
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            level:
+                              type: "string"
+                              maxLength: 50
+                            keywords:
+                              default: []
+                              maxItems: 30
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "name"
+                            - "keywords"
+                          additionalProperties: false
+                      languages:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            language:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            fluency:
+                              type: "string"
+                              maxLength: 50
+                          required:
+                            - "language"
+                          additionalProperties: false
+                      projects:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            description:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                            - "highlights"
+                          additionalProperties: false
+                      certificates:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            issuer:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            date:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                          additionalProperties: false
+                    required:
+                      - "basics"
+                      - "work"
+                      - "education"
+                      - "skills"
+                      - "languages"
+                      - "projects"
+                      - "certificates"
+                    additionalProperties: false
+                required:
+                  - "version"
+                  - "createdAt"
+                  - "schemaVersion"
+                  - "profile"
+                additionalProperties: false
+        "201":
+          description: "Nouvelle version"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  version:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  createdAt:
+                    type: "string"
+                  schemaVersion:
+                    type: "string"
+                  profile:
+                    type: "object"
+                    properties:
+                      basics:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          label:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          email:
+                            type: "string"
+                            format: "email"
+                            pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          phone:
+                            type: "string"
+                            maxLength: 40
+                          url:
+                            type: "string"
+                            format: "uri"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          location:
+                            type: "object"
+                            properties:
+                              city:
+                                type: "string"
+                                maxLength: 100
+                              region:
+                                type: "string"
+                                maxLength: 100
+                              countryCode:
+                                type: "string"
+                                pattern: "^[A-Z]{2}$"
+                            additionalProperties: false
+                          profiles:
+                            default: []
+                            maxItems: 10
+                            type: "array"
+                            items:
+                              type: "object"
+                              properties:
+                                network:
+                                  type: "string"
+                                  minLength: 1
+                                  maxLength: 200
+                                url:
+                                  type: "string"
+                                  format: "uri"
+                              required:
+                                - "network"
+                                - "url"
+                              additionalProperties: false
+                        required:
+                          - "name"
+                          - "profiles"
+                        additionalProperties: false
+                      work:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            position:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            url:
+                              type: "string"
+                              format: "uri"
+                            location:
+                              type: "string"
+                              maxLength: 100
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            summary:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                          required:
+                            - "name"
+                            - "position"
+                            - "startDate"
+                            - "highlights"
+                          additionalProperties: false
+                      education:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            institution:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            area:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            studyType:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            score:
+                              type: "string"
+                              maxLength: 50
+                            courses:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "institution"
+                            - "courses"
+                          additionalProperties: false
+                      skills:
+                        default: []
+                        maxItems: 50
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            level:
+                              type: "string"
+                              maxLength: 50
+                            keywords:
+                              default: []
+                              maxItems: 30
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "name"
+                            - "keywords"
+                          additionalProperties: false
+                      languages:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            language:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            fluency:
+                              type: "string"
+                              maxLength: 50
+                          required:
+                            - "language"
+                          additionalProperties: false
+                      projects:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            description:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                            - "highlights"
+                          additionalProperties: false
+                      certificates:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            issuer:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            date:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                          additionalProperties: false
+                    required:
+                      - "basics"
+                      - "work"
+                      - "education"
+                      - "skills"
+                      - "languages"
+                      - "projects"
+                      - "certificates"
+                    additionalProperties: false
+                required:
+                  - "version"
+                  - "createdAt"
+                  - "schemaVersion"
+                  - "profile"
+                additionalProperties: false
+        "400":
+          description: "Profil invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    delete:
+      operationId: "supprimerProfil"
+      summary: "Efface toutes les versions du profil"
+      tags:
+        - "profil"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Profil effacé"
+  "/v1/profiles/me/versions":
+    get:
+      operationId: "versionsProfil"
+      summary: "Historique des versions du profil"
+      tags:
+        - "profil"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Versions"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    version:
+                      type: "integer"
+                      exclusiveMinimum: 0
+                      maximum: 9007199254740991
+                    createdAt:
+                      type: "string"
+                    label:
+                      type: "string"
+                  required:
+                    - "version"
+                    - "createdAt"
+                    - "label"
+                  additionalProperties: false
+  "/v1/profiles/me/versions/{version}":
+    get:
+      operationId: "versionProfil"
+      summary: "Une version passée du profil"
+      tags:
+        - "profil"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Profil"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  version:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  createdAt:
+                    type: "string"
+                  schemaVersion:
+                    type: "string"
+                  profile:
+                    type: "object"
+                    properties:
+                      basics:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          label:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          email:
+                            type: "string"
+                            format: "email"
+                            pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          phone:
+                            type: "string"
+                            maxLength: 40
+                          url:
+                            type: "string"
+                            format: "uri"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          location:
+                            type: "object"
+                            properties:
+                              city:
+                                type: "string"
+                                maxLength: 100
+                              region:
+                                type: "string"
+                                maxLength: 100
+                              countryCode:
+                                type: "string"
+                                pattern: "^[A-Z]{2}$"
+                            additionalProperties: false
+                          profiles:
+                            default: []
+                            maxItems: 10
+                            type: "array"
+                            items:
+                              type: "object"
+                              properties:
+                                network:
+                                  type: "string"
+                                  minLength: 1
+                                  maxLength: 200
+                                url:
+                                  type: "string"
+                                  format: "uri"
+                              required:
+                                - "network"
+                                - "url"
+                              additionalProperties: false
+                        required:
+                          - "name"
+                          - "profiles"
+                        additionalProperties: false
+                      work:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            position:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            url:
+                              type: "string"
+                              format: "uri"
+                            location:
+                              type: "string"
+                              maxLength: 100
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            summary:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                          required:
+                            - "name"
+                            - "position"
+                            - "startDate"
+                            - "highlights"
+                          additionalProperties: false
+                      education:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            institution:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            area:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            studyType:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            score:
+                              type: "string"
+                              maxLength: 50
+                            courses:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "institution"
+                            - "courses"
+                          additionalProperties: false
+                      skills:
+                        default: []
+                        maxItems: 50
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            level:
+                              type: "string"
+                              maxLength: 50
+                            keywords:
+                              default: []
+                              maxItems: 30
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "name"
+                            - "keywords"
+                          additionalProperties: false
+                      languages:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            language:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            fluency:
+                              type: "string"
+                              maxLength: 50
+                          required:
+                            - "language"
+                          additionalProperties: false
+                      projects:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            description:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                            - "highlights"
+                          additionalProperties: false
+                      certificates:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            issuer:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            date:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                          additionalProperties: false
+                    required:
+                      - "basics"
+                      - "work"
+                      - "education"
+                      - "skills"
+                      - "languages"
+                      - "projects"
+                      - "certificates"
+                    additionalProperties: false
+                required:
+                  - "version"
+                  - "createdAt"
+                  - "schemaVersion"
+                  - "profile"
+                additionalProperties: false
+        "404":
+          description: "Version inconnue"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/profiles/import":
+    post:
+      operationId: "importerCv"
+      summary: "Pré-remplit un profil depuis un CV PDF (multipart, champ « cv ») ; rien n'est enregistré"
+      tags:
+        - "profil"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Brouillon à relire"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  profile:
+                    type: "object"
+                    properties:
+                      basics:
+                        type: "object"
+                        properties:
+                          name:
+                            type:
+                              - "string"
+                              - "null"
+                          label:
+                            type:
+                              - "string"
+                              - "null"
+                          email:
+                            type:
+                              - "string"
+                              - "null"
+                          phone:
+                            type:
+                              - "string"
+                              - "null"
+                          city:
+                            type:
+                              - "string"
+                              - "null"
+                          countryCode:
+                            type:
+                              - "string"
+                              - "null"
+                          url:
+                            type:
+                              - "string"
+                              - "null"
+                          summary:
+                            type:
+                              - "string"
+                              - "null"
+                        required:
+                          - "name"
+                          - "label"
+                          - "email"
+                          - "phone"
+                          - "city"
+                          - "countryCode"
+                          - "url"
+                          - "summary"
+                        additionalProperties: false
+                      work:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type:
+                                - "string"
+                                - "null"
+                            position:
+                              type:
+                                - "string"
+                                - "null"
+                            location:
+                              type:
+                                - "string"
+                                - "null"
+                            startDate:
+                              type:
+                                - "string"
+                                - "null"
+                            endDate:
+                              type:
+                                - "string"
+                                - "null"
+                            summary:
+                              type:
+                                - "string"
+                                - "null"
+                            highlights:
+                              type: "array"
+                              items:
+                                type: "string"
+                          required:
+                            - "name"
+                            - "position"
+                            - "location"
+                            - "startDate"
+                            - "endDate"
+                            - "summary"
+                            - "highlights"
+                          additionalProperties: false
+                      education:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            institution:
+                              type:
+                                - "string"
+                                - "null"
+                            studyType:
+                              type:
+                                - "string"
+                                - "null"
+                            area:
+                              type:
+                                - "string"
+                                - "null"
+                            startDate:
+                              type:
+                                - "string"
+                                - "null"
+                            endDate:
+                              type:
+                                - "string"
+                                - "null"
+                          required:
+                            - "institution"
+                            - "studyType"
+                            - "area"
+                            - "startDate"
+                            - "endDate"
+                          additionalProperties: false
+                      skills:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                            keywords:
+                              type: "array"
+                              items:
+                                type: "string"
+                          required:
+                            - "name"
+                            - "keywords"
+                          additionalProperties: false
+                      languages:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            language:
+                              type: "string"
+                            fluency:
+                              type:
+                                - "string"
+                                - "null"
+                          required:
+                            - "language"
+                            - "fluency"
+                          additionalProperties: false
+                    required:
+                      - "basics"
+                      - "work"
+                      - "education"
+                      - "skills"
+                      - "languages"
+                    additionalProperties: false
+                  dropped:
+                    type: "integer"
+                    minimum: 0
+                    maximum: 9007199254740991
+                required:
+                  - "profile"
+                  - "dropped"
+                additionalProperties: false
+        "400":
+          description: "Fichier refusé"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+        "503":
+          description: "Import indisponible"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/admin/stats":
+    get:
+      operationId: "statistiquesProfils"
+      summary: "Compteurs et consommation du LLM, sans donnée personnelle"
+      tags:
+        - "administration"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Statistiques"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  counters:
+                    type: "object"
+                    propertyNames:
+                      type: "string"
+                    additionalProperties:
+                      type: "number"
+                  llm:
+                    type: "object"
+                    properties:
+                      service:
+                        type: "string"
+                      month:
+                        type: "string"
+                      calls:
+                        type: "integer"
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      costEur:
+                        type: "number"
+                      budgetEur:
+                        type: "number"
+                      byStep:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            step:
+                              type: "string"
+                            calls:
+                              type: "integer"
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            costEur:
+                              type: "number"
+                          required:
+                            - "step"
+                            - "calls"
+                            - "costEur"
+                          additionalProperties: false
+                    required:
+                      - "service"
+                      - "month"
+                      - "calls"
+                      - "costEur"
+                      - "budgetEur"
+                      - "byStep"
+                    additionalProperties: false
+                required:
+                  - "service"
+                  - "counters"
+                additionalProperties: false
+  "/internal/v1/profiles/me":
+    get:
+      operationId: "profilCourantInterne"
+      summary: "Profil de l'utilisateur du jeton relayé (cv-generation, letters-export)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Profil"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  version:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  createdAt:
+                    type: "string"
+                  schemaVersion:
+                    type: "string"
+                  profile:
+                    type: "object"
+                    properties:
+                      basics:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          label:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          email:
+                            type: "string"
+                            format: "email"
+                            pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          phone:
+                            type: "string"
+                            maxLength: 40
+                          url:
+                            type: "string"
+                            format: "uri"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          location:
+                            type: "object"
+                            properties:
+                              city:
+                                type: "string"
+                                maxLength: 100
+                              region:
+                                type: "string"
+                                maxLength: 100
+                              countryCode:
+                                type: "string"
+                                pattern: "^[A-Z]{2}$"
+                            additionalProperties: false
+                          profiles:
+                            default: []
+                            maxItems: 10
+                            type: "array"
+                            items:
+                              type: "object"
+                              properties:
+                                network:
+                                  type: "string"
+                                  minLength: 1
+                                  maxLength: 200
+                                url:
+                                  type: "string"
+                                  format: "uri"
+                              required:
+                                - "network"
+                                - "url"
+                              additionalProperties: false
+                        required:
+                          - "name"
+                          - "profiles"
+                        additionalProperties: false
+                      work:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            position:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            url:
+                              type: "string"
+                              format: "uri"
+                            location:
+                              type: "string"
+                              maxLength: 100
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            summary:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                          required:
+                            - "name"
+                            - "position"
+                            - "startDate"
+                            - "highlights"
+                          additionalProperties: false
+                      education:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            institution:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            area:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            studyType:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            score:
+                              type: "string"
+                              maxLength: 50
+                            courses:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "institution"
+                            - "courses"
+                          additionalProperties: false
+                      skills:
+                        default: []
+                        maxItems: 50
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            level:
+                              type: "string"
+                              maxLength: 50
+                            keywords:
+                              default: []
+                              maxItems: 30
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "name"
+                            - "keywords"
+                          additionalProperties: false
+                      languages:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            language:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            fluency:
+                              type: "string"
+                              maxLength: 50
+                          required:
+                            - "language"
+                          additionalProperties: false
+                      projects:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            description:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                            - "highlights"
+                          additionalProperties: false
+                      certificates:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            issuer:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            date:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                          additionalProperties: false
+                    required:
+                      - "basics"
+                      - "work"
+                      - "education"
+                      - "skills"
+                      - "languages"
+                      - "projects"
+                      - "certificates"
+                    additionalProperties: false
+                required:
+                  - "version"
+                  - "createdAt"
+                  - "schemaVersion"
+                  - "profile"
+                additionalProperties: false
+        "404":
+          description: "Aucun profil"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/internal/v1/users/{id}/profile":
+    get:
+      operationId: "profilUtilisateurInterne"
+      summary: "Profil d'un utilisateur (jeton de service profiles:read, veille quotidienne)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Profil"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  version:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  createdAt:
+                    type: "string"
+                  schemaVersion:
+                    type: "string"
+                  profile:
+                    type: "object"
+                    properties:
+                      basics:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          label:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          email:
+                            type: "string"
+                            format: "email"
+                            pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          phone:
+                            type: "string"
+                            maxLength: 40
+                          url:
+                            type: "string"
+                            format: "uri"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          location:
+                            type: "object"
+                            properties:
+                              city:
+                                type: "string"
+                                maxLength: 100
+                              region:
+                                type: "string"
+                                maxLength: 100
+                              countryCode:
+                                type: "string"
+                                pattern: "^[A-Z]{2}$"
+                            additionalProperties: false
+                          profiles:
+                            default: []
+                            maxItems: 10
+                            type: "array"
+                            items:
+                              type: "object"
+                              properties:
+                                network:
+                                  type: "string"
+                                  minLength: 1
+                                  maxLength: 200
+                                url:
+                                  type: "string"
+                                  format: "uri"
+                              required:
+                                - "network"
+                                - "url"
+                              additionalProperties: false
+                        required:
+                          - "name"
+                          - "profiles"
+                        additionalProperties: false
+                      work:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            position:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            url:
+                              type: "string"
+                              format: "uri"
+                            location:
+                              type: "string"
+                              maxLength: 100
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            summary:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                          required:
+                            - "name"
+                            - "position"
+                            - "startDate"
+                            - "highlights"
+                          additionalProperties: false
+                      education:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            institution:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            area:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            studyType:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            score:
+                              type: "string"
+                              maxLength: 50
+                            courses:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "institution"
+                            - "courses"
+                          additionalProperties: false
+                      skills:
+                        default: []
+                        maxItems: 50
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            level:
+                              type: "string"
+                              maxLength: 50
+                            keywords:
+                              default: []
+                              maxItems: 30
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "name"
+                            - "keywords"
+                          additionalProperties: false
+                      languages:
+                        default: []
+                        maxItems: 15
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            language:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            fluency:
+                              type: "string"
+                              maxLength: 50
+                          required:
+                            - "language"
+                          additionalProperties: false
+                      projects:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            description:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 2000
+                            highlights:
+                              default: []
+                              maxItems: 20
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 500
+                            startDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            endDate:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                            - "highlights"
+                          additionalProperties: false
+                      certificates:
+                        default: []
+                        maxItems: 30
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            name:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            issuer:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            date:
+                              type: "string"
+                              pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                            url:
+                              type: "string"
+                              format: "uri"
+                          required:
+                            - "name"
+                          additionalProperties: false
+                    required:
+                      - "basics"
+                      - "work"
+                      - "education"
+                      - "skills"
+                      - "languages"
+                      - "projects"
+                      - "certificates"
+                    additionalProperties: false
+                required:
+                  - "version"
+                  - "createdAt"
+                  - "schemaVersion"
+                  - "profile"
+                additionalProperties: false
+        "404":
+          description: "Aucun profil"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/internal/v1/users/{id}/export":
+    get:
+      operationId: "exportUtilisateur"
+      summary: "Données du service pour l'export RGPD (jeton de service users:export)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Données"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  data: {}
+                required:
+                  - "service"
+                  - "data"
+                additionalProperties: false
+  "/internal/v1/users/{id}":
+    delete:
+      operationId: "effacerUtilisateur"
+      summary: "Efface les données d'un utilisateur, idempotent (jeton de service users:delete)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Effacé"
 components:
   securitySchemes:
     bearer:

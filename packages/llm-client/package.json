@@ -1,0 +1,27 @@
+{
+  "name": "@attesta/llm-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Client LLM technique : fournisseurs Claude, démonstration et rejeu, coûts, budget mensuel, prompts versionnés.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@anthropic-ai/vertex-sdk": "^0.21.0"
+  },
+  "peerDependencies": {
+    "zod": "^4.6.7"
+  }
+}

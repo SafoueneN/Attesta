@@ -1,0 +1,14 @@
+# Contexte de l'image de la gateway : son dossier et les paquets du socle compilés.
+*
+!packages/logger/package.json
+!packages/logger/dist
+!packages/config/package.json
+!packages/config/dist
+!packages/http-kit/package.json
+!packages/http-kit/dist
+!gateway/package.json
+!gateway/package-lock.json
+!gateway/.npmrc
+!gateway/tsconfig.json
+!gateway/tsconfig.build.json
+!gateway/src

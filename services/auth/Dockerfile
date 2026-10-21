@@ -11,6 +11,8 @@ COPY packages/config/package.json packages/config/
 COPY packages/config/dist packages/config/dist
 COPY packages/http-kit/package.json packages/http-kit/
 COPY packages/http-kit/dist packages/http-kit/dist
+COPY packages/shared-schemas/package.json packages/shared-schemas/
+COPY packages/shared-schemas/dist packages/shared-schemas/dist
 WORKDIR /repo/services/auth
 COPY services/auth/package.json services/auth/package-lock.json services/auth/.npmrc ./
 RUN npm ci --no-audit --no-fund
@@ -29,8 +31,9 @@ WORKDIR /app
 COPY --from=build --chown=root:root /repo/services/auth/package.json ./
 COPY --from=build --chown=root:root /repo/services/auth/node_modules node_modules
 COPY --from=build --chown=root:root /repo/services/auth/dist dist
+COPY --chown=root:root services/auth/migrations migrations
 USER node
 EXPOSE 4001
-HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||4001)+'/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node", "dist/server.js"]

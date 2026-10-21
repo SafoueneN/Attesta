@@ -6,9 +6,12 @@
 !packages/config/dist
 !packages/http-kit/package.json
 !packages/http-kit/dist
+!packages/shared-schemas/package.json
+!packages/shared-schemas/dist
 !services/auth/package.json
 !services/auth/package-lock.json
 !services/auth/.npmrc
 !services/auth/tsconfig.json
 !services/auth/tsconfig.build.json
 !services/auth/src
+!services/auth/migrations

@@ -6,9 +6,15 @@
 !packages/config/dist
 !packages/http-kit/package.json
 !packages/http-kit/dist
+!packages/shared-schemas/package.json
+!packages/shared-schemas/dist
+!packages/llm-client/package.json
+!packages/llm-client/dist
 !services/profiles/package.json
 !services/profiles/package-lock.json
 !services/profiles/.npmrc
 !services/profiles/tsconfig.json
 !services/profiles/tsconfig.build.json
 !services/profiles/src
+!services/profiles/migrations
+!services/profiles/prompts

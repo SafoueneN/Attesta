@@ -11,6 +11,12 @@
       "path": "packages/http-kit"
     },
     {
+      "path": "packages/shared-schemas"
+    },
+    {
+      "path": "packages/llm-client"
+    },
+    {
       "path": "packages/schema"
     },
     {

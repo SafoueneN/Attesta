@@ -58,6 +58,829 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/login-links":
+    post:
+      operationId: "demanderLienConnexion"
+      summary: "Envoie un lien de connexion à usage unique (réponse identique que le compte existe ou non)"
+      tags:
+        - "connexion"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                email:
+                  type: "string"
+                  maxLength: 254
+                  format: "email"
+                  pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                policyAccepted:
+                  type: "boolean"
+                  const: true
+              required:
+                - "email"
+                - "policyAccepted"
+      responses:
+        "202":
+          description: "Lien envoyé si l'adresse est valide"
+        "400":
+          description: "Entrée invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+        "429":
+          description: "Trop de demandes"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/login-links/{token}":
+    get:
+      operationId: "apercuLienConnexion"
+      summary: "Adresse masquée visée par un lien, sans le consommer"
+      tags:
+        - "connexion"
+      responses:
+        "200":
+          description: "Lien valide"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  maskedEmail:
+                    type: "string"
+                required:
+                  - "maskedEmail"
+                additionalProperties: false
+        "410":
+          description: "Lien expiré ou déjà utilisé"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/session":
+    post:
+      operationId: "ouvrirSession"
+      summary: "Consomme le lien ; jeton d'accès dans le corps, refresh token en cookie HttpOnly"
+      tags:
+        - "session"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                token:
+                  type: "string"
+                  pattern: "^[A-Za-z0-9_-]{20,100}$"
+              required:
+                - "token"
+      responses:
+        "200":
+          description: "Session ouverte"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  accessToken:
+                    type: "string"
+                  expiresIn:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  user:
+                    type: "object"
+                    properties:
+                      id:
+                        type: "string"
+                      role:
+                        type: "string"
+                        enum:
+                          - "candidate"
+                          - "admin"
+                          - "guest"
+                      email:
+                        type: "string"
+                    required:
+                      - "id"
+                      - "role"
+                    additionalProperties: false
+                required:
+                  - "accessToken"
+                  - "expiresIn"
+                  - "user"
+                additionalProperties: false
+        "410":
+          description: "Lien invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    delete:
+      operationId: "fermerSession"
+      summary: "Déconnexion : révocation de la famille de refresh tokens"
+      tags:
+        - "session"
+      responses:
+        "204":
+          description: "Session fermée"
+  "/v1/session/refresh":
+    post:
+      operationId: "rafraichirSession"
+      summary: "Nouveau jeton d'accès (rotation du refresh token, ou renouvellement de l'invité)"
+      tags:
+        - "session"
+      responses:
+        "200":
+          description: "Jeton renouvelé"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  accessToken:
+                    type: "string"
+                  expiresIn:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  user:
+                    type: "object"
+                    properties:
+                      id:
+                        type: "string"
+                      role:
+                        type: "string"
+                        enum:
+                          - "candidate"
+                          - "admin"
+                          - "guest"
+                      email:
+                        type: "string"
+                    required:
+                      - "id"
+                      - "role"
+                    additionalProperties: false
+                required:
+                  - "accessToken"
+                  - "expiresIn"
+                  - "user"
+                additionalProperties: false
+        "401":
+          description: "Aucune session"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/session/guest":
+    post:
+      operationId: "sessionInvite"
+      summary: "Jeton d'invité pour le parcours sans compte (2 h, 24 h au plus)"
+      tags:
+        - "session"
+      responses:
+        "200":
+          description: "Jeton d'invité"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  accessToken:
+                    type: "string"
+                  expiresIn:
+                    type: "integer"
+                    exclusiveMinimum: 0
+                    maximum: 9007199254740991
+                  user:
+                    type: "object"
+                    properties:
+                      id:
+                        type: "string"
+                      role:
+                        type: "string"
+                        enum:
+                          - "candidate"
+                          - "admin"
+                          - "guest"
+                      email:
+                        type: "string"
+                    required:
+                      - "id"
+                      - "role"
+                    additionalProperties: false
+                required:
+                  - "accessToken"
+                  - "expiresIn"
+                  - "user"
+                additionalProperties: false
+  "/v1/me":
+    get:
+      operationId: "monCompte"
+      summary: "Compte connecté et historique des consentements"
+      tags:
+        - "compte"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Compte"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                  email:
+                    type: "string"
+                  role:
+                    type: "string"
+                    enum:
+                      - "candidate"
+                      - "admin"
+                      - "guest"
+                  createdAt:
+                    type: "string"
+                  consents:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        purpose:
+                          type: "string"
+                          enum:
+                            - "service"
+                            - "veille"
+                            - "promo"
+                        granted:
+                          type: "boolean"
+                        policyVersion:
+                          type: "string"
+                        at:
+                          type: "string"
+                      required:
+                        - "purpose"
+                        - "granted"
+                        - "policyVersion"
+                        - "at"
+                      additionalProperties: false
+                required:
+                  - "id"
+                  - "email"
+                  - "role"
+                  - "createdAt"
+                  - "consents"
+                additionalProperties: false
+        "401":
+          description: "Non connecté"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    delete:
+      operationId: "supprimerMonCompte"
+      summary: "Suppression définitive du compte, propagée à tous les services (RGPD, art. 17)"
+      tags:
+        - "compte"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                confirm:
+                  type: "boolean"
+                  const: true
+              required:
+                - "confirm"
+      responses:
+        "202":
+          description: "Suppression engagée, jetons révoqués"
+  "/v1/me/consents":
+    put:
+      operationId: "modifierConsentement"
+      summary: "Accorde ou retire le consentement aux communications"
+      tags:
+        - "compte"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                purpose:
+                  type: "string"
+                  const: "promo"
+                granted:
+                  type: "boolean"
+              required:
+                - "purpose"
+                - "granted"
+      responses:
+        "204":
+          description: "Consentement journalisé"
+  "/v1/me/export":
+    get:
+      operationId: "exporterMesDonnees"
+      summary: "Export JSON de toutes les données du compte, agrégé depuis chaque service (RGPD, art. 15 et 20)"
+      tags:
+        - "compte"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Archive JSON"
+        "503":
+          description: "Un service ne répond pas"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/.well-known/jwks.json":
+    get:
+      operationId: "jwks"
+      summary: "Clés publiques de vérification des jetons (JWKS)"
+      tags:
+        - "clés"
+      responses:
+        "200":
+          description: "Jeu de clés"
+  "/v1/admin/stats":
+    get:
+      operationId: "statistiquesComptes"
+      summary: "Compteurs de comptes et de l'outbox RGPD, sans donnée personnelle"
+      tags:
+        - "administration"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Statistiques"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  users:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  admins:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  newUsers30d:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  logins7d:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  deletionsPending:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  outboxFailed:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                required:
+                  - "users"
+                  - "admins"
+                  - "newUsers30d"
+                  - "logins7d"
+                  - "deletionsPending"
+                  - "outboxFailed"
+                additionalProperties: false
+        "403":
+          description: "Réservé aux administrateurs"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/internal/v1/token":
+    post:
+      operationId: "jetonDeService"
+      summary: "Jeton de service de 5 min (interne, jamais routé par la gateway)"
+      tags:
+        - "interne"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                service:
+                  type: "string"
+                  pattern: "^[a-z-]{2,30}$"
+                secret:
+                  type: "string"
+                  minLength: 32
+                audience:
+                  type: "string"
+                  pattern: "^[a-z-]{2,30}$"
+                scope:
+                  type: "string"
+                  pattern: "^[a-z]+:[a-z]+$"
+              required:
+                - "service"
+                - "secret"
+                - "audience"
+                - "scope"
+      responses:
+        "200":
+          description: "Jeton"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  accessToken:
+                    type: "string"
+                  expiresIn:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                required:
+                  - "accessToken"
+                  - "expiresIn"
+                additionalProperties: false
+        "403":
+          description: "Refusé"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/internal/v1/users/{id}/contact":
+    get:
+      operationId: "contactUtilisateur"
+      summary: "Adresse d'envoi d'un compte (jeton de service users:contact)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Contact"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                  email:
+                    type: "string"
+                  status:
+                    type: "string"
+                    enum:
+                      - "active"
+                      - "deleting"
+                required:
+                  - "id"
+                  - "email"
+                  - "status"
+                additionalProperties: false
+        "404":
+          description: "Compte inconnu"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
 components:
   securitySchemes:
     bearer:

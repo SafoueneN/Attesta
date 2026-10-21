@@ -98,6 +98,28 @@ services:
   # Chacun démarre seul : `docker compose up <service>` (la base est démarrée avec lui).
   # Rôle et mot de passe de développement créés par db-init (infra/postgres/init.sql).
 
+  # Point d'entrée unique de l'API (docs/adr/0015). Le frontend la joint par nginx, même origine.
+  gateway:
+    <<: *service
+    build: { context: ., dockerfile: gateway/Dockerfile }
+    profiles: ["core", "full"]
+    ports: ["${GATEWAY_PORT:-4000}:4000"]
+    environment:
+      <<: *service-env
+      # nginx du frontend devant la gateway : l'IP réelle vient de X-Forwarded-For.
+      TRUST_PROXY: "1"
+      AUTH_URL: http://auth:4001
+      PROFILES_URL: http://profiles:4002
+      CV_GENERATION_URL: http://cv-generation:4003
+      JOBS_MATCHING_URL: http://jobs-matching:4004
+      JOB_WATCH_URL: http://job-watch:4005
+      LETTERS_EXPORT_URL: http://letters-export:4006
+      # Plafonds relevés en local pour les passages de parité (configurables, docs/adr/0015).
+      RATE_LIMIT_GENERATION_PER_HOUR: ${RATE_LIMIT_GENERATION_PER_HOUR:-200}
+      RATE_LIMIT_LOGIN_PER_HOUR: ${RATE_LIMIT_LOGIN_PER_HOUR:-200}
+    depends_on:
+      auth: { condition: service_healthy }
+
   auth:
     <<: *service
     build: { context: ., dockerfile: services/auth/Dockerfile }
@@ -105,9 +127,23 @@ services:
     ports: ["${AUTH_PORT:-4001}:4001"]
     environment:
       <<: *service-env
+      TRUST_PROXY: "1"
       DATABASE_URL: postgres://attesta_auth:attesta_auth-dev-uniquement@db:5432/attesta_auth
+      APP_BASE_URL: http://localhost:${FRONTEND_PORT:-8080}
+      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      MAIL_FROM: ${MAIL_FROM:-Attesta <ne-pas-repondre@attesta.localhost>}
+      # Rôle administrateur à la connexion (docs/adr/0024).
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin@attesta.localhost}
+      IP_HASH_SECRET: dev-ip-hash-secret-uniquement-en-local
+      SERVICE_SECRET_JOB_WATCH: &secret-job-watch dev-secret-job-watch-uniquement-en-local-0000
+      PROFILES_URL: http://profiles:4002
+      CV_GENERATION_URL: http://cv-generation:4003
+      JOBS_MATCHING_URL: http://jobs-matching:4004
+      JOB_WATCH_URL: http://job-watch:4005
+      LETTERS_EXPORT_URL: http://letters-export:4006
     depends_on:
       db-init: { condition: service_completed_successfully }
+      mailpit: { condition: service_started }
 
   profiles:
     <<: *service
