@@ -58,6 +58,1702 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/offers":
+    post:
+      operationId: "enregistrerOffre"
+      summary: "Enregistre une offre collée et l'analyse (exigences, mots-clés)"
+      tags:
+        - "offres"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                rawText:
+                  type: "string"
+                  minLength: 50
+                  maxLength: 20000
+                sourceUrl:
+                  type: "string"
+                  format: "uri"
+              required:
+                - "rawText"
+      responses:
+        "201":
+          description: "Offre analysée"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  title:
+                    type: "string"
+                  company:
+                    type:
+                      - "string"
+                      - "null"
+                  createdAt:
+                    type: "string"
+                  sourceUrl:
+                    type:
+                      - "string"
+                      - "null"
+                  rawText:
+                    type: "string"
+                  analysis:
+                    type: "object"
+                    properties:
+                      title:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      company:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      language:
+                        type: "string"
+                        enum:
+                          - "fr"
+                          - "de"
+                          - "en"
+                      location:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      contractType:
+                        type: "string"
+                        enum:
+                          - "cdi"
+                          - "cdd"
+                          - "freelance"
+                          - "stage"
+                          - "alternance"
+                          - "autre"
+                      requirements:
+                        maxItems: 40
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            text:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 300
+                            priority:
+                              type: "string"
+                              enum:
+                                - "must"
+                                - "nice"
+                            skills:
+                              maxItems: 10
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "text"
+                            - "priority"
+                            - "skills"
+                          additionalProperties: false
+                      keywords:
+                        maxItems: 60
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            term:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            weight:
+                              type: "number"
+                              minimum: 0
+                              maximum: 1
+                          required:
+                            - "term"
+                            - "weight"
+                          additionalProperties: false
+                    required:
+                      - "title"
+                      - "language"
+                      - "requirements"
+                      - "keywords"
+                    additionalProperties: false
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                  postingId:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "uuid"
+                        pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      -
+                        type: "null"
+                required:
+                  - "id"
+                  - "title"
+                  - "company"
+                  - "createdAt"
+                  - "sourceUrl"
+                  - "rawText"
+                  - "analysis"
+                  - "providerKind"
+                  - "postingId"
+                additionalProperties: false
+        "400":
+          description: "Offre invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    get:
+      operationId: "mesOffres"
+      summary: "Offres enregistrées par l'utilisateur, des plus récentes aux plus anciennes"
+      tags:
+        - "offres"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Offres"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    title:
+                      type: "string"
+                    company:
+                      type:
+                        - "string"
+                        - "null"
+                    createdAt:
+                      type: "string"
+                    keywords:
+                      type: "integer"
+                      minimum: -9007199254740991
+                      maximum: 9007199254740991
+                  required:
+                    - "id"
+                    - "title"
+                    - "company"
+                    - "createdAt"
+                    - "keywords"
+                  additionalProperties: false
+  "/v1/offers/from-posting/{id}":
+    post:
+      operationId: "reprendreOffreCollectee"
+      summary: "Reprend une offre collectée comme offre visée"
+      tags:
+        - "offres"
+      security:
+        -
+          bearer: []
+      responses:
+        "201":
+          description: "Offre analysée"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  title:
+                    type: "string"
+                  company:
+                    type:
+                      - "string"
+                      - "null"
+                  createdAt:
+                    type: "string"
+                  sourceUrl:
+                    type:
+                      - "string"
+                      - "null"
+                  rawText:
+                    type: "string"
+                  analysis:
+                    type: "object"
+                    properties:
+                      title:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      company:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      language:
+                        type: "string"
+                        enum:
+                          - "fr"
+                          - "de"
+                          - "en"
+                      location:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      contractType:
+                        type: "string"
+                        enum:
+                          - "cdi"
+                          - "cdd"
+                          - "freelance"
+                          - "stage"
+                          - "alternance"
+                          - "autre"
+                      requirements:
+                        maxItems: 40
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            text:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 300
+                            priority:
+                              type: "string"
+                              enum:
+                                - "must"
+                                - "nice"
+                            skills:
+                              maxItems: 10
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "text"
+                            - "priority"
+                            - "skills"
+                          additionalProperties: false
+                      keywords:
+                        maxItems: 60
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            term:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            weight:
+                              type: "number"
+                              minimum: 0
+                              maximum: 1
+                          required:
+                            - "term"
+                            - "weight"
+                          additionalProperties: false
+                    required:
+                      - "title"
+                      - "language"
+                      - "requirements"
+                      - "keywords"
+                    additionalProperties: false
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                  postingId:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "uuid"
+                        pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      -
+                        type: "null"
+                required:
+                  - "id"
+                  - "title"
+                  - "company"
+                  - "createdAt"
+                  - "sourceUrl"
+                  - "rawText"
+                  - "analysis"
+                  - "providerKind"
+                  - "postingId"
+                additionalProperties: false
+        "404":
+          description: "Offre inconnue"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/offers/{id}":
+    get:
+      operationId: "uneOffre"
+      summary: "Une offre et son analyse"
+      tags:
+        - "offres"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Offre"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  title:
+                    type: "string"
+                  company:
+                    type:
+                      - "string"
+                      - "null"
+                  createdAt:
+                    type: "string"
+                  sourceUrl:
+                    type:
+                      - "string"
+                      - "null"
+                  rawText:
+                    type: "string"
+                  analysis:
+                    type: "object"
+                    properties:
+                      title:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      company:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      language:
+                        type: "string"
+                        enum:
+                          - "fr"
+                          - "de"
+                          - "en"
+                      location:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      contractType:
+                        type: "string"
+                        enum:
+                          - "cdi"
+                          - "cdd"
+                          - "freelance"
+                          - "stage"
+                          - "alternance"
+                          - "autre"
+                      requirements:
+                        maxItems: 40
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            text:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 300
+                            priority:
+                              type: "string"
+                              enum:
+                                - "must"
+                                - "nice"
+                            skills:
+                              maxItems: 10
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "text"
+                            - "priority"
+                            - "skills"
+                          additionalProperties: false
+                      keywords:
+                        maxItems: 60
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            term:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            weight:
+                              type: "number"
+                              minimum: 0
+                              maximum: 1
+                          required:
+                            - "term"
+                            - "weight"
+                          additionalProperties: false
+                    required:
+                      - "title"
+                      - "language"
+                      - "requirements"
+                      - "keywords"
+                    additionalProperties: false
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                  postingId:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "uuid"
+                        pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      -
+                        type: "null"
+                required:
+                  - "id"
+                  - "title"
+                  - "company"
+                  - "createdAt"
+                  - "sourceUrl"
+                  - "rawText"
+                  - "analysis"
+                  - "providerKind"
+                  - "postingId"
+                additionalProperties: false
+        "404":
+          description: "Offre inconnue"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    delete:
+      operationId: "supprimerOffre"
+      summary: "Supprime une offre"
+      tags:
+        - "offres"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Supprimée"
+        "404":
+          description: "Offre inconnue"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/postings":
+    get:
+      operationId: "offresCollectees"
+      summary: "Recherche dans les offres collectées auprès des sources publiques"
+      tags:
+        - "offres collectées"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Offres"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    source:
+                      type: "string"
+                    title:
+                      type: "string"
+                    company:
+                      type:
+                        - "string"
+                        - "null"
+                    city:
+                      type:
+                        - "string"
+                        - "null"
+                    country:
+                      type: "string"
+                      enum:
+                        - "DE"
+                        - "FR"
+                    postedAt:
+                      type: "string"
+                    url:
+                      type: "string"
+                    excerpt:
+                      type: "string"
+                    salaryMinEur:
+                      anyOf:
+                        -
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        -
+                          type: "null"
+                    salaryMaxEur:
+                      anyOf:
+                        -
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        -
+                          type: "null"
+                    attribution:
+                      anyOf:
+                        -
+                          type: "object"
+                          properties:
+                            text:
+                              type: "string"
+                            url:
+                              type: "string"
+                          required:
+                            - "text"
+                            - "url"
+                          additionalProperties: false
+                        -
+                          type: "null"
+                  required:
+                    - "id"
+                    - "source"
+                    - "title"
+                    - "company"
+                    - "city"
+                    - "country"
+                    - "postedAt"
+                    - "url"
+                    - "excerpt"
+                    - "salaryMinEur"
+                    - "salaryMaxEur"
+                    - "attribution"
+                  additionalProperties: false
+  "/v1/cities":
+    get:
+      operationId: "villes"
+      summary: "Suggestions de villes de plus de 15 000 habitants (GeoNames)"
+      tags:
+        - "référentiel"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Villes"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    nom:
+                      type: "string"
+                    pays:
+                      type: "string"
+                      enum:
+                        - "DE"
+                        - "FR"
+                    lat:
+                      type: "number"
+                    lon:
+                      type: "number"
+                  required:
+                    - "nom"
+                    - "pays"
+                    - "lat"
+                    - "lon"
+                  additionalProperties: false
+  "/v1/admin/stats":
+    get:
+      operationId: "statistiquesOffres"
+      summary: "Compteurs de collecte et consommation du LLM, sans donnée personnelle"
+      tags:
+        - "administration"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Statistiques"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  counters:
+                    type: "object"
+                    propertyNames:
+                      type: "string"
+                    additionalProperties:
+                      type: "number"
+                  llm:
+                    type: "object"
+                    properties:
+                      service:
+                        type: "string"
+                      month:
+                        type: "string"
+                      calls:
+                        type: "integer"
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      costEur:
+                        type: "number"
+                      budgetEur:
+                        type: "number"
+                      byStep:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            step:
+                              type: "string"
+                            calls:
+                              type: "integer"
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            costEur:
+                              type: "number"
+                          required:
+                            - "step"
+                            - "calls"
+                            - "costEur"
+                          additionalProperties: false
+                    required:
+                      - "service"
+                      - "month"
+                      - "calls"
+                      - "costEur"
+                      - "budgetEur"
+                      - "byStep"
+                    additionalProperties: false
+                required:
+                  - "service"
+                  - "counters"
+                additionalProperties: false
+  "/internal/v1/offers/{id}":
+    get:
+      operationId: "offreInterne"
+      summary: "Offre et analyse pour la génération (jeton relayé)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Offre"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  title:
+                    type: "string"
+                  company:
+                    type:
+                      - "string"
+                      - "null"
+                  createdAt:
+                    type: "string"
+                  sourceUrl:
+                    type:
+                      - "string"
+                      - "null"
+                  rawText:
+                    type: "string"
+                  analysis:
+                    type: "object"
+                    properties:
+                      title:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      company:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      language:
+                        type: "string"
+                        enum:
+                          - "fr"
+                          - "de"
+                          - "en"
+                      location:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 200
+                      contractType:
+                        type: "string"
+                        enum:
+                          - "cdi"
+                          - "cdd"
+                          - "freelance"
+                          - "stage"
+                          - "alternance"
+                          - "autre"
+                      requirements:
+                        maxItems: 40
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            text:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 300
+                            priority:
+                              type: "string"
+                              enum:
+                                - "must"
+                                - "nice"
+                            skills:
+                              maxItems: 10
+                              type: "array"
+                              items:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                          required:
+                            - "text"
+                            - "priority"
+                            - "skills"
+                          additionalProperties: false
+                      keywords:
+                        maxItems: 60
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            term:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                            weight:
+                              type: "number"
+                              minimum: 0
+                              maximum: 1
+                          required:
+                            - "term"
+                            - "weight"
+                          additionalProperties: false
+                    required:
+                      - "title"
+                      - "language"
+                      - "requirements"
+                      - "keywords"
+                    additionalProperties: false
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                  postingId:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "uuid"
+                        pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      -
+                        type: "null"
+                required:
+                  - "id"
+                  - "title"
+                  - "company"
+                  - "createdAt"
+                  - "sourceUrl"
+                  - "rawText"
+                  - "analysis"
+                  - "providerKind"
+                  - "postingId"
+                additionalProperties: false
+        "404":
+          description: "Offre inconnue"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/internal/v1/cities/resolve":
+    get:
+      operationId: "resoudreVille"
+      summary: "Coordonnées d'une ville du référentiel (jeton relayé)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Ville"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  nom:
+                    type: "string"
+                  pays:
+                    type: "string"
+                    enum:
+                      - "DE"
+                      - "FR"
+                  lat:
+                    type: "number"
+                  lon:
+                    type: "number"
+                required:
+                  - "nom"
+                  - "pays"
+                  - "lat"
+                  - "lon"
+                additionalProperties: false
+        "404":
+          description: "Ville inconnue"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/internal/v1/ingestion":
+    post:
+      operationId: "collecte"
+      summary: "Collecte du jour pour des critères de veille (jeton de service matching:run)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                criteria:
+                  maxItems: 500
+                  type: "array"
+                  items:
+                    type: "object"
+                    properties:
+                      occupations:
+                        minItems: 1
+                        maxItems: 5
+                        type: "array"
+                        items:
+                          type: "string"
+                          minLength: 2
+                          maxLength: 80
+                      country:
+                        type: "string"
+                        enum:
+                          - "DE"
+                          - "FR"
+                      city:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 100
+                      lat:
+                        type: "number"
+                      lon:
+                        type: "number"
+                      radiusKm:
+                        type: "integer"
+                        minimum: 5
+                        maximum: 200
+                      workingTime:
+                        type: "string"
+                        enum:
+                          - "indifferent"
+                          - "plein"
+                          - "partiel"
+                    required:
+                      - "occupations"
+                      - "country"
+                      - "city"
+                      - "lat"
+                      - "lon"
+                      - "radiusKm"
+                      - "workingTime"
+                date:
+                  type: "string"
+                  format: "date"
+                  pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              required:
+                - "criteria"
+                - "date"
+      responses:
+        "200":
+          description: "Bilan"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  sources:
+                    type: "object"
+                    propertyNames:
+                      type: "string"
+                    additionalProperties:
+                      type: "object"
+                      properties:
+                        requests:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        fetched:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        inserted:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        duplicates:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        errors:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                      required:
+                        - "requests"
+                        - "fetched"
+                        - "inserted"
+                        - "duplicates"
+                        - "errors"
+                      additionalProperties: false
+                  embedded:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                required:
+                  - "sources"
+                  - "embedded"
+                additionalProperties: false
+  "/internal/v1/matching":
+    post:
+      operationId: "classement"
+      summary: "Classement des offres pour un profil (jeton de service matching:run)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                profile:
+                  type: "object"
+                  properties:
+                    basics:
+                      type: "object"
+                      properties:
+                        name:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 200
+                        label:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 200
+                        email:
+                          type: "string"
+                          format: "email"
+                          pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        phone:
+                          type: "string"
+                          maxLength: 40
+                        url:
+                          type: "string"
+                          format: "uri"
+                        summary:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 2000
+                        location:
+                          type: "object"
+                          properties:
+                            city:
+                              type: "string"
+                              maxLength: 100
+                            region:
+                              type: "string"
+                              maxLength: 100
+                            countryCode:
+                              type: "string"
+                              pattern: "^[A-Z]{2}$"
+                        profiles:
+                          default: []
+                          maxItems: 10
+                          type: "array"
+                          items:
+                            type: "object"
+                            properties:
+                              network:
+                                type: "string"
+                                minLength: 1
+                                maxLength: 200
+                              url:
+                                type: "string"
+                                format: "uri"
+                            required:
+                              - "network"
+                              - "url"
+                      required:
+                        - "name"
+                    work:
+                      default: []
+                      maxItems: 30
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          position:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          url:
+                            type: "string"
+                            format: "uri"
+                          location:
+                            type: "string"
+                            maxLength: 100
+                          startDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          endDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          summary:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          highlights:
+                            default: []
+                            maxItems: 20
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 500
+                        required:
+                          - "name"
+                          - "position"
+                          - "startDate"
+                    education:
+                      default: []
+                      maxItems: 15
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          institution:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          area:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          studyType:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          startDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          endDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          score:
+                            type: "string"
+                            maxLength: 50
+                          courses:
+                            default: []
+                            maxItems: 20
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                        required:
+                          - "institution"
+                    skills:
+                      default: []
+                      maxItems: 50
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          level:
+                            type: "string"
+                            maxLength: 50
+                          keywords:
+                            default: []
+                            maxItems: 30
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 200
+                        required:
+                          - "name"
+                    languages:
+                      default: []
+                      maxItems: 15
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          language:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          fluency:
+                            type: "string"
+                            maxLength: 50
+                        required:
+                          - "language"
+                    projects:
+                      default: []
+                      maxItems: 30
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          description:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 2000
+                          highlights:
+                            default: []
+                            maxItems: 20
+                            type: "array"
+                            items:
+                              type: "string"
+                              minLength: 1
+                              maxLength: 500
+                          startDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          endDate:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          url:
+                            type: "string"
+                            format: "uri"
+                        required:
+                          - "name"
+                    certificates:
+                      default: []
+                      maxItems: 30
+                      type: "array"
+                      items:
+                        type: "object"
+                        properties:
+                          name:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          issuer:
+                            type: "string"
+                            minLength: 1
+                            maxLength: 200
+                          date:
+                            type: "string"
+                            pattern: "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$"
+                          url:
+                            type: "string"
+                            format: "uri"
+                        required:
+                          - "name"
+                  required:
+                    - "basics"
+                criteria:
+                  type: "object"
+                  properties:
+                    occupations:
+                      minItems: 1
+                      maxItems: 5
+                      type: "array"
+                      items:
+                        type: "string"
+                        minLength: 2
+                        maxLength: 80
+                    country:
+                      type: "string"
+                      enum:
+                        - "DE"
+                        - "FR"
+                    city:
+                      type: "string"
+                      minLength: 1
+                      maxLength: 100
+                    lat:
+                      type: "number"
+                    lon:
+                      type: "number"
+                    radiusKm:
+                      type: "integer"
+                      minimum: 5
+                      maximum: 200
+                    workingTime:
+                      type: "string"
+                      enum:
+                        - "indifferent"
+                        - "plein"
+                        - "partiel"
+                  required:
+                    - "occupations"
+                    - "country"
+                    - "city"
+                    - "lat"
+                    - "lon"
+                    - "radiusKm"
+                    - "workingTime"
+                excludePostingIds:
+                  default: []
+                  maxItems: 5000
+                  type: "array"
+                  items:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                date:
+                  type: "string"
+                  format: "date"
+                  pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              required:
+                - "profile"
+                - "criteria"
+                - "date"
+      responses:
+        "200":
+          description: "Offres classées"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  degraded:
+                    type: "boolean"
+                  postings:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        posting:
+                          type: "object"
+                          properties:
+                            id:
+                              type: "string"
+                              format: "uuid"
+                              pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            source:
+                              type: "string"
+                            title:
+                              type: "string"
+                            company:
+                              type:
+                                - "string"
+                                - "null"
+                            city:
+                              type:
+                                - "string"
+                                - "null"
+                            country:
+                              type: "string"
+                              enum:
+                                - "DE"
+                                - "FR"
+                            postedAt:
+                              type: "string"
+                            url:
+                              type: "string"
+                            excerpt:
+                              type: "string"
+                            salaryMinEur:
+                              anyOf:
+                                -
+                                  type: "integer"
+                                  minimum: -9007199254740991
+                                  maximum: 9007199254740991
+                                -
+                                  type: "null"
+                            salaryMaxEur:
+                              anyOf:
+                                -
+                                  type: "integer"
+                                  minimum: -9007199254740991
+                                  maximum: 9007199254740991
+                                -
+                                  type: "null"
+                            attribution:
+                              anyOf:
+                                -
+                                  type: "object"
+                                  properties:
+                                    text:
+                                      type: "string"
+                                    url:
+                                      type: "string"
+                                  required:
+                                    - "text"
+                                    - "url"
+                                  additionalProperties: false
+                                -
+                                  type: "null"
+                          required:
+                            - "id"
+                            - "source"
+                            - "title"
+                            - "company"
+                            - "city"
+                            - "country"
+                            - "postedAt"
+                            - "url"
+                            - "excerpt"
+                            - "salaryMinEur"
+                            - "salaryMaxEur"
+                            - "attribution"
+                          additionalProperties: false
+                        rank:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        rrfScore:
+                          type: "number"
+                        similarity:
+                          type:
+                            - "number"
+                            - "null"
+                        coverage:
+                          type:
+                            - "number"
+                            - "null"
+                        locationScore:
+                          type:
+                            - "number"
+                            - "null"
+                        rerankScore:
+                          anyOf:
+                            -
+                              type: "integer"
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            -
+                              type: "null"
+                        missingSkills:
+                          type: "array"
+                          items:
+                            type: "string"
+                      required:
+                        - "posting"
+                        - "rank"
+                        - "rrfScore"
+                        - "similarity"
+                        - "coverage"
+                        - "locationScore"
+                        - "rerankScore"
+                        - "missingSkills"
+                      additionalProperties: false
+                  profileSkills:
+                    type: "array"
+                    items:
+                      type: "string"
+                required:
+                  - "degraded"
+                  - "postings"
+                  - "profileSkills"
+                additionalProperties: false
+  "/internal/v1/users/{id}/export":
+    get:
+      operationId: "exportUtilisateur"
+      summary: "Données du service pour l'export RGPD (users:export)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Données"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  data: {}
+                required:
+                  - "service"
+                  - "data"
+                additionalProperties: false
+  "/internal/v1/users/{id}":
+    delete:
+      operationId: "effacerUtilisateur"
+      summary: "Efface les offres d'un utilisateur, idempotent (users:delete)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Effacé"
 components:
   securitySchemes:
     bearer:

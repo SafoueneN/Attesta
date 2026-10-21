@@ -2,7 +2,7 @@
   "name": "@attesta/cv-generation",
   "version": "0.1.0",
   "private": true,
-  "description": "Service cv-generation d'Attesta : CV ciblé par offre, contrôle de fidélité et traçabilité ligne par ligne.",
+  "description": "Service cv-generation d'Attesta : CV ciblé, contrôle de fidélité, traçabilité et corrections.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -11,16 +11,20 @@
     "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file-if-exists=.env dist/server.js",
+    "migrate": "node-pg-migrate up --migrations-dir migrations --migration-file-language sql",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "openapi": "tsx scripts/openapi.ts"
   },
   "dependencies": {
-    "@attesta/logger": "file:../../packages/logger",
     "@attesta/config": "file:../../packages/config",
     "@attesta/http-kit": "file:../../packages/http-kit",
+    "@attesta/llm-client": "file:../../packages/llm-client",
+    "@attesta/logger": "file:../../packages/logger",
+    "@attesta/shared-schemas": "file:../../packages/shared-schemas",
     "express": "^5.3.0",
+    "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
@@ -30,6 +34,7 @@
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.5",
+    "jose": "^6.2.12",
     "supertest": "^7.3.1",
     "tsx": "^4.20.3",
     "typescript": "^5.9.3",

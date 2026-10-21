@@ -6,9 +6,16 @@
 !packages/config/dist
 !packages/http-kit/package.json
 !packages/http-kit/dist
+!packages/shared-schemas/package.json
+!packages/shared-schemas/dist
+!packages/llm-client/package.json
+!packages/llm-client/dist
 !services/jobs-matching/package.json
 !services/jobs-matching/package-lock.json
 !services/jobs-matching/.npmrc
 !services/jobs-matching/tsconfig.json
 !services/jobs-matching/tsconfig.build.json
 !services/jobs-matching/src
+!services/jobs-matching/migrations
+!services/jobs-matching/prompts
+!services/jobs-matching/data

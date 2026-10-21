@@ -6,9 +6,15 @@
 !packages/config/dist
 !packages/http-kit/package.json
 !packages/http-kit/dist
+!packages/shared-schemas/package.json
+!packages/shared-schemas/dist
+!packages/llm-client/package.json
+!packages/llm-client/dist
 !services/cv-generation/package.json
 !services/cv-generation/package-lock.json
 !services/cv-generation/.npmrc
 !services/cv-generation/tsconfig.json
 !services/cv-generation/tsconfig.build.json
 !services/cv-generation/src
+!services/cv-generation/migrations
+!services/cv-generation/prompts

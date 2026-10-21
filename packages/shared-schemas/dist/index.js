@@ -10,8 +10,10 @@ export * from "./profile.js";
 export * from "./api/auth.js";
 export * from "./api/common.js";
 export * from "./api/cv.js";
+export * from "./api/jobs.js";
 export * from "./api/letters.js";
 export * from "./api/profiles.js";
+export * from "./api/watch.js";
 export const SCHEMA_VERSION = "1.0.0";
 /** Export JSON Schema du contrat, utilisé pour les sorties structurées du LLM. */
 export function toJsonSchemas() {
