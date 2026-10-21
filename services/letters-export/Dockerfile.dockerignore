@@ -6,9 +6,16 @@
 !packages/config/dist
 !packages/http-kit/package.json
 !packages/http-kit/dist
+!packages/shared-schemas/package.json
+!packages/shared-schemas/dist
+!packages/llm-client/package.json
+!packages/llm-client/dist
 !services/letters-export/package.json
 !services/letters-export/package-lock.json
 !services/letters-export/.npmrc
 !services/letters-export/tsconfig.json
 !services/letters-export/tsconfig.build.json
 !services/letters-export/src
+!services/letters-export/migrations
+!services/letters-export/prompts
+!services/letters-export/templates

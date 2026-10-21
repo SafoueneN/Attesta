@@ -77,6 +77,7 @@ export const UserContact = z.object({
   email: z.string(),
   status: z.enum(["active", "deleting"]),
 });
+export type UserContact = z.infer<typeof UserContact>;
 
 export const AuthAdminStats = z.object({
   users: z.number().int(),

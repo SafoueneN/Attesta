@@ -3254,6 +3254,90 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/internal/v1/generations/{id}/check":
+    post:
+      operationId: "controlerLignes"
+      summary: "Contrôle de fidélité de lignes libres (paragraphes d'une lettre) contre le profil de la génération"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                lines:
+                  minItems: 1
+                  maxItems: 20
+                  type: "array"
+                  items:
+                    type: "object"
+                    properties:
+                      text:
+                        type: "string"
+                        maxLength: 1500
+                      sources:
+                        maxItems: 8
+                        type: "array"
+                        items:
+                          type: "string"
+                          maxLength: 100
+                    required:
+                      - "text"
+                      - "sources"
+              required:
+                - "lines"
+      responses:
+        "200":
+          description: "Résultat par ligne"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  lines:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        status:
+                          type: "string"
+                          enum:
+                            - "supported"
+                            - "unsupported"
+                        issues:
+                          type: "array"
+                          items:
+                            type: "object"
+                            properties:
+                              kind:
+                                type: "string"
+                                enum:
+                                  - "number"
+                                  - "date"
+                                  - "entity"
+                                  - "skill"
+                                  - "unresolved-source"
+                                  - "foreign-source"
+                              value:
+                                type: "string"
+                            required:
+                              - "kind"
+                              - "value"
+                            additionalProperties: false
+                      required:
+                        - "status"
+                        - "issues"
+                      additionalProperties: false
+                required:
+                  - "lines"
+                additionalProperties: false
   "/internal/v1/users/{id}/export":
     get:
       operationId: "exportUtilisateur"

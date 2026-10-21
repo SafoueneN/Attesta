@@ -17,12 +17,15 @@ import {
   GenerationCreate,
   GenerationSummary,
   IdParam,
+  LinesCheck,
+  LinesCheckResult,
   ServiceStats,
   UserExport,
 } from "@attesta/shared-schemas";
 import type { Express, Response } from "express";
 import { z } from "zod";
 import { applyCorrections } from "./corrections.js";
+import { checkLine, lineContext } from "./faithfulness.js";
 import { generateTailoredCv, type ProgressEvent } from "./pipeline.js";
 import type { GenerationRow, GenerationStore, IaQuota } from "./store.js";
 import type { Upstreams } from "./upstreams.js";
@@ -143,6 +146,17 @@ export const operations: Operation[] = [
       200: { description: "Génération", schema: Generation },
       409: { description: "Non vérifiée" },
     },
+  },
+  {
+    method: "post",
+    path: "/internal/v1/generations/{id}/check",
+    operationId: "controlerLignes",
+    summary:
+      "Contrôle de fidélité de lignes libres (paragraphes d'une lettre) contre le profil de la génération",
+    tags: ["interne"],
+    auth: true,
+    body: LinesCheck,
+    responses: { 200: { description: "Résultat par ligne", schema: LinesCheckResult } },
   },
   {
     method: "get",
@@ -412,6 +426,22 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
       throw new AppError("cv_non_verifie", 409, "Ce CV n'a pas passé le contrôle de fidélité.");
     }
     res.json(toDto(row));
+  });
+
+  // Contrôle des paragraphes d'une lettre (letters-export) contre le profil de la génération : sans
+  // rattachement à une entrée, comme le titre et l'accroche (compétences déclarées admises).
+  app.post("/internal/v1/generations/:id/check", auth, user, async (req, res) => {
+    const row = await own(res, parseInput(IdParam, req.params).id);
+    const { lines } = parseInput(LinesCheck, req.body);
+    if (!row.cv) throw new AppError("cv_non_verifie", 409, "Ce CV n'a pas passé le contrôle de fidélité.");
+    const ctx = lineContext(row.profile, row.cv.missingKeywords, row.offerText);
+    res.json({
+      lines: lines.map((line) => {
+        // Une source qui n'est pas un pointeur de fait valide compte comme introuvable.
+        const issues = checkLine({ text: line.text, sources: line.sources }, ctx);
+        return { status: issues.length ? "unsupported" : "supported", issues };
+      }),
+    });
   });
 
   app.get("/internal/v1/users/:id/export", auth, requireScope("users:export"), async (req, res) => {

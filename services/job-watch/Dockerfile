@@ -11,6 +11,8 @@ COPY packages/config/package.json packages/config/
 COPY packages/config/dist packages/config/dist
 COPY packages/http-kit/package.json packages/http-kit/
 COPY packages/http-kit/dist packages/http-kit/dist
+COPY packages/shared-schemas/package.json packages/shared-schemas/
+COPY packages/shared-schemas/dist packages/shared-schemas/dist
 WORKDIR /repo/services/job-watch
 COPY services/job-watch/package.json services/job-watch/package-lock.json services/job-watch/.npmrc ./
 RUN npm ci --no-audit --no-fund
@@ -19,7 +21,6 @@ COPY services/job-watch/src src
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
-# npm et npx sont inutiles à l'exécution (et signalés par Trivy).
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
@@ -29,8 +30,9 @@ WORKDIR /app
 COPY --from=build --chown=root:root /repo/services/job-watch/package.json ./
 COPY --from=build --chown=root:root /repo/services/job-watch/node_modules node_modules
 COPY --from=build --chown=root:root /repo/services/job-watch/dist dist
+COPY --chown=root:root services/job-watch/migrations migrations
 USER node
 EXPOSE 4005
-HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||4005)+'/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node", "dist/server.js"]

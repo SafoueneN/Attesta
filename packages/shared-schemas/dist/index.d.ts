@@ -10,40 +10,12 @@ export * from "./api/cv.js";
 export * from "./api/jobs.js";
 export * from "./api/letters.js";
 export * from "./api/profiles.js";
+export * from "./api/reports.js";
 export * from "./api/watch.js";
 export declare const SCHEMA_VERSION = "1.0.0";
 /** Export JSON Schema du contrat, utilisé pour les sorties structurées du LLM. */
 export declare function toJsonSchemas(): {
     [k: string]: z.core.ZodStandardJSONSchemaPayload<z.ZodObject<{
-        title: z.ZodString;
-        company: z.ZodOptional<z.ZodString>;
-        language: z.ZodEnum<{
-            fr: "fr";
-            de: "de";
-            en: "en";
-        }>;
-        location: z.ZodOptional<z.ZodString>;
-        contractType: z.ZodOptional<z.ZodEnum<{
-            cdi: "cdi";
-            cdd: "cdd";
-            freelance: "freelance";
-            stage: "stage";
-            alternance: "alternance";
-            autre: "autre";
-        }>>;
-        requirements: z.ZodArray<z.ZodObject<{
-            text: z.ZodString;
-            priority: z.ZodEnum<{
-                must: "must";
-                nice: "nice";
-            }>;
-            skills: z.ZodArray<z.ZodString>;
-        }, z.core.$strip>>;
-        keywords: z.ZodArray<z.ZodObject<{
-            term: z.ZodString;
-            weight: z.ZodNumber;
-        }, z.core.$strip>>;
-    }, z.core.$strip> | z.ZodObject<{
         basics: z.ZodObject<{
             name: z.ZodString;
             label: z.ZodOptional<z.ZodString>;
@@ -106,6 +78,35 @@ export declare function toJsonSchemas(): {
     }, z.core.$strip> | z.ZodObject<{
         rawText: z.ZodString;
         sourceUrl: z.ZodOptional<z.ZodURL>;
+    }, z.core.$strip> | z.ZodObject<{
+        title: z.ZodString;
+        company: z.ZodOptional<z.ZodString>;
+        language: z.ZodEnum<{
+            fr: "fr";
+            de: "de";
+            en: "en";
+        }>;
+        location: z.ZodOptional<z.ZodString>;
+        contractType: z.ZodOptional<z.ZodEnum<{
+            cdi: "cdi";
+            cdd: "cdd";
+            freelance: "freelance";
+            stage: "stage";
+            alternance: "alternance";
+            autre: "autre";
+        }>>;
+        requirements: z.ZodArray<z.ZodObject<{
+            text: z.ZodString;
+            priority: z.ZodEnum<{
+                must: "must";
+                nice: "nice";
+            }>;
+            skills: z.ZodArray<z.ZodString>;
+        }, z.core.$strip>>;
+        keywords: z.ZodArray<z.ZodObject<{
+            term: z.ZodString;
+            weight: z.ZodNumber;
+        }, z.core.$strip>>;
     }, z.core.$strip> | z.ZodObject<{
         headline: z.ZodOptional<z.ZodObject<{
             text: z.ZodString;

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:">
+<title>Attesta – Points à améliorer, <%= view.date %></title>
+<style><%- css %></style>
+</head>
+<body class="report">
+<header class="report-header">
+  <p class="report-brand">Attesta · Veille emploi</p>
+  <h1>Points à améliorer</h1>
+  <p class="report-criteria"><%= view.criteria %> · d'après <%= view.basis %> offre<%= view.basis > 1 ? "s" : "" %> retenue<%= view.basis > 1 ? "s" : "" %> pour vous sur 30 jours</p>
+</header>
+<main>
+<% if (!view.gaps.length) { -%>
+  <p>Aucune compétence demandée par ces offres ne manque à votre profil.</p>
+<% } else { -%>
+  <table class="gaps">
+    <caption>Compétences demandées par vos offres et absentes de votre profil, par priorité</caption>
+    <thead>
+      <tr><th scope="col">Compétence</th><th scope="col">Offres qui la demandent</th><th scope="col">Salaire publié</th><th scope="col">Effort estimé</th></tr>
+    </thead>
+    <tbody>
+<% view.gaps.forEach((gap) => { -%>
+      <tr>
+        <th scope="row"><%= gap.skill %></th>
+        <td><%= gap.count %> (<%= gap.frequency %> %)</td>
+        <td><%= gap.salary %></td>
+        <td><%= gap.effort %></td>
+      </tr>
+<% }) -%>
+    </tbody>
+  </table>
+  <h2>Que faire ?</h2>
+  <ul class="actions">
+    <li>Si vous avez déjà pratiqué l'une de ces compétences, ajoutez-la à votre profil avec l'expérience ou le projet qui le prouve : elle pourra alors apparaître dans vos CV.</li>
+    <li>Sinon, une formation ou un projet documenté permet de l'acquérir. Attesta n'ajoutera jamais une compétence sans preuve dans votre profil.</li>
+  </ul>
+<% } -%>
+</main>
+<footer class="report-footer">
+  <p>Priorité = 0,5 × part des offres qui demandent la compétence + 0,3 × écart de salaire − 0,2 × effort. Cette pondération est une hypothèse de travail, pas une recommandation de carrière.</p>
+  <p>Les salaires sont ceux publiés par les employeurs dans les offres, jamais estimés : fourchettes indicatives. Un salaire est <em>associé à</em> une compétence dans ces offres ; cela ne signifie pas qu'il en découle. L'effort est une estimation grossière : « faible » si un outil voisin figure déjà dans votre profil. Aucune donnée d'âge, de sexe ou d'origine n'est utilisée.</p>
+</footer>
+</body>
+</html>

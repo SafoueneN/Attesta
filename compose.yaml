@@ -153,8 +153,11 @@ services:
     environment:
       <<: *service-env
       DATABASE_URL: postgres://attesta_profiles:attesta_profiles-dev-uniquement@db:5432/attesta_profiles
+      AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
+      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
     depends_on:
       db-init: { condition: service_completed_successfully }
+      auth: { condition: service_healthy }
 
   cv-generation:
     <<: *service
@@ -164,19 +167,33 @@ services:
     environment:
       <<: *service-env
       DATABASE_URL: postgres://attesta_cvgen:attesta_cvgen-dev-uniquement@db:5432/attesta_cvgen
+      AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
+      PROFILES_URL: http://profiles:4002
+      JOBS_MATCHING_URL: http://jobs-matching:4004
+      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
+      QUOTA_SECRET: dev-quota-secret-uniquement-en-local
+      # Générations par utilisateur et par jour, relevées en local pour les passages de parité.
+      DAILY_QUOTA: ${DAILY_QUOTA:-200}
     depends_on:
       db-init: { condition: service_completed_successfully }
+      auth: { condition: service_healthy }
 
+  # Analyse des offres collées : parcours principal, donc dans core (docs/adr/0026).
   jobs-matching:
     <<: *service
     build: { context: ., dockerfile: services/jobs-matching/Dockerfile }
-    profiles: ["full"]
+    profiles: ["core", "full"]
     ports: ["${JOBS_MATCHING_PORT:-4004}:4004"]
     environment:
       <<: *service-env
       DATABASE_URL: postgres://attesta_jobs:attesta_jobs-dev-uniquement@db:5432/attesta_jobs
+      AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
+      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-hash}
+      TEI_URL: http://tei:80
     depends_on:
       db-init: { condition: service_completed_successfully }
+      auth: { condition: service_healthy }
 
   job-watch:
     <<: *service
@@ -186,19 +203,40 @@ services:
     environment:
       <<: *service-env
       DATABASE_URL: postgres://attesta_watch:attesta_watch-dev-uniquement@db:5432/attesta_watch
+      AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
+      AUTH_URL: http://auth:4001
+      PROFILES_URL: http://profiles:4002
+      JOBS_MATCHING_URL: http://jobs-matching:4004
+      LETTERS_EXPORT_URL: http://letters-export:4006
+      SERVICE_SECRET: *secret-job-watch
+      APP_BASE_URL: http://localhost:${FRONTEND_PORT:-8080}
+      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      MAIL_FROM: ${MAIL_FROM:-Attesta <ne-pas-repondre@attesta.localhost>}
+      IP_HASH_SECRET: dev-ip-hash-secret-uniquement-en-local
+      # En local, la veille part à la demande (administration) ; true pour l'exécution quotidienne.
+      DAILY_RUN_ENABLED: ${DAILY_RUN_ENABLED:-false}
     depends_on:
       db-init: { condition: service_completed_successfully }
+      auth: { condition: service_healthy }
+      mailpit: { condition: service_started }
 
+  # Seul service avec Chromium (docs/adr/0018) : sandbox active grâce au profil seccomp dédié.
   letters-export:
     <<: *service
     build: { context: ., dockerfile: services/letters-export/Dockerfile }
     profiles: ["core", "full"]
     ports: ["${LETTERS_EXPORT_PORT:-4006}:4006"]
+    security_opt: ["no-new-privileges:true", "seccomp=./infra/seccomp/chromium.json"]
     environment:
       <<: *service-env
       DATABASE_URL: postgres://attesta_letters:attesta_letters-dev-uniquement@db:5432/attesta_letters
+      AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
+      CV_GENERATION_URL: http://cv-generation:4003
+      PROFILES_URL: http://profiles:4002
+      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
     depends_on:
       db-init: { condition: service_completed_successfully }
+      auth: { condition: service_healthy }
 
   # --- Monolithe, en cours d'extraction (profil core) ---------------------------------------
 

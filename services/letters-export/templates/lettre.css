@@ -1,0 +1,52 @@
+@page {
+  size: A4;
+  margin: 22mm 22mm 20mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body.lettre {
+  margin: 0;
+  font-family: "Source Sans 3", "Liberation Sans", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: #1a1a1a;
+}
+
+.lettre-expediteur p {
+  margin: 0;
+}
+
+.lettre-nom {
+  font-weight: 700;
+  font-size: 13pt;
+}
+
+.lettre-destinataire {
+  margin: 10mm 0 0 auto;
+  width: 45%;
+  font-weight: 600;
+}
+
+.lettre-date {
+  margin: 8mm 0 0 auto;
+  width: 45%;
+}
+
+.lettre-objet {
+  margin: 10mm 0 6mm;
+}
+
+main p {
+  margin: 0 0 3.5mm;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.lettre-signature {
+  margin-top: 10mm;
+  margin-left: 55%;
+  font-weight: 600;
+}

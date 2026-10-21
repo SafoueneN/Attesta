@@ -72,6 +72,25 @@ export const Corrections = z.object({
 });
 export type Corrections = z.infer<typeof Corrections>;
 
+/**
+ * Contrôle de fidélité de lignes libres (paragraphes d'une lettre) contre le profil d'une génération :
+ * une seule implémentation du contrôle, celle de cv-generation.
+ */
+export const LinesCheck = z.object({
+  lines: z
+    .array(z.object({ text: z.string().max(1500), sources: z.array(z.string().max(100)).max(8) }))
+    .min(1)
+    .max(20),
+});
+export type LinesCheck = z.infer<typeof LinesCheck>;
+
+export const LinesCheckResult = z.object({
+  lines: z.array(
+    z.object({ status: z.enum(["supported", "unsupported"]), issues: z.array(FaithfulnessIssue) }),
+  ),
+});
+export type LinesCheckResult = z.infer<typeof LinesCheckResult>;
+
 /** Événements du flux de génération (SSE, ADR 0012, point 6). */
 export const GenerationEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("progress"), message: z.string() }),

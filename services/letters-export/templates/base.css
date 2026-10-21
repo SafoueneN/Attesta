@@ -1,0 +1,80 @@
+/* Base commune aux deux variantes : une colonne, ordre de lecture = ordre du DOM. */
+@page {
+  size: A4;
+  margin: 16mm 16mm 18mm;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  background: #fff;
+  color: #1a1a1a;
+}
+body.cv {
+  margin: 0 auto;
+  max-width: 178mm;
+  font-family: "Source Sans 3", "Liberation Sans", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.4;
+  /* Pas de ligatures (« fi », « fl ») : certains ATS les extraient mal. */
+  font-variant-ligatures: none;
+}
+h1,
+h2,
+h3,
+p,
+ul {
+  margin: 0;
+}
+h1 {
+  font-size: 20pt;
+  font-weight: 700;
+}
+.cv-headline {
+  font-size: 12pt;
+  font-weight: 600;
+}
+.cv-contact {
+  margin-top: 2mm;
+}
+.cv-section {
+  margin-top: 6mm;
+}
+h2 {
+  font-size: 12pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-bottom: 1mm;
+  margin-bottom: 2mm;
+  border-bottom: 1px solid currentColor;
+}
+.cv-entry {
+  margin-bottom: 3mm;
+  break-inside: avoid;
+}
+.cv-entry-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 4mm;
+}
+h3 {
+  font-size: 10.5pt;
+  font-weight: 600;
+}
+.cv-period {
+  white-space: nowrap;
+}
+ul {
+  padding-left: 5mm;
+}
+li {
+  margin-top: 0.8mm;
+}
+.cv-items {
+  padding-left: 5mm;
+}
+h2,
+h3 {
+  break-after: avoid;
+}

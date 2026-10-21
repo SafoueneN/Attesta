@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:">
+<title>Lettre de motivation – <%= view.name %></title>
+<style><%- css %></style>
+</head>
+<body class="lettre">
+<header class="lettre-expediteur">
+  <p class="lettre-nom"><%= view.name %></p>
+<% view.contact.forEach((line) => { -%>
+  <p><%= line %></p>
+<% }) -%>
+</header>
+<% if (view.company) { -%>
+<p class="lettre-destinataire"><%= view.company %></p>
+<% } -%>
+<p class="lettre-date"><%= view.city ? `${view.city}, le ` : "Le " %><%= view.date %></p>
+<p class="lettre-objet"><strong>Objet :</strong> <%= view.subject %></p>
+<main>
+  <p><%= view.greeting %></p>
+<% view.paragraphs.forEach((paragraph) => { -%>
+  <p><%= paragraph %></p>
+<% }) -%>
+  <p><%= view.closing %></p>
+</main>
+<p class="lettre-signature"><%= view.name %></p>
+</body>
+</html>

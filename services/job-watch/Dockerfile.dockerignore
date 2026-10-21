@@ -6,9 +6,12 @@
 !packages/config/dist
 !packages/http-kit/package.json
 !packages/http-kit/dist
+!packages/shared-schemas/package.json
+!packages/shared-schemas/dist
 !services/job-watch/package.json
 !services/job-watch/package-lock.json
 !services/job-watch/.npmrc
 !services/job-watch/tsconfig.json
 !services/job-watch/tsconfig.build.json
 !services/job-watch/src
+!services/job-watch/migrations

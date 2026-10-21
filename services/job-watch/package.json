@@ -2,7 +2,7 @@
   "name": "@attesta/job-watch",
   "version": "0.1.0",
   "private": true,
-  "description": "Service job-watch d'Attesta : Abonnements, exécution quotidienne et rapports envoyés par e-mail.",
+  "description": "Service job-watch d'Attesta : veille emploi, double opt-in, exécution quotidienne, rapports et e-mails.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -11,25 +11,31 @@
     "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file-if-exists=.env dist/server.js",
+    "migrate": "node-pg-migrate up --migrations-dir migrations --migration-file-language sql",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "openapi": "tsx scripts/openapi.ts"
   },
   "dependencies": {
-    "@attesta/logger": "file:../../packages/logger",
     "@attesta/config": "file:../../packages/config",
     "@attesta/http-kit": "file:../../packages/http-kit",
+    "@attesta/logger": "file:../../packages/logger",
+    "@attesta/shared-schemas": "file:../../packages/shared-schemas",
     "express": "^5.3.0",
+    "node-pg-migrate": "^9.0.0",
+    "nodemailer": "^8.0.2",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.5",
+    "jose": "^6.2.12",
     "supertest": "^7.3.1",
     "tsx": "^4.20.3",
     "typescript": "^5.9.3",

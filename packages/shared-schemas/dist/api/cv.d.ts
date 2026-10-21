@@ -247,6 +247,37 @@ export declare const Corrections: z.ZodObject<{
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type Corrections = z.infer<typeof Corrections>;
+/**
+ * Contrôle de fidélité de lignes libres (paragraphes d'une lettre) contre le profil d'une génération :
+ * une seule implémentation du contrôle, celle de cv-generation.
+ */
+export declare const LinesCheck: z.ZodObject<{
+    lines: z.ZodArray<z.ZodObject<{
+        text: z.ZodString;
+        sources: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export type LinesCheck = z.infer<typeof LinesCheck>;
+export declare const LinesCheckResult: z.ZodObject<{
+    lines: z.ZodArray<z.ZodObject<{
+        status: z.ZodEnum<{
+            supported: "supported";
+            unsupported: "unsupported";
+        }>;
+        issues: z.ZodArray<z.ZodObject<{
+            kind: z.ZodEnum<{
+                number: "number";
+                date: "date";
+                entity: "entity";
+                skill: "skill";
+                "unresolved-source": "unresolved-source";
+                "foreign-source": "foreign-source";
+            }>;
+            value: z.ZodString;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export type LinesCheckResult = z.infer<typeof LinesCheckResult>;
 /** Événements du flux de génération (SSE, ADR 0012, point 6). */
 export declare const GenerationEvent: z.ZodDiscriminatedUnion<[z.ZodObject<{
     type: z.ZodLiteral<"progress">;

@@ -58,6 +58,965 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/letters":
+    post:
+      operationId: "redigerLettre"
+      summary: "Rédige une lettre de motivation à partir d'un CV vérifié ; chaque paragraphe est contrôlé"
+      tags:
+        - "lettres"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                tone:
+                  default: "sobre"
+                  type: "string"
+                  enum:
+                    - "sobre"
+                    - "chaleureux"
+                    - "dynamique"
+              required:
+                - "generationId"
+      responses:
+        "201":
+          description: "Lettre"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  generationId:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  offerTitle:
+                    type: "string"
+                  company:
+                    type:
+                      - "string"
+                      - "null"
+                  tone:
+                    type: "string"
+                    enum:
+                      - "sobre"
+                      - "chaleureux"
+                      - "dynamique"
+                  createdAt:
+                    type: "string"
+                  updatedAt:
+                    type: "string"
+                  greeting:
+                    type: "string"
+                  closing:
+                    type: "string"
+                  paragraphs:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        text:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 1500
+                        sources:
+                          maxItems: 8
+                          type: "array"
+                          items:
+                            type: "string"
+                            pattern: "^(\\/[a-zA-Z]+(\\/\\d+)?)+$"
+                        status:
+                          type: "string"
+                          enum:
+                            - "supported"
+                            - "unsupported"
+                            - "edited"
+                        issues:
+                          type: "array"
+                          items:
+                            type: "object"
+                            properties:
+                              kind:
+                                type: "string"
+                                enum:
+                                  - "number"
+                                  - "date"
+                                  - "entity"
+                                  - "skill"
+                                  - "unresolved-source"
+                                  - "foreign-source"
+                              value:
+                                type: "string"
+                            required:
+                              - "kind"
+                              - "value"
+                            additionalProperties: false
+                      required:
+                        - "text"
+                        - "sources"
+                        - "status"
+                        - "issues"
+                      additionalProperties: false
+                  removed:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                required:
+                  - "id"
+                  - "generationId"
+                  - "offerTitle"
+                  - "company"
+                  - "tone"
+                  - "createdAt"
+                  - "updatedAt"
+                  - "greeting"
+                  - "closing"
+                  - "paragraphs"
+                  - "removed"
+                  - "providerKind"
+                additionalProperties: false
+        "409":
+          description: "CV non vérifié"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    get:
+      operationId: "mesLettres"
+      summary: "Lettres de l'utilisateur"
+      tags:
+        - "lettres"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Lettres"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    generationId:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    offerTitle:
+                      type: "string"
+                    company:
+                      type:
+                        - "string"
+                        - "null"
+                    createdAt:
+                      type: "string"
+                    updatedAt:
+                      type: "string"
+                  required:
+                    - "id"
+                    - "generationId"
+                    - "offerTitle"
+                    - "company"
+                    - "createdAt"
+                    - "updatedAt"
+                  additionalProperties: false
+  "/v1/letters/{id}":
+    get:
+      operationId: "uneLettre"
+      summary: "Une lettre et le contrôle de chaque paragraphe"
+      tags:
+        - "lettres"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Lettre"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  generationId:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  offerTitle:
+                    type: "string"
+                  company:
+                    type:
+                      - "string"
+                      - "null"
+                  tone:
+                    type: "string"
+                    enum:
+                      - "sobre"
+                      - "chaleureux"
+                      - "dynamique"
+                  createdAt:
+                    type: "string"
+                  updatedAt:
+                    type: "string"
+                  greeting:
+                    type: "string"
+                  closing:
+                    type: "string"
+                  paragraphs:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        text:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 1500
+                        sources:
+                          maxItems: 8
+                          type: "array"
+                          items:
+                            type: "string"
+                            pattern: "^(\\/[a-zA-Z]+(\\/\\d+)?)+$"
+                        status:
+                          type: "string"
+                          enum:
+                            - "supported"
+                            - "unsupported"
+                            - "edited"
+                        issues:
+                          type: "array"
+                          items:
+                            type: "object"
+                            properties:
+                              kind:
+                                type: "string"
+                                enum:
+                                  - "number"
+                                  - "date"
+                                  - "entity"
+                                  - "skill"
+                                  - "unresolved-source"
+                                  - "foreign-source"
+                              value:
+                                type: "string"
+                            required:
+                              - "kind"
+                              - "value"
+                            additionalProperties: false
+                      required:
+                        - "text"
+                        - "sources"
+                        - "status"
+                        - "issues"
+                      additionalProperties: false
+                  removed:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                required:
+                  - "id"
+                  - "generationId"
+                  - "offerTitle"
+                  - "company"
+                  - "tone"
+                  - "createdAt"
+                  - "updatedAt"
+                  - "greeting"
+                  - "closing"
+                  - "paragraphs"
+                  - "removed"
+                  - "providerKind"
+                additionalProperties: false
+        "404":
+          description: "Inconnue"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    put:
+      operationId: "modifierLettre"
+      summary: "Modifie la lettre ; les paragraphes sont recontrôlés, les écarts signalés"
+      tags:
+        - "lettres"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                greeting:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 200
+                closing:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 400
+                paragraphs:
+                  minItems: 1
+                  maxItems: 8
+                  type: "array"
+                  items:
+                    type: "object"
+                    properties:
+                      text:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 1500
+                    required:
+                      - "text"
+              required:
+                - "greeting"
+                - "closing"
+                - "paragraphs"
+      responses:
+        "200":
+          description: "Lettre"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  generationId:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  offerTitle:
+                    type: "string"
+                  company:
+                    type:
+                      - "string"
+                      - "null"
+                  tone:
+                    type: "string"
+                    enum:
+                      - "sobre"
+                      - "chaleureux"
+                      - "dynamique"
+                  createdAt:
+                    type: "string"
+                  updatedAt:
+                    type: "string"
+                  greeting:
+                    type: "string"
+                  closing:
+                    type: "string"
+                  paragraphs:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        text:
+                          type: "string"
+                          minLength: 1
+                          maxLength: 1500
+                        sources:
+                          maxItems: 8
+                          type: "array"
+                          items:
+                            type: "string"
+                            pattern: "^(\\/[a-zA-Z]+(\\/\\d+)?)+$"
+                        status:
+                          type: "string"
+                          enum:
+                            - "supported"
+                            - "unsupported"
+                            - "edited"
+                        issues:
+                          type: "array"
+                          items:
+                            type: "object"
+                            properties:
+                              kind:
+                                type: "string"
+                                enum:
+                                  - "number"
+                                  - "date"
+                                  - "entity"
+                                  - "skill"
+                                  - "unresolved-source"
+                                  - "foreign-source"
+                              value:
+                                type: "string"
+                            required:
+                              - "kind"
+                              - "value"
+                            additionalProperties: false
+                      required:
+                        - "text"
+                        - "sources"
+                        - "status"
+                        - "issues"
+                      additionalProperties: false
+                  removed:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                required:
+                  - "id"
+                  - "generationId"
+                  - "offerTitle"
+                  - "company"
+                  - "tone"
+                  - "createdAt"
+                  - "updatedAt"
+                  - "greeting"
+                  - "closing"
+                  - "paragraphs"
+                  - "removed"
+                  - "providerKind"
+                additionalProperties: false
+    delete:
+      operationId: "supprimerLettre"
+      summary: "Supprime une lettre"
+      tags:
+        - "lettres"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Supprimée"
+  "/v1/letters/{id}/pdf":
+    post:
+      operationId: "lettrePdf"
+      summary: "PDF de la lettre, produit à la demande et jamais stocké"
+      tags:
+        - "lettres"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Document PDF (application/pdf)"
+  "/v1/exports/cv":
+    post:
+      operationId: "exporterCv"
+      summary: "PDF du CV : ciblé (génération vérifiée) ou non adapté (profil enregistré)"
+      tags:
+        - "export"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                variant:
+                  default: "ats"
+                  type: "string"
+                  enum:
+                    - "ats"
+                    - "design"
+      responses:
+        "200":
+          description: "Document PDF (application/pdf)"
+        "409":
+          description: "CV non vérifié ou profil absent"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+        "503":
+          description: "File de rendu pleine"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/exports/cv/preview":
+    post:
+      operationId: "apercuCv"
+      summary: "HTML exact du PDF, pour l'aperçu (sans script, sans ressource externe)"
+      tags:
+        - "export"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                variant:
+                  default: "ats"
+                  type: "string"
+                  enum:
+                    - "ats"
+                    - "design"
+      responses:
+        "200":
+          description: "Document HTML"
+  "/v1/admin/stats":
+    get:
+      operationId: "statistiquesLettres"
+      summary: "Compteurs et consommation du LLM, sans donnée personnelle"
+      tags:
+        - "administration"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Statistiques"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  counters:
+                    type: "object"
+                    propertyNames:
+                      type: "string"
+                    additionalProperties:
+                      type: "number"
+                  llm:
+                    type: "object"
+                    properties:
+                      service:
+                        type: "string"
+                      month:
+                        type: "string"
+                      calls:
+                        type: "integer"
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      costEur:
+                        type: "number"
+                      budgetEur:
+                        type: "number"
+                      byStep:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            step:
+                              type: "string"
+                            calls:
+                              type: "integer"
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            costEur:
+                              type: "number"
+                          required:
+                            - "step"
+                            - "calls"
+                            - "costEur"
+                          additionalProperties: false
+                    required:
+                      - "service"
+                      - "month"
+                      - "calls"
+                      - "costEur"
+                      - "budgetEur"
+                      - "byStep"
+                    additionalProperties: false
+                required:
+                  - "service"
+                  - "counters"
+                additionalProperties: false
+  "/internal/v1/reports/offers":
+    post:
+      operationId: "rapportOffres"
+      summary: "PDF du rapport des offres de la veille (jeton de service reports:render)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                date:
+                  type: "string"
+                criteria:
+                  type: "string"
+                  maxLength: 400
+                degraded:
+                  type: "boolean"
+                offers:
+                  maxItems: 20
+                  type: "array"
+                  items:
+                    type: "object"
+                    properties:
+                      title:
+                        type: "string"
+                        maxLength: 300
+                      company:
+                        anyOf:
+                          -
+                            type: "string"
+                            maxLength: 200
+                          -
+                            type: "null"
+                      city:
+                        anyOf:
+                          -
+                            type: "string"
+                            maxLength: 100
+                          -
+                            type: "null"
+                      postedAt:
+                        type: "string"
+                      url:
+                        type: "string"
+                        maxLength: 2000
+                      source:
+                        type: "string"
+                        maxLength: 100
+                      attribution:
+                        anyOf:
+                          -
+                            type: "object"
+                            properties:
+                              text:
+                                type: "string"
+                              url:
+                                type: "string"
+                            required:
+                              - "text"
+                              - "url"
+                          -
+                            type: "null"
+                      pertinence:
+                        type:
+                          - "number"
+                          - "null"
+                      similarity:
+                        type:
+                          - "number"
+                          - "null"
+                      coverage:
+                        type:
+                          - "number"
+                          - "null"
+                      location:
+                        type:
+                          - "number"
+                          - "null"
+                      missingSkills:
+                        maxItems: 10
+                        type: "array"
+                        items:
+                          type: "string"
+                          maxLength: 100
+                    required:
+                      - "title"
+                      - "company"
+                      - "city"
+                      - "postedAt"
+                      - "url"
+                      - "source"
+                      - "attribution"
+                      - "pertinence"
+                      - "similarity"
+                      - "coverage"
+                      - "location"
+                      - "missingSkills"
+              required:
+                - "date"
+                - "criteria"
+                - "degraded"
+                - "offers"
+      responses:
+        "200":
+          description: "Document PDF (application/pdf)"
+  "/internal/v1/reports/gaps":
+    post:
+      operationId: "rapportAmeliorations"
+      summary: "PDF du rapport des points à améliorer (jeton de service reports:render)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                date:
+                  type: "string"
+                criteria:
+                  type: "string"
+                  maxLength: 400
+                basis:
+                  type: "integer"
+                  minimum: -9007199254740991
+                  maximum: 9007199254740991
+                gaps:
+                  maxItems: 10
+                  type: "array"
+                  items:
+                    type: "object"
+                    properties:
+                      skill:
+                        type: "string"
+                        maxLength: 100
+                      count:
+                        type: "integer"
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      frequency:
+                        type: "number"
+                      salary:
+                        type: "string"
+                        maxLength: 400
+                      effort:
+                        type: "string"
+                        enum:
+                          - "faible"
+                          - "moyen"
+                      priority:
+                        type: "number"
+                    required:
+                      - "skill"
+                      - "count"
+                      - "frequency"
+                      - "salary"
+                      - "effort"
+                      - "priority"
+              required:
+                - "date"
+                - "criteria"
+                - "basis"
+                - "gaps"
+      responses:
+        "200":
+          description: "Document PDF (application/pdf)"
+  "/internal/v1/users/{id}/export":
+    get:
+      operationId: "exportUtilisateur"
+      summary: "Données du service pour l'export RGPD (users:export)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Données"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  data: {}
+                required:
+                  - "service"
+                  - "data"
+                additionalProperties: false
+  "/internal/v1/users/{id}":
+    delete:
+      operationId: "effacerUtilisateur"
+      summary: "Efface les lettres d'un utilisateur, idempotent (users:delete)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Effacé"
 components:
   securitySchemes:
     bearer:

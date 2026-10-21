@@ -1,3 +1,15 @@
+import { describe, expect, it } from "vitest";
+import { criteriaLabel, parisNow } from "../src/daily.js";
+import { skillGaps } from "../src/gaps.js";
+import { confirmSubscriptionMessage, dailyReportMessage, MailError, SmtpMailer } from "../src/mail.js";
+
+describe("planification", () => {
+  it("donne la date et l'heure de Paris", () => {
+    expect(parisNow(new Date("2026-10-21T22:30:00Z"))).toEqual({ date: "2026-10-22", hour: 0 });
+    expect(parisNow(new Date("2026-07-01T05:00:00Z"))).toEqual({ date: "2026-07-01", hour: 7 });
+  });
+});
+
 describe("rapport 2 : écarts de compétences", () => {
   const paid = (min: number, skills: string[]) => ({
     missingSkills: skills,
@@ -56,7 +68,6 @@ describe("e-mails : erreurs SMTP assainies", () => {
   });
 });
 
-
 describe("e-mails", () => {
   it("rapport quotidien : désabonnement en un clic (RFC 8058), deux pièces jointes, aucun suivi", () => {
     const message = dailyReportMessage({
@@ -65,13 +76,14 @@ describe("e-mails", () => {
       date: "16/10/2026",
       offers: [{ title: "Dev <script>", company: "X", url: "https://example.org/1" }],
       unsubscribeUrl: "https://attesta.example/veille/desabonner/jeton",
+      oneClickUrl: "https://attesta.example/api/watch/v1/subscriptions/unsubscribe/jeton",
       attachments: [
         { filename: "a.pdf", content: new Uint8Array([1]), contentType: "application/pdf" },
         { filename: "b.pdf", content: new Uint8Array([2]), contentType: "application/pdf" },
       ],
     });
     expect(message.headers).toEqual({
-      "List-Unsubscribe": "<https://attesta.example/veille/desabonner/jeton>",
+      "List-Unsubscribe": "<https://attesta.example/api/watch/v1/subscriptions/unsubscribe/jeton>",
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       "X-Mailin-custom": "00000000-0000-4000-8000-000000000001",
     });
@@ -81,11 +93,8 @@ describe("e-mails", () => {
     expect(message.attachments).toHaveLength(2);
   });
 
-  it("liens de connexion et de confirmation présents dans le texte et le HTML", () => {
-    for (const m of [
-      loginLinkMessage("a@example.org", "https://x.example/compte/connexion/t"),
-      confirmSubscriptionMessage("a@example.org", "https://x.example/veille/confirmer/t"),
-    ]) {
+  it("lien de confirmation présent dans le texte et le HTML", () => {
+    for (const m of [confirmSubscriptionMessage("a@example.org", "https://x.example/veille/confirmer/t")]) {
       expect(m.text).toMatch(/https:\/\/x\.example\//);
       expect(m.html).toMatch(/href="https:\/\/x\.example\//);
       expect(m.headers).toBeUndefined();

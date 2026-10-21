@@ -3,6 +3,10 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
+    // Démarrage de Chromium (rendus réels) : délais du monolithe, un fichier à la fois.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
+    fileParallelism: false,
     coverage: {
       provider: "v8",
       include: ["src/**"],

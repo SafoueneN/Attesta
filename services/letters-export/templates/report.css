@@ -1,0 +1,113 @@
+/* Rapports de veille : une colonne, ordre de lecture = ordre du DOM, comme le CV. */
+@page {
+  size: A4;
+  margin: 16mm 16mm 18mm;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  background: #fff;
+  color: #1a1a1a;
+}
+body.report {
+  margin: 0 auto;
+  max-width: 178mm;
+  font-family: "Source Sans 3", "Liberation Sans", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.4;
+  font-variant-ligatures: none;
+}
+h1,
+h2,
+p,
+ol,
+ul {
+  margin: 0;
+}
+a {
+  color: #1d4ed8;
+}
+.report-brand {
+  font-size: 9pt;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+h1 {
+  font-size: 18pt;
+  font-weight: 700;
+}
+.report-criteria {
+  margin-top: 1mm;
+  color: #374151;
+}
+.report-header {
+  border-bottom: 1px solid #d1d5db;
+  padding-bottom: 3mm;
+  margin-bottom: 5mm;
+}
+.report-notice {
+  border-left: 3px solid #b45309;
+  padding: 2mm 3mm;
+  margin-bottom: 4mm;
+  background: #fffbeb;
+}
+.offers {
+  padding-left: 6mm;
+}
+.offer {
+  margin-bottom: 4mm;
+  break-inside: avoid;
+}
+.offer h2 {
+  font-size: 12pt;
+  font-weight: 600;
+}
+.offer-meta,
+.offer-source {
+  color: #4b5563;
+  font-size: 9.5pt;
+}
+.offer-scores span {
+  margin-right: 3mm;
+}
+.gaps {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 5mm;
+}
+.gaps caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 2mm;
+}
+.gaps th,
+.gaps td {
+  text-align: left;
+  vertical-align: top;
+  padding: 1.5mm 2mm;
+  border-bottom: 1px solid #e5e7eb;
+}
+.gaps thead th {
+  font-size: 9.5pt;
+  color: #374151;
+}
+h2 {
+  font-size: 12pt;
+  margin: 3mm 0 1mm;
+}
+.actions {
+  padding-left: 5mm;
+}
+.report-footer {
+  margin-top: 6mm;
+  border-top: 1px solid #d1d5db;
+  padding-top: 2mm;
+  font-size: 8.5pt;
+  color: #4b5563;
+}
+.report-footer p + p {
+  margin-top: 1mm;
+}

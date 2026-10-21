@@ -58,6 +58,670 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/subscriptions/me":
+    get:
+      operationId: "maVeille"
+      summary: "Abonnement à la veille de l'utilisateur connecté"
+      tags:
+        - "veille"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Abonnement"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  occupations:
+                    type: "array"
+                    items:
+                      type: "string"
+                  country:
+                    type: "string"
+                    enum:
+                      - "DE"
+                      - "FR"
+                  city:
+                    type: "string"
+                  radiusKm:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  workingTime:
+                    type: "string"
+                    enum:
+                      - "indifferent"
+                      - "plein"
+                      - "partiel"
+                  status:
+                    type: "string"
+                    enum:
+                      - "en_attente"
+                      - "active"
+                      - "desabonnee"
+                      - "suspendue"
+                  confirmedAt:
+                    type:
+                      - "string"
+                      - "null"
+                  createdAt:
+                    type: "string"
+                  updatedAt:
+                    type: "string"
+                required:
+                  - "occupations"
+                  - "country"
+                  - "city"
+                  - "radiusKm"
+                  - "workingTime"
+                  - "status"
+                  - "confirmedAt"
+                  - "createdAt"
+                  - "updatedAt"
+                additionalProperties: false
+        "404":
+          description: "Aucun"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    put:
+      operationId: "enregistrerVeille"
+      summary: "Crée ou modifie la veille ; double opt-in par e-mail tant qu'elle n'est pas confirmée"
+      tags:
+        - "veille"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                occupations:
+                  minItems: 1
+                  maxItems: 5
+                  type: "array"
+                  items:
+                    type: "string"
+                    minLength: 2
+                    maxLength: 80
+                country:
+                  type: "string"
+                  enum:
+                    - "DE"
+                    - "FR"
+                city:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 100
+                radiusKm:
+                  type: "integer"
+                  minimum: -9007199254740991
+                  maximum: 9007199254740991
+                workingTime:
+                  type: "string"
+                  enum:
+                    - "indifferent"
+                    - "plein"
+                    - "partiel"
+                consent:
+                  type: "boolean"
+                  const: true
+              required:
+                - "occupations"
+                - "country"
+                - "city"
+                - "radiusKm"
+                - "workingTime"
+                - "consent"
+      responses:
+        "200":
+          description: "Abonnement"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  subscription:
+                    type: "object"
+                    properties:
+                      occupations:
+                        type: "array"
+                        items:
+                          type: "string"
+                      country:
+                        type: "string"
+                        enum:
+                          - "DE"
+                          - "FR"
+                      city:
+                        type: "string"
+                      radiusKm:
+                        type: "integer"
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      workingTime:
+                        type: "string"
+                        enum:
+                          - "indifferent"
+                          - "plein"
+                          - "partiel"
+                      status:
+                        type: "string"
+                        enum:
+                          - "en_attente"
+                          - "active"
+                          - "desabonnee"
+                          - "suspendue"
+                      confirmedAt:
+                        type:
+                          - "string"
+                          - "null"
+                      createdAt:
+                        type: "string"
+                      updatedAt:
+                        type: "string"
+                    required:
+                      - "occupations"
+                      - "country"
+                      - "city"
+                      - "radiusKm"
+                      - "workingTime"
+                      - "status"
+                      - "confirmedAt"
+                      - "createdAt"
+                      - "updatedAt"
+                    additionalProperties: false
+                  confirmationSent:
+                    type: "boolean"
+                required:
+                  - "subscription"
+                  - "confirmationSent"
+                additionalProperties: false
+        "400":
+          description: "Invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+    delete:
+      operationId: "arreterVeille"
+      summary: "Arrête la veille (retrait du consentement journalisé)"
+      tags:
+        - "veille"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Arrêtée"
+  "/v1/subscriptions/me/matches":
+    get:
+      operationId: "offresProposees"
+      summary: "Offres envoyées par la veille ces 30 derniers jours"
+      tags:
+        - "veille"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Offres"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    runDate:
+                      type: "string"
+                    rank:
+                      type: "integer"
+                      minimum: -9007199254740991
+                      maximum: 9007199254740991
+                    title:
+                      type: "string"
+                    company:
+                      type:
+                        - "string"
+                        - "null"
+                    city:
+                      type:
+                        - "string"
+                        - "null"
+                    url:
+                      type: "string"
+                    rerankScore:
+                      anyOf:
+                        -
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        -
+                          type: "null"
+                    missingSkills:
+                      type: "array"
+                      items:
+                        type: "string"
+                  required:
+                    - "runDate"
+                    - "rank"
+                    - "title"
+                    - "company"
+                    - "city"
+                    - "url"
+                    - "rerankScore"
+                    - "missingSkills"
+                  additionalProperties: false
+  "/v1/subscriptions/confirm/{token}":
+    post:
+      operationId: "confirmerVeille"
+      summary: "Confirmation de la veille (double opt-in), par le jeton du lien"
+      tags:
+        - "veille"
+      responses:
+        "204":
+          description: "Confirmée"
+        "410":
+          description: "Lien invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/subscriptions/unsubscribe/{token}":
+    post:
+      operationId: "desabonnement"
+      summary: "Désabonnement en un clic (RFC 8058), par le jeton du lien"
+      tags:
+        - "veille"
+      responses:
+        "200":
+          description: "Désabonné"
+        "410":
+          description: "Lien invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/webhooks/brevo":
+    post:
+      operationId: "webhookBrevo"
+      summary: "Plaintes, rebonds et désabonnements signalés par le fournisseur d'e-mail"
+      tags:
+        - "veille"
+      responses:
+        "204":
+          description: "Traité"
+        "401":
+          description: "Secret invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/admin/stats":
+    get:
+      operationId: "statistiquesVeille"
+      summary: "Compteurs de la veille, sans donnée personnelle"
+      tags:
+        - "administration"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Statistiques"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  counters:
+                    type: "object"
+                    propertyNames:
+                      type: "string"
+                    additionalProperties:
+                      type: "number"
+                  llm:
+                    type: "object"
+                    properties:
+                      service:
+                        type: "string"
+                      month:
+                        type: "string"
+                      calls:
+                        type: "integer"
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      costEur:
+                        type: "number"
+                      budgetEur:
+                        type: "number"
+                      byStep:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            step:
+                              type: "string"
+                            calls:
+                              type: "integer"
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            costEur:
+                              type: "number"
+                          required:
+                            - "step"
+                            - "calls"
+                            - "costEur"
+                          additionalProperties: false
+                    required:
+                      - "service"
+                      - "month"
+                      - "calls"
+                      - "costEur"
+                      - "budgetEur"
+                      - "byStep"
+                    additionalProperties: false
+                required:
+                  - "service"
+                  - "counters"
+                additionalProperties: false
+  "/v1/admin/runs":
+    get:
+      operationId: "executionsVeille"
+      summary: "Dernières exécutions de la veille et leur bilan"
+      tags:
+        - "administration"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Exécutions"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                    runDate:
+                      type: "string"
+                    startedAt:
+                      type: "string"
+                    finishedAt:
+                      type:
+                        - "string"
+                        - "null"
+                    trigger:
+                      type: "string"
+                      enum:
+                        - "planifiee"
+                        - "manuelle"
+                    summary:
+                      type: "object"
+                      propertyNames:
+                        type: "string"
+                      additionalProperties: {}
+                  required:
+                    - "id"
+                    - "runDate"
+                    - "startedAt"
+                    - "finishedAt"
+                    - "trigger"
+                    - "summary"
+                  additionalProperties: false
+    post:
+      operationId: "lancerVeille"
+      summary: "Lance l'exécution du jour maintenant (idempotente)"
+      tags:
+        - "administration"
+      security:
+        -
+          bearer: []
+      responses:
+        "202":
+          description: "Lancée"
+        "409":
+          description: "Déjà en cours"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/internal/v1/users/{id}/export":
+    get:
+      operationId: "exportUtilisateur"
+      summary: "Données du service pour l'export RGPD (users:export)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Données"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  service:
+                    type: "string"
+                  data: {}
+                required:
+                  - "service"
+                  - "data"
+                additionalProperties: false
+  "/internal/v1/users/{id}":
+    delete:
+      operationId: "effacerUtilisateur"
+      summary: "Efface la veille d'un utilisateur, idempotent (users:delete)"
+      tags:
+        - "interne"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Effacé"
 components:
   securitySchemes:
     bearer:

@@ -108,6 +108,7 @@ export declare const UserContact: z.ZodObject<{
         deleting: "deleting";
     }>;
 }, z.core.$strip>;
+export type UserContact = z.infer<typeof UserContact>;
 export declare const AuthAdminStats: z.ZodObject<{
     users: z.ZodNumber;
     admins: z.ZodNumber;

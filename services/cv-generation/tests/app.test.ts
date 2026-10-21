@@ -296,6 +296,33 @@ describe.skipIf(!db)("service cv-generation (intégration PostgreSQL)", () => {
       expect(res.status).toBe(409);
     });
 
+    it("contrôle les paragraphes d'une lettre contre le profil de la génération", async () => {
+      const token = await t.user(userId);
+      const g = Generation.parse((await generate(app(), token)).body);
+      const res = await request(app())
+        .post(`/internal/v1/generations/${g.id}/check`)
+        .auth(token, { type: "bearer" })
+        .send({
+          lines: [
+            {
+              text: "J'ai réduit de 40 % le temps de réponse d'une API de réservation.",
+              sources: ["/work/0/highlights/1"],
+            },
+            { text: "J'ai réduit de 70 % le temps de réponse.", sources: ["/work/0/highlights/1"] },
+            { text: "Je maîtrise Kubernetes au quotidien.", sources: [] },
+            { text: "Votre projet a retenu toute mon attention.", sources: [] },
+          ],
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.lines.map((l: { status: string }) => l.status)).toEqual([
+        "supported",
+        "unsupported",
+        "unsupported",
+        "supported",
+      ]);
+      expect(res.body.lines[2].issues).toEqual([{ kind: "skill", value: "Kubernetes" }]);
+    });
+
     it("exporte puis efface les générations d'un utilisateur ; purge les invités de plus de 24 h", async () => {
       await generate(app());
       const guest = `guest_${randomUUID()}`;
