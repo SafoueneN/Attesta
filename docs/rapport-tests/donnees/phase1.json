@@ -1,0 +1,36 @@
+{
+  "identification": {
+    "branche_testee": "chore/phase-2-socle",
+    "commit": "b517ef97723ffbb7421fb3775fa9c2a28be75542",
+    "arbre_teste": "90773ae0a4a665dd1fb07bb773a3fd3d566f0f24",
+    "remarque": "Arbre de travail non propre : 182 fichiers modifiés et 143 non suivis par rapport au commit. L'empreinte d'arbre (git write-tree sur un index temporaire, fichiers non suivis compris) identifie le code réellement testé.",
+    "branche_qa": "qa/amelioration-rapport",
+    "os": "Windows 11 Home 10.0.26200.9711",
+    "node": "22.18.0"
+  },
+  "a01": {
+    "cause": "La pile a été lancée le 24/10 avec --env-file .env.smtp : SMTP_URL du conteneur web pointe vers un serveur SMTP réel (smtp.gmail.com:465), qui refuse l'authentification (EAUTH 535). Par défaut, compose.yaml pointe vers Mailpit.",
+    "avant": { "config": "SMTP réel (Gmail)", "resultat": "compte.spec.ts en échec", "preuves": ["preuves/a01/journal-web-avant.log", "preuves/a01/avant-gmail/"] },
+    "apres": { "config": "SMTP_URL=smtp://mailpit:1025 passé au lancement (conteneur web recréé, aucun fichier modifié)", "resultat": "17/17 réussis en 30,8 s, aucune MailError", "preuves": ["preuves/a01/parite-apres-mailpit.log", "preuves/a01/apres-mailpit/"] },
+    "qualification": "environnement",
+    "a02_maintenue": "Un échec SMTP produit une page d'erreur générique (comportement du produit)."
+  },
+  "racine": {
+    "total": 306, "reussis": 275, "echecs": 0, "ignores": 31,
+    "ignores_raison": "describe.skipIf(!process.env.TEST_DATABASE_URL) : tests d'intégration PostgreSQL, exécutés seulement en CI",
+    "ignores_fichiers": { "apps/web/test/accounts.int.test.ts": 11, "apps/web/test/postgres.int.test.ts": 9, "packages/jobwatch/test/daily.int.test.ts": 11 },
+    "ecart_40_31": "Le matin (Node 20), 4 fichiers échouaient au lancement de Chromium : Vitest marque alors les autres tests de ces fichiers comme ignorés (9 tests). Sous Node 22, ces fichiers passent ; restent les 31 tests d'intégration conditionnels.",
+    "ecart_278_306": "28 tests ajoutés dans packages/llm-client entre 11 h 27 et la phase 0 (fichiers *-provider.test.ts, ai-config.test.ts).",
+    "liste": "racine-tests-ignores.json"
+  },
+  "proprietes": {
+    "auth": [22, 3], "profiles": [109, 3], "jobs-matching": [30, 6],
+    "cv-generation": [144, 5], "letters-export": [13, 2], "job-watch": [14, 3],
+    "total_tests": 332, "total_proprietes": 22, "echecs": 0,
+    "colonnes": "tests réussis du fichier, nombre de fc.assert"
+  },
+  "couverture_nouvelle": {
+    "gateway": { "tests": 17, "instructions": 93.45, "branches": 86.79, "fonctions": 91.3, "lignes": 95.55, "seuil": "aucun échec" },
+    "frontend": { "tests": 25, "instructions": 60.86, "branches": 51.69, "fonctions": 61.75, "lignes": 61.74, "seuil": "80 % non atteint", "perimetre": "src/api, src/lib, src/auth (les pages sont couvertes par Playwright)", "faibles": { "lib/motion.tsx": 0, "lib/offer.ts": 0, "lib/describe.ts": 47.91, "api/endpoints.ts": 56.36 } }
+  }
+}

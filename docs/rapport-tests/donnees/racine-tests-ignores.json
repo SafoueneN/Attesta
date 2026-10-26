@@ -1,0 +1,157 @@
+[
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) connexion par lien à usage unique ; création du compte avec consentement journalisé",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) connexion : l'adresse saisie dans le CV est proposée par défaut",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) demande de lien : même réponse que l'adresse ait un compte ou non",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) profil, veille en double opt-in, désabonnement en un clic (RFC 8058)",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) webhook Brevo : authentifié ; une plainte arrête la veille",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) webhook : l'envoi est retrouvé par l'en-tête X-Mailin-custom (identifiant Brevo différent)",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) page de connexion : adresse du compte affichée masquée ; lien inconnu refusé dès l'ouverture",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) demandes de lien plafonnées par adresse, quelle que soit l'IP",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) export de toutes les données, puis suppression définitive en cascade",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) formulaires du compte protégés par CSRF ; demandes de lien limitées par IP",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/accounts.int.test.ts",
+  "test": "comptes et veille (PostgreSQL) sans serveur d'envoi : comptes désactivés, lien absent de l'en-tête",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances verrou atomique : sur 10 réservations simultanées, une seule réussit",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances quota quotidien appliqué après libération du verrou",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances se comporte comme l'implémentation mémoire (même contrat)",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances une requête ne peut pas lever le verrou posé par une autre",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances ne stocke ni identifiant de session ni IP en clair",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances limiteur partagé : deux instances appliquent le même plafond",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances conserve les sessions en base et les supprime à l'effacement",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances enregistre le coût des appels LLM, sans contenu",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "apps/web/test/postgres.int.test.ts",
+  "test": "PostgreSQL : état partagé entre instances purge les quotas anciens, les compteurs expirés et l'usage de plus de 13 mois",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) ingère, déduplique, filtre, classe et envoie un seul e-mail avec deux rapports",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) relance le même jour : aucun second e-mail ; le lendemain sans offre nouvelle : aucun e-mail",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) source en échec : relancée par pg-boss, puis réussie",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) source durablement en panne : job compté en échec, les abonnés sont quand même traités",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) refus explicite du serveur SMTP : réservation levée, la relance envoie",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) issue incertaine (coupure pendant la transmission) : jamais de second envoi le même jour",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) e-mail jamais parti : les offres restent proposables le lendemain",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) rerank indisponible : rapport envoyé en mode dégradé (classement de la recherche)",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) abonnement désabonné ou en attente : aucun traitement",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) budget de requêtes épuisé pour la journée : la source n'est plus appelée",
+  "statut": "skipped"
+ },
+ {
+  "fichier": "packages/jobwatch/test/daily.int.test.ts",
+  "test": "veille quotidienne (PostgreSQL, pg-boss) vectorise par lots les offres sans vecteur ; purge : offres de plus de 60 jours",
+  "statut": "skipped"
+ }
+]

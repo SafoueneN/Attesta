@@ -33,6 +33,36 @@ La veille interroge les **vraies** API publiques de BA Jobsuche et d'ESCO (sans 
 
 Remplir `.env.smtp` (modèle commenté, ignoré par Git et par Docker) avec l'URL SMTP du fournisseur et l'expéditeur, puis `docker compose --env-file .env.smtp --profile core up -d` (et `docker compose --env-file .env.smtp run --rm veille`). Sans ce fichier, les e-mails restent dans Mailpit. Le webhook des plaintes et rebonds exige une adresse publique : il n'est branché qu'en préprod.
 
+- **Gmail** : le mot de passe du compte est refusé (erreur 535). Activer la validation en deux étapes, créer un
+  mot de passe d'application (https://myaccount.google.com/apppasswords), puis
+  `SMTP_URL=smtps://adresse%40gmail.com:<16 lettres sans espaces>@smtp.gmail.com:465` et
+  `MAIL_FROM=Attesta <adresse@gmail.com>`. Au plus 500 e-mails par jour.
+- **Brevo** (choix de production, ADR 0010) : compte gratuit, 300 e-mails par jour ; clé SMTP dans
+  « SMTP & API », expéditeur vérifié, puis `SMTP_URL=smtp://<identifiant>:<clé SMTP>@smtp-relay.brevo.com:587`.
+- Les caractères spéciaux de l'identifiant et du mot de passe s'encodent (`@` → `%40`, `:` → `%3A`).
+- Après modification : `docker compose --env-file .env.smtp --profile full up -d --force-recreate auth job-watch`,
+  puis `npm run smtp:test -- votre@adresse` vérifie les identifiants et envoie un e-mail de test, sans
+  afficher de secret.
+
+### Choisir le fournisseur d'IA (docs/adr/0047)
+
+Par défaut, les services tournent en `demo`, sans modèle. Pour un vrai modèle, mettre les clés dans un fichier
+jamais commité (`.env.ia`, par exemple), puis `docker compose --env-file .env.ia --profile core up -d` :
+
+| Fournisseur         | Variables                                                                   |
+| ------------------- | --------------------------------------------------------------------------- |
+| Claude, Vertex UE   | `AI_PROVIDER=claude`, `VERTEX_PROJECT_ID` (seul Claude admis en production) |
+| Claude, API directe | `AI_PROVIDER=claude`, `CLAUDE_TRANSPORT=anthropic`, `ANTHROPIC_API_KEY`     |
+| Groq                | `AI_PROVIDER=groq`, `GROQ_API_KEY`, `GROQ_MODEL` (facultatif)               |
+| Gemini              | `AI_PROVIDER=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL` (facultatif)         |
+| Ollama (local)      | `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://ollama:11434`, `OLLAMA_MODEL` |
+
+Ollama : `docker compose --profile core --profile ollama up -d`, puis `docker compose exec ollama ollama pull qwen3:8b`.
+
+En cas de quota atteint (429) ou de délai dépassé, la requête passe aux fournisseurs configurés suivants, dans
+l'ordre claude, groq, gemini, ollama. Chaque bascule est journalisée (`llm_repli`). `AI_FALLBACK_PROVIDERS`
+fixe une autre liste, et `none` désactive le repli. En production, seuls Claude sur Vertex et Ollama sont admis.
+
 ### Sans Docker
 
 ```bash

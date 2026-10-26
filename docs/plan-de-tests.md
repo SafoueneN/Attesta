@@ -1,5 +1,7 @@
 # Plan de tests
 
+> Résultats consolidés et campagne locale du 26 octobre 2026 : [rapport de campagne](rapport-campagne-tests.md).
+
 Convention : Arrange, Act, Assert. Les tests générés par IA sont relus avant le merge. Aucun appel réseau au LLM dans les niveaux 1, 2, 4, 5 et 6.
 
 | Niveau           | Outil                                   | Contenu                                                                                                                    | Seuil de CI                                                                                           | Phase |
