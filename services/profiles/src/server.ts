@@ -1,9 +1,10 @@
 import { ConfigError } from "@attesta/config";
 import { createJwksVerifier, startServer, USER_AUDIENCE } from "@attesta/http-kit";
-import { BudgetedProvider, createLlmProvider, pgUsageStore } from "@attesta/llm-client";
+import { BudgetedProvider, createAiProvider, pgUsageStore } from "@attesta/llm-client";
 import { createLogger } from "@attesta/logger";
 import { createApp } from "./app.js";
-import { loadConfig, SERVICE } from "./config.js";
+import { assistantDemoHandlers } from "./assistant.js";
+import { evidenceKey, loadConfig, SERVICE } from "./config.js";
 import { checkDatabase, createPool, migrate } from "./db.js";
 import { ProfileStore } from "./store.js";
 
@@ -21,14 +22,10 @@ const pool = createPool(config.DATABASE_URL);
 pool.on("error", (err) => logger.error({ err, event: "pg_erreur" }, "connexion PostgreSQL perdue"));
 
 const store = new ProfileStore(pool);
-// Aucun gestionnaire de démonstration : l'import de CV exige un vrai modèle.
-const provider = createLlmProvider({
-  provider: config.LLM_PROVIDER,
-  model: config.LLM_MODEL,
-  timeoutMs: config.LLM_TIMEOUT_MS,
-  vertexProjectId: config.VERTEX_PROJECT_ID,
-  vertexRegion: config.VERTEX_REGION,
-});
+// Démonstration : seuls les assistants ont un gestionnaire ; l'import de CV exige un vrai modèle.
+const provider = createAiProvider(config, config.NODE_ENV, assistantDemoHandlers, (event) =>
+  logger.warn({ event: "llm_repli", ...event }, "llm"),
+);
 const llm =
   provider &&
   new BudgetedProvider(provider, {
@@ -53,6 +50,7 @@ const app = createApp({
   store,
   verifier: createJwksVerifier(config.AUTH_JWKS_URL, { audience: [USER_AUDIENCE, SERVICE] }),
   llm,
+  evidenceKey: evidenceKey(config),
 });
 await startServer({
   app,

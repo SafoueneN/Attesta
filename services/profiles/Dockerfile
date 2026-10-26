@@ -17,16 +17,16 @@ COPY packages/llm-client/package.json packages/llm-client/
 COPY packages/llm-client/dist packages/llm-client/dist
 WORKDIR /repo/services/profiles
 COPY services/profiles/package.json services/profiles/package-lock.json services/profiles/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les builds, reprises réseau : une relance réutilise les paquets déjà téléchargés.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-maxtimeout=120000
 COPY services/profiles/tsconfig.json services/profiles/tsconfig.build.json ./
 COPY services/profiles/src src
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
-# util-linux fournit prlimit : plafonds du noyau pour l'analyse des PDF importés (docs/adr/0009).
+# prlimit (util-linux, déjà présent dans l'image de base) : plafonds du noyau pour l'analyse des PDF (docs/adr/0009).
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
-  && apt-get install -y --no-install-recommends util-linux \
   && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ENV NODE_ENV=production \
   PORT=4002

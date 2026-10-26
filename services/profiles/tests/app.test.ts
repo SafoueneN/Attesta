@@ -63,7 +63,7 @@ describe.skipIf(!db)("service profiles (intégration PostgreSQL)", () => {
     await pool?.end();
     await db?.drop();
   });
-  beforeEach(() => pool.query("TRUNCATE profile_version, llm_usage"));
+  beforeEach(() => pool.query("TRUNCATE profile_version, llm_usage, profile_evidence"));
 
   const app = (llm?: ConstructorParameters<typeof BudgetedProvider>[0]) => {
     const log = testLogger();
@@ -74,6 +74,7 @@ describe.skipIf(!db)("service profiles (intégration PostgreSQL)", () => {
       store,
       verifier: t.verifier,
       llm: llm && new BudgetedProvider(llm, { service: "profiles", store: usage, monthlyBudgetEur: 2 }),
+      evidenceKey: Buffer.alloc(32, 7),
     });
     return Object.assign(a, { lines: log.lines, usage });
   };
@@ -170,14 +171,16 @@ describe.skipIf(!db)("service profiles (intégration PostgreSQL)", () => {
   });
 
   describe("import de CV PDF", () => {
-    it("est indisponible sans modèle réel (démonstration)", async () => {
+    it("sans modèle réel (démonstration), extrait le profil par règles (ADR 0038)", async () => {
       const token = await t.user(userId);
       const res = await request(app(new DemoProvider()))
         .post("/v1/profiles/import")
         .auth(token, { type: "bearer" })
         .attach("cv", Buffer.from(cvPdf), "cv.pdf");
-      expect(res.status).toBe(503);
-      expect(res.body.title).toMatch(/démonstration/);
+      expect(res.status).toBe(200);
+      const result = ImportResult.parse(res.body);
+      expect(result.method).toBe("regles");
+      expect(await store.latest(userId)).toBeUndefined();
     });
 
     it("pré-remplit le profil et écarte ce qui n'est pas dans le PDF", async () => {
@@ -214,15 +217,15 @@ describe.skipIf(!db)("service profiles (intégration PostgreSQL)", () => {
       expect(none.status).toBe(400);
     });
 
-    it("passe en mode dégradé si le modèle échoue", async () => {
+    it("bascule sur l'extraction par règles si le modèle échoue", async () => {
       const token = await t.user(userId);
       const llm = new ScriptedProvider({ "extraction-cv": [{ error: new Error("panne") }] });
       const res = await request(app(llm))
         .post("/v1/profiles/import")
         .auth(token, { type: "bearer" })
         .attach("cv", Buffer.from(cvPdf), "cv.pdf");
-      expect(res.status).toBe(503);
-      expect(res.body.title).toMatch(/saisir votre profil à la main/);
+      expect(res.status).toBe(200);
+      expect(ImportResult.parse(res.body).method).toBe("regles");
     });
   });
 
