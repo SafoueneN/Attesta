@@ -1,5 +1,13 @@
-/** Pays du pilote : Allemagne d'abord (BA Jobsuche), puis France (docs/adr/0010). */
-export type Country = "DE" | "FR";
+/** Pays de la veille (docs/adr/0010, 0033) : Allemagne, France, Canada, Tunisie. */
+export type Country = "DE" | "FR" | "CA" | "TN";
+
+/** Langues des intitulés à chercher dans chaque pays (Canada : anglais puis français ; Tunisie : l'inverse). */
+export const COUNTRY_LANGS: Record<Country, readonly ("fr" | "de" | "en")[]> = {
+  DE: ["de"],
+  FR: ["fr"],
+  CA: ["en", "fr"],
+  TN: ["fr", "en"],
+};
 export type WorkingTime = "plein" | "partiel";
 
 /** Recherche lancée auprès d'une source pour un groupe d'abonnés. */

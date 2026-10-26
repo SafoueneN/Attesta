@@ -3,7 +3,7 @@ import type pg from "pg";
 import { toPgVector } from "./embeddings.js";
 import type { Occupation } from "./esco.js";
 import { postingFingerprint } from "./postings-text.js";
-import type { Posting, SourceRunStats } from "./types.js";
+import type { Country, Posting, SourceRunStats } from "./types.js";
 
 /**
  * Accès SQL du service (ADR 0004 : SQL explicite, sans ORM). Les recherches lexicale et vectorielle sont
@@ -21,7 +21,7 @@ export interface StoredPosting {
   title: string;
   company: string | null;
   city: string | null;
-  country: "DE" | "FR";
+  country: Country;
   lat: number | null;
   lon: number | null;
   lang: string;
@@ -256,15 +256,16 @@ export class JobsRepository {
     c: WatchCriteria,
     date: string,
     exclude: string[],
-    queries: { fr: string; de: string },
+    queries: { fr: string; de: string; en: string },
   ): Promise<string[]> {
     const { rows } = await this.pool.query<{ id: string }>(
       `SELECT p.id FROM job_posting p,
-         (SELECT websearch_to_tsquery('french', $9) || websearch_to_tsquery('german', $10) AS q) query
+         (SELECT websearch_to_tsquery('french', $9) || websearch_to_tsquery('german', $10)
+            || websearch_to_tsquery('english', $11) AS q) query
        WHERE p.tsv @@ query.q AND ${HARD_FILTERS}
        ORDER BY ts_rank_cd(p.tsv, query.q) DESC, p.posted_at DESC, p.id
        LIMIT ${RECALL_LIMIT}`,
-      [...filterParams(c, date, exclude), queries.fr, queries.de],
+      [...filterParams(c, date, exclude), queries.fr, queries.de, queries.en],
     );
     return rows.map((r) => r.id);
   }
@@ -309,15 +310,34 @@ export class JobsRepository {
   }
 
   /** Recherche publique dans les offres collectées encore fraîches (60 jours au plus). */
-  async searchPostings(filters: { q?: string; country?: string; limit: number }): Promise<StoredPosting[]> {
+  async searchPostings(filters: {
+    q?: string;
+    country?: string;
+    limit: number;
+    offset?: number;
+  }): Promise<StoredPosting[]> {
     const { rows } = await this.pool.query<StoredPosting>(
       `SELECT ${POSTING_COLUMNS} FROM job_posting p
        WHERE ($1::text IS NULL OR p.country = $1)
-         AND ($2::text IS NULL OR p.tsv @@ (websearch_to_tsquery('french', $2) || websearch_to_tsquery('german', $2)))
-       ORDER BY p.posted_at DESC, p.id LIMIT $3`,
-      [filters.country ?? null, filters.q || null, filters.limit],
+         AND ($2::text IS NULL OR p.tsv @@ (websearch_to_tsquery('french', $2) || websearch_to_tsquery('german', $2)
+           || websearch_to_tsquery('english', $2)))
+       ORDER BY p.posted_at DESC, p.id LIMIT $3 OFFSET $4`,
+      [filters.country ?? null, filters.q || null, filters.limit, filters.offset ?? 0],
     );
     return rows;
+  }
+
+  /** Offres consultables par pays (60 jours, comme la recherche) et date de la dernière offre collectée. */
+  async overview(): Promise<{
+    countries: { country: Country; count: number }[];
+    lastFetchedAt: Date | null;
+  }> {
+    const { rows } = await this.pool.query<{ country: Country; count: number; last: Date | null }>(
+      `SELECT country, count(*)::int AS count, max(fetched_at) AS last FROM job_posting
+       WHERE posted_at >= current_date - 60 GROUP BY country ORDER BY count DESC`,
+    );
+    const last = rows.reduce<Date | null>((m, r) => (r.last && (!m || r.last > m) ? r.last : m), null);
+    return { countries: rows.map(({ country, count }) => ({ country, count })), lastFetchedAt: last };
   }
 
   // --- Administration et rétention -----------------------------------------------------------------
@@ -335,10 +355,29 @@ export class JobsRepository {
     return rows[0]!;
   }
 
+  /** Avis anonyme (ADR 0029, point 2) : aucun identifiant ni contenu n'est enregistré. */
+  async vote(role: string, vote: 1 | -1, providerKind: "ia" | "demo"): Promise<void> {
+    await this.pool.query("INSERT INTO assistant_vote (role, vote, provider_kind) VALUES ($1, $2, $3)", [
+      role,
+      vote,
+      providerKind,
+    ]);
+  }
+
+  /** Avis des 30 derniers jours, par rôle. */
+  async voteStats() {
+    const { rows } = await this.pool.query<{ role: string; up: number; down: number }>(
+      `SELECT role, count(*) FILTER (WHERE vote = 1)::int AS up, count(*) FILTER (WHERE vote = -1)::int AS down
+       FROM assistant_vote WHERE at > now() - interval '30 days' GROUP BY role ORDER BY role`,
+    );
+    return rows;
+  }
+
   /** Purge quotidienne : offres collectées de 60 jours, invités de 24 h, journaux de 13 mois, cache ESCO. */
   async purge(): Promise<Record<string, number>> {
     const statements: Record<string, string> = {
       offres: "DELETE FROM job_posting WHERE posted_at < current_date - 60",
+      avis: "DELETE FROM assistant_vote WHERE at < now() - interval '13 months'",
       invites: `DELETE FROM user_offer WHERE user_id LIKE 'guest\\_%' AND created_at < now() - interval '24 hours'`,
       journalIngestion: "DELETE FROM job_source_run WHERE started_at < now() - interval '13 months'",
       cacheEsco: "DELETE FROM esco_cache WHERE fetched_at < now() - interval '30 days'",

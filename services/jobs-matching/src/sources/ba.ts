@@ -104,7 +104,6 @@ export class BaJobsuche implements JobSource {
     for (let page = 1; page <= MAX_PAGES; page++) {
       if (!budget.take()) return;
       const params = new URLSearchParams({
-        was: query.occupation,
         wo: query.city,
         umkreis: String(query.radiusKm),
         veroeffentlichtseit: String(query.sinceDays),
@@ -112,6 +111,8 @@ export class BaJobsuche implements JobSource {
         size: String(PAGE_SIZE),
         page: String(page),
       });
+      // Métier vide : synchronisation du catalogue, toutes les offres autour de la ville.
+      if (query.occupation) params.set("was", query.occupation);
       const { ergebnisliste } = SearchResponse.parse(await this.get(`/pc/v6/jobs?${params}`));
       for (const { referenznummer } of ergebnisliste) {
         if (await isKnown(referenznummer)) continue;

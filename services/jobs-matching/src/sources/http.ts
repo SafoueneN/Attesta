@@ -1,7 +1,7 @@
 /** Appel HTTP d'une source, injectable pour les tests (aucun réseau en CI). */
 export type Fetch = (
   url: string,
-  init?: { headers?: Record<string, string>; signal?: AbortSignal },
+  init?: { method?: string; body?: string; headers?: Record<string, string>; signal?: AbortSignal },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -19,18 +19,24 @@ export class SourceError extends Error {
   }
 }
 
-/** GET JSON avec délai maximal. L'URL n'est jamais journalisée : elle peut porter une clé d'API. */
+/** GET JSON (ou POST si `body` est donné) avec délai maximal. L'URL n'est jamais journalisée : elle peut porter une clé d'API. */
 export async function getJson(
   fetchFn: Fetch,
   source: string,
   url: string,
   headers: Record<string, string> = {},
   timeoutMs = 15_000,
+  body?: unknown,
 ): Promise<unknown> {
   let response;
   try {
     response = await fetchFn(url, {
-      headers: { Accept: "application/json", ...headers },
+      ...(body === undefined ? {} : { method: "POST", body: JSON.stringify(body) }),
+      headers: {
+        Accept: "application/json",
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...headers,
+      },
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {

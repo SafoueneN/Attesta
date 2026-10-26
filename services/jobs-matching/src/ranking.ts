@@ -12,8 +12,10 @@ export function reciprocalRankFusion(lists: string[][], k = RRF_K): { id: string
   for (const list of lists) {
     list.forEach((id, index) => scores.set(id, (scores.get(id) ?? 0) + 1 / (k + index + 1)));
   }
+  // Arrondi à 1e-12 : deux sommes égales en théorie (1/61 + 1/63 = 1/62 + 1/62…) diffèrent d'un bit selon
+  // l'ordre des listes ; sans lui, le départage par identifiant ne joue pas et le classement varie.
   return [...scores.entries()]
-    .map(([id, score]) => ({ id, score }))
+    .map(([id, score]) => ({ id, score: Math.round(score * 1e12) / 1e12 }))
     .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 }
 

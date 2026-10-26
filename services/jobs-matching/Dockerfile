@@ -17,7 +17,8 @@ COPY packages/llm-client/package.json packages/llm-client/
 COPY packages/llm-client/dist packages/llm-client/dist
 WORKDIR /repo/services/jobs-matching
 COPY services/jobs-matching/package.json services/jobs-matching/package-lock.json services/jobs-matching/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les builds, reprises réseau : une relance réutilise les paquets déjà téléchargés.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-maxtimeout=120000
 COPY services/jobs-matching/tsconfig.json services/jobs-matching/tsconfig.build.json ./
 COPY services/jobs-matching/src src
 RUN npm run build && npm prune --omit=dev

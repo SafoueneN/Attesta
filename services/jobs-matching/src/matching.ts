@@ -4,7 +4,7 @@ import type { MatchedPosting, MatchRequest, MatchResponse } from "@attesta/share
 import { matchingProfile, type MatchingProfile } from "./anonymize.js";
 import type { EmbeddingProvider } from "./embeddings.js";
 import { searchTitles, type EscoClient } from "./esco.js";
-import { mentions, technicalTerms } from "./postings-text.js";
+import { mentions, plainText, technicalTerms } from "./postings-text.js";
 import { locationScore, reciprocalRankFusion } from "./ranking.js";
 import { RERANK_MAX_POSTINGS, rerankPostings } from "./rerank.js";
 import { websearchQuery, type JobsRepository, type StoredPosting } from "./repository.js";
@@ -27,7 +27,7 @@ export interface MatchingDeps {
   logger: Logger;
 }
 
-/** Intitulés en français et en allemand (pivot ESCO) ; en cas de panne d'ESCO, la saisie seule. */
+/** Intitulés en français, en allemand et en anglais (pivot ESCO) ; en cas de panne d'ESCO, la saisie seule. */
 export async function titlesFor(esco: EscoClient | undefined, occupations: string[], logger: Logger) {
   const found = [];
   if (esco) {
@@ -39,7 +39,11 @@ export async function titlesFor(esco: EscoClient | undefined, occupations: strin
       }
     }
   }
-  return { fr: searchTitles(occupations, found, "fr"), de: searchTitles(occupations, found, "de") };
+  return {
+    fr: searchTitles(occupations, found, "fr"),
+    de: searchTitles(occupations, found, "de"),
+    en: searchTitles(occupations, found, "en"),
+  };
 }
 
 /** Compétences de l'offre absentes du profil, sans modèle (mode dégradé et complément du rerank). */
@@ -59,8 +63,17 @@ export function coverage(posting: Pick<StoredPosting, "title" | "body" | "lang">
   return terms.filter((t) => mentions(profile.corpus, t)).length / terms.length;
 }
 
-const sourceName = (source: string) =>
-  source === "ba" ? "Bundesagentur für Arbeit" : source === "adzuna" ? "Adzuna" : source;
+/** Nom lisible de chaque source (identifiants techniques en base). */
+const SOURCE_NAMES: Record<string, string> = {
+  ba: "Bundesagentur für Arbeit",
+  adzuna: "Adzuna",
+  arbeitnow: "Arbeitnow",
+  jooble: "Jooble",
+  employeurs: "Site de l'employeur",
+  tanitjobs: "Tanitjobs",
+  tunisietravail: "Tunisie Travail",
+};
+const sourceName = (source: string) => SOURCE_NAMES[source] ?? source;
 
 export function toJobPosting(p: StoredPosting, sources: JobSource[]) {
   const attribution = sources.find((s) => s.id === p.source)?.attribution ?? null;
@@ -73,7 +86,8 @@ export function toJobPosting(p: StoredPosting, sources: JobSource[]) {
     country: p.country,
     postedAt: p.postedAt,
     url: p.url,
-    excerpt: p.body.slice(0, 400),
+    // Offres déjà stockées avec du HTML échappé : nettoyées à l'affichage.
+    excerpt: plainText(p.body).slice(0, 400),
     salaryMinEur: p.salaryMinEur,
     salaryMaxEur: p.salaryMaxEur,
     attribution,
@@ -95,6 +109,7 @@ export async function matchPostings(deps: MatchingDeps, request: MatchRequest): 
     deps.repo.lexicalCandidates(criteria, date, excludePostingIds, {
       fr: websearchQuery([...titles.fr, ...skills]),
       de: websearchQuery([...titles.de, ...skills]),
+      en: websearchQuery([...titles.en, ...skills]),
     }),
     deps.repo.vectorCandidates(criteria, date, excludePostingIds, vector!, deps.embeddings.minSimilarity),
   ]);

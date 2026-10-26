@@ -5,6 +5,12 @@ import type { Posting } from "./types.js";
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 
 /** Texte brut d'un fragment HTML de source : balises retirées, entités décodées, espaces réduits. */
+/** Texte brut d'un contenu HTML, même échappé une fois de trop (« &lt;p&gt; » devient « <p> », puis du texte). */
+export function plainText(html: string): string {
+  const once = htmlToText(html);
+  return /<\/?[a-z][^>]*>/i.test(once) ? htmlToText(once) : once;
+}
+
 export function htmlToText(html: string): string {
   return sanitizeText(
     html

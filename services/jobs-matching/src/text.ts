@@ -11,6 +11,16 @@ const ALIASES: [RegExp, string][] = [
   [/\bk8s\b/g, "kubernetes"],
   [/\bjs\b(?<!node js)/g, "javascript"],
   [/\bts\b/g, "typescript"],
+  // Variantes et acronymes courants (ADR 0029) : « PowerBI » = « Power BI », « GCP » = « Google Cloud ».
+  [/\bpowerbi\b/g, "power bi"],
+  [/\bms excel\b/g, "excel"],
+  [/\bgcp\b/g, "google cloud"],
+  [/\breactjs\b/g, "react"],
+  [/\bvuejs\b/g, "vue"],
+  [/\bnextjs\b/g, "next js"],
+  [/\bgolang\b/g, "go"],
+  [/\bsklearn\b/g, "scikit learn"],
+  [/\bml\b/g, "machine learning"],
 ];
 
 /** Minuscules, sans accents, ponctuation réduite à des espaces (sauf + et #). */

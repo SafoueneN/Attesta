@@ -91,7 +91,12 @@ export class EscoClient {
  * Intitulés à chercher dans la langue d'une source : ceux saisis par l'abonné,
  * puis les libellés ESCO des métiers rapprochés dans cette langue, sans doublon.
  */
-export function searchTitles(own: string[], occupations: Occupation[], lang: "fr" | "de", max = 4): string[] {
+export function searchTitles(
+  own: string[],
+  occupations: Occupation[],
+  lang: "fr" | "de" | "en",
+  max = 4,
+): string[] {
   const esco = occupations.map((o) => o.labels[lang]).filter((l): l is string => Boolean(l));
   // La saisie est toujours cherchée : les sources comprennent souvent les
   // intitulés anglais ou empruntés (« Backend Developer »), quelle que soit leur langue.

@@ -3,7 +3,7 @@ import type { IngestionSummary, WatchCriteria } from "@attesta/shared-schemas";
 import type { MatchingDeps } from "./matching.js";
 import { titlesFor } from "./matching.js";
 import { SourceError } from "./sources/http.js";
-import { RequestBudget, type JobSource, type SourceQuery } from "./types.js";
+import { COUNTRY_LANGS, RequestBudget, type JobSource, type SourceQuery } from "./types.js";
 
 /** Offres demandées aux sources : publiées depuis 3 jours (marge si une exécution a manqué). */
 export const SINCE_DAYS = 3;
@@ -22,7 +22,9 @@ export async function ingestionQueries(deps: IngestionDeps, criteria: WatchCrite
   for (const c of criteria) {
     const titles = await titlesFor(deps.esco, c.occupations, deps.logger);
     for (const source of deps.sources.filter((s) => (s.countries as readonly string[]).includes(c.country))) {
-      for (const occupation of c.country === "DE" ? titles.de : titles.fr) {
+      // Intitulés dans les langues du pays, sans doublon (Canada : anglais puis français).
+      const wanted = [...new Set(COUNTRY_LANGS[c.country].flatMap((lang) => titles[lang]))];
+      for (const occupation of wanted) {
         const query: SourceQuery = {
           country: c.country,
           occupation,
@@ -62,13 +64,27 @@ export async function ingest(
   criteria: WatchCriteria[],
   date: string,
 ): Promise<IngestionSummary> {
+  return runQueries(deps, await ingestionQueries(deps, criteria), date);
+}
+
+/**
+ * Lance des requêtes de collecte et stocke les offres nouvelles. `share` borne la part du quota restant du
+ * jour que ces requêtes peuvent consommer (la synchronisation du catalogue en laisse aux veilles).
+ */
+export async function runQueries(
+  deps: IngestionDeps,
+  queries: { source: JobSource; query: SourceQuery }[],
+  date: string,
+  share = 1,
+): Promise<IngestionSummary> {
   const summary: IngestionSummary = { sources: {}, embedded: 0 };
   const budgets = new Map<string, RequestBudget>();
   for (const source of deps.sources) {
     const used = await deps.repo.requestsToday(source.id, date);
-    budgets.set(source.id, new RequestBudget(Math.max(0, (deps.dailyRequestLimits[source.id] ?? 0) - used)));
+    const left = Math.max(0, (deps.dailyRequestLimits[source.id] ?? 0) - used);
+    budgets.set(source.id, new RequestBudget(Math.floor(left * share)));
   }
-  for (const { source, query } of await ingestionQueries(deps, criteria)) {
+  for (const { source, query } of queries) {
     const stats = (summary.sources[source.id] ??= {
       requests: 0,
       fetched: 0,

@@ -1,4 +1,5 @@
 import {
+  AppError,
   authenticate,
   notFound,
   parseInput,
@@ -8,7 +9,7 @@ import {
   type Operation,
   type TokenVerifier,
 } from "@attesta/http-kit";
-import { BudgetedProvider, type LlmProvider } from "@attesta/llm-client";
+import { AssistUnavailableError, BudgetedProvider, type LlmProvider } from "@attesta/llm-client";
 import type { Logger } from "@attesta/logger";
 import {
   City,
@@ -22,14 +23,24 @@ import {
   MatchResponse,
   OfferSummary,
   PostingSearch,
+  PostingsOverview,
   ServiceStats,
   StoredOffer,
   UserExport,
 } from "@attesta/shared-schemas";
+import {
+  AssistantVote,
+  MatchExplainRequest,
+  MatchExplanation,
+  MatchScores,
+  MatchScoresRequest,
+} from "@attesta/shared-schemas";
+import { explainMatch, quickScores } from "./explain.js";
 import type { Express, Response } from "express";
 import { z } from "zod";
 import { analyseOffer, demoAnalysis, prompts, toOfferAnalysis } from "./analysis.js";
 import { findCity, suggestCities } from "./geo.js";
+import type { CatalogueSync } from "./catalogue.js";
 import { ingest, type IngestionDeps } from "./ingestion.js";
 import { matchPostings, toJobPosting } from "./matching.js";
 import type { OfferRow } from "./repository.js";
@@ -38,6 +49,8 @@ export interface RouteDeps extends IngestionDeps {
   verifier: TokenVerifier;
   logger: Logger;
   llm?: BudgetedProvider | LlmProvider;
+  /** Synchronisation du catalogue (ADR 0034) ; absente dans les tests. */
+  catalogue?: CatalogueSync;
 }
 
 const UserParam = z.object({ id: z.string().regex(/^(guest_)?[0-9a-f-]{36}$/i, "Identifiant invalide") });
@@ -45,6 +58,41 @@ const CityQuery = z.object({ country: Country, q: z.string().trim().max(100) });
 const CityResolve = z.object({ country: Country, name: z.string().trim().min(1).max(100) });
 
 export const operations: Operation[] = [
+  {
+    method: "get",
+    path: "/v1/postings/overview",
+    operationId: "catalogueOffres",
+    summary: "Volume des offres collectées par pays et dernière synchronisation (ADR 0034)",
+    tags: ["offres collectées"],
+    auth: true,
+    responses: { 200: { description: "Catalogue", schema: PostingsOverview } },
+  },
+  {
+    method: "post",
+    path: "/v1/admin/catalogue",
+    operationId: "synchroniserCatalogue",
+    summary: "Lance une synchronisation du catalogue d'offres (administrateurs)",
+    tags: ["administration"],
+    auth: true,
+    responses: {
+      202: { description: "Synchronisation lancée" },
+      409: { description: "Déjà en cours" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/postings/{id}/explain",
+    operationId: "expliquerCorrespondance",
+    summary: "Explication de correspondance d'une offre collectée avec le profil transmis (ADR 0028, rôle 5)",
+    tags: ["assistants"],
+    auth: true,
+    body: MatchExplainRequest,
+    responses: {
+      200: { description: "Explication", schema: MatchExplanation },
+      404: { description: "Offre inconnue" },
+      503: { description: "Assistant indisponible" },
+    },
+  },
   {
     method: "post",
     path: "/v1/offers",
@@ -114,6 +162,26 @@ export const operations: Operation[] = [
     tags: ["référentiel"],
     auth: true,
     responses: { 200: { description: "Villes", schema: z.array(City) } },
+  },
+  {
+    method: "post",
+    path: "/v1/postings/scores",
+    operationId: "scoresOffres",
+    summary: "Scores de correspondance d'une liste d'offres, calculés par le code seul (ADR 0029)",
+    tags: ["assistants"],
+    auth: true,
+    body: MatchScoresRequest,
+    responses: { 200: { description: "Score par offre", schema: MatchScores } },
+  },
+  {
+    method: "post",
+    path: "/v1/assistants/feedback",
+    operationId: "avisAssistantOffres",
+    summary: "Avis 👍 / 👎 anonyme sur une réponse d'assistant (ADR 0029)",
+    tags: ["assistants"],
+    auth: true,
+    body: AssistantVote,
+    responses: { 204: { description: "Enregistré" } },
   },
   {
     method: "get",
@@ -280,17 +348,77 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
     res.status(204).end();
   });
 
+  app.get("/v1/postings/overview", auth, user, async (_req, res) => {
+    const { countries, lastFetchedAt } = await repo.overview();
+    const status = deps.catalogue?.status();
+    res.json({
+      total: countries.reduce((n, c) => n + c.count, 0),
+      countries,
+      lastSyncAt: status?.lastFinishedAt ?? lastFetchedAt?.toISOString() ?? null,
+      syncing: status?.running ?? false,
+    });
+  });
+
+  app.post("/v1/admin/catalogue", auth, requireRole("admin"), (_req, res) => {
+    if (!deps.catalogue) throw new AppError("indisponible", 503, "La synchronisation n'est pas active.");
+    const started = deps.catalogue.run();
+    logger.info({ event: "admin_acces", route: "/v1/admin/catalogue" }, "administration");
+    res.status(started ? 202 : 409).json({
+      message: started
+        ? "Synchronisation lancée : les offres arrivent au fil des sources."
+        : "Une synchronisation est déjà en cours.",
+    });
+  });
+
   app.get("/v1/postings", auth, user, async (req, res) => {
     const filters = parseInput(PostingSearch, req.query);
     const rows = await repo.searchPostings(filters);
     res.json(rows.map((p) => toJobPosting(p, deps.sources)));
   });
 
-  const city = (c: { nom: string; pays: "DE" | "FR"; lat: number; lon: number }) => ({
+  const city = (c: { nom: string; pays: Country; lat: number; lon: number }) => ({
     nom: c.nom,
     pays: c.pays,
     lat: c.lat,
     lon: c.lon,
+  });
+
+  // Explication de correspondance (ADR 0028, rôle 5) : le profil est celui du candidat qui demande.
+  app.post("/v1/postings/:id/explain", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    const { profile } = parseInput(MatchExplainRequest, req.body);
+    const [posting] = await repo.postings([id]);
+    if (!posting) throw notFound("Cette offre collectée n'existe plus.");
+    if (!llm)
+      throw new AppError("assistant_indisponible", 503, "L'assistant n'est pas disponible sur ce serveur.");
+    try {
+      const result = await explainMatch(llm, posting, profile);
+      logger.info(
+        { event: "assistant", role: "explication-correspondance", score: result.score },
+        "assistant",
+      );
+      res.json(result);
+    } catch (error) {
+      if (!(error instanceof AssistUnavailableError)) throw error;
+      logger.warn({ event: "assistant_indisponible", reason: error.reason }, "assistant");
+      throw new AppError(
+        "assistant_indisponible",
+        503,
+        "L'assistant est indisponible pour le moment. Réessayez dans un instant.",
+      );
+    }
+  });
+
+  // Scores de toute une liste (ADR 0029) : calcul du code seul, sans appel au modèle.
+  app.post("/v1/postings/scores", auth, user, async (req, res) => {
+    const { profile, ids } = parseInput(MatchScoresRequest, req.body);
+    res.json(quickScores(await repo.postings(ids), profile));
+  });
+
+  app.post("/v1/assistants/feedback", auth, user, async (req, res) => {
+    const { role, vote, providerKind } = parseInput(AssistantVote, req.body);
+    await repo.vote(role, vote, providerKind);
+    res.status(204).end();
   });
 
   app.get("/v1/cities", auth, user, (req, res) => {
@@ -303,6 +431,7 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
     res.json({
       service: "jobs-matching",
       counters: await repo.stats(),
+      votes: await repo.voteStats(),
       ...(llm instanceof BudgetedProvider && { llm: await llm.summary() }),
     });
   });

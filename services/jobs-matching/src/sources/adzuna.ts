@@ -4,7 +4,7 @@ import type { Country, JobSource, Posting, SearchOptions, SourceQuery } from "..
 import { getJson, type Fetch } from "./http.js";
 
 /**
- * Adzuna (DE, FR), API sous clé (https://developer.adzuna.com). Conditions :
+ * Adzuna (DE, FR, CA ; pas la Tunisie), API sous clé (https://developer.adzuna.com). Conditions :
  * 250 requêtes par jour au plus, attribution « Jobs by Adzuna » dans les rapports.
  * La description renvoyée est un extrait (quelques centaines de caractères) :
  * le matching porte donc sur moins de texte que pour BA.
@@ -34,8 +34,12 @@ type Result = z.infer<typeof Result>;
 
 const Response = z.object({ results: z.array(z.unknown()).default([]) });
 
+/** Langue des offres par pays ; salaires repris seulement en euros (au Canada : dollars, non convertis). */
+const LANG: Partial<Record<Country, string>> = { DE: "de", FR: "fr", CA: "en" };
+const EURO = new Set<Country>(["DE", "FR"]);
+
 export function adzunaPosting(r: Result, country: Country): Posting {
-  const published = r.salary_is_predicted !== "1";
+  const published = r.salary_is_predicted !== "1" && EURO.has(country);
   return {
     source: "adzuna",
     externalId: r.id,
@@ -45,7 +49,7 @@ export function adzunaPosting(r: Result, country: Country): Posting {
     country,
     lat: r.latitude ?? null,
     lon: r.longitude ?? null,
-    lang: country === "DE" ? "de" : "fr",
+    lang: LANG[country] ?? "fr",
     workingTime:
       r.contract_time === "full_time" ? "plein" : r.contract_time === "part_time" ? "partiel" : null,
     postedAt: r.created.slice(0, 10),
@@ -58,7 +62,7 @@ export function adzunaPosting(r: Result, country: Country): Posting {
 
 export class Adzuna implements JobSource {
   readonly id = "adzuna";
-  readonly countries = ["DE", "FR"] as const;
+  readonly countries = ["DE", "FR", "CA"] as const;
   readonly attribution = { text: "Jobs by Adzuna", url: "https://www.adzuna.fr" };
 
   constructor(
@@ -72,13 +76,13 @@ export class Adzuna implements JobSource {
       const params = new URLSearchParams({
         app_id: this.credentials.appId,
         app_key: this.credentials.appKey,
-        what: query.occupation,
         where: query.city,
         distance: String(query.radiusKm),
         max_days_old: String(query.sinceDays),
         results_per_page: String(PAGE_SIZE),
         "content-type": "application/json",
       });
+      if (query.occupation) params.set("what", query.occupation);
       const url = `https://api.adzuna.com/v1/api/jobs/${query.country.toLowerCase()}/search/${page}?${params}`;
       const { results } = Response.parse(await getJson(this.fetchFn, this.id, url));
       for (const raw of results) {
