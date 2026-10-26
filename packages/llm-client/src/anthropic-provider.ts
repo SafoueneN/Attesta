@@ -18,6 +18,8 @@ type MessagesClient = { messages: Pick<Anthropic["messages"], "parse"> };
 export interface AnthropicProviderOptions {
   model: string;
   timeoutMs: number;
+  /** Modèle propre à une étape (ADR 0029, point 3) ; à défaut, `model`. */
+  stepModels?: Record<string, string>;
 }
 
 /**
@@ -40,11 +42,12 @@ export class AnthropicProvider implements LlmProvider {
 
   async generate<T>(request: LlmRequest<T>): Promise<LlmResult<T>> {
     const started = performance.now();
+    const model = this.options.stepModels?.[request.step] ?? this.model;
     let response;
     try {
       response = await this.client.messages.parse(
         {
-          model: this.model,
+          model,
           max_tokens: request.maxTokens,
           system: [{ type: "text", text: request.system, cache_control: { type: "ephemeral" } }],
           messages: request.messages,
@@ -54,6 +57,9 @@ export class AnthropicProvider implements LlmProvider {
       );
     } catch (error) {
       if (error instanceof Anthropic.APIUserAbortError) throw error;
+      if (error instanceof Anthropic.APIConnectionTimeoutError) {
+        throw new LlmUnavailableError("Appel LLM en échec (délai dépassé)", undefined, { reason: "timeout" });
+      }
       if (error instanceof Anthropic.APIError) {
         throw new LlmUnavailableError(`Appel LLM en échec (${error.status ?? "réseau"})`, error.status);
       }
@@ -72,10 +78,10 @@ export class AnthropicProvider implements LlmProvider {
 
     const usage = {
       step: request.step,
-      model: this.model,
+      model,
       inputTokens: response.usage.input_tokens,
       outputTokens: response.usage.output_tokens,
-      costUsd: estimateCostUsd(this.model, response.usage.input_tokens, response.usage.output_tokens),
+      costUsd: estimateCostUsd(model, response.usage.input_tokens, response.usage.output_tokens),
       latencyMs: Math.round(performance.now() - started),
     };
 
@@ -97,6 +103,8 @@ export interface ClaudeClientConfig {
   timeoutMs: number;
   vertexProjectId?: string;
   vertexRegion?: string;
+  /** Relances du SDK (429, 5xx, coupures) ; 0 quand un fournisseur de repli prend le relais. */
+  maxRetries?: number;
 }
 
 /**
@@ -110,10 +118,10 @@ export function createClaudeClient(config: ClaudeClientConfig): MessagesClient {
       projectId: config.vertexProjectId,
       region: config.vertexRegion ?? "eu",
       timeout: config.timeoutMs,
-      maxRetries: 2,
+      maxRetries: config.maxRetries ?? 2,
     });
   }
-  return new Anthropic({ timeout: config.timeoutMs, maxRetries: 2 });
+  return new Anthropic({ timeout: config.timeoutMs, maxRetries: config.maxRetries ?? 2 });
 }
 
 export interface ProviderSettings {
@@ -122,6 +130,20 @@ export interface ProviderSettings {
   timeoutMs: number;
   vertexProjectId?: string;
   vertexRegion?: string;
+  /** Surcharges par étape : `{ "traduction": "claude-haiku-5-5" }`. */
+  stepModels?: Record<string, string>;
+}
+
+/**
+ * Lit `LLM_STEP_MODELS` (« etape=modele,etape=modele ») ; entrées mal formées ignorées.
+ */
+export function parseStepModels(value: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const pair of (value ?? "").split(",")) {
+    const [step, model] = pair.split("=").map((p) => p.trim());
+    if (step && model && /^[a-z0-9-]+$/.test(step) && /^[w.@-]+$/.test(model)) out[step] = model;
+  }
+  return out;
 }
 
 /**
@@ -145,7 +167,7 @@ export function createLlmProvider(
           vertexProjectId: settings.vertexProjectId,
           vertexRegion: settings.vertexRegion,
         }),
-        { model: settings.model, timeoutMs: settings.timeoutMs },
+        { model: settings.model, timeoutMs: settings.timeoutMs, stepModels: settings.stepModels },
       );
   }
 }

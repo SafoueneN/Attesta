@@ -23,10 +23,11 @@ export class AnthropicProvider {
     }
     async generate(request) {
         const started = performance.now();
+        const model = this.options.stepModels?.[request.step] ?? this.model;
         let response;
         try {
             response = await this.client.messages.parse({
-                model: this.model,
+                model,
                 max_tokens: request.maxTokens,
                 system: [{ type: "text", text: request.system, cache_control: { type: "ephemeral" } }],
                 messages: request.messages,
@@ -36,6 +37,9 @@ export class AnthropicProvider {
         catch (error) {
             if (error instanceof Anthropic.APIUserAbortError)
                 throw error;
+            if (error instanceof Anthropic.APIConnectionTimeoutError) {
+                throw new LlmUnavailableError("Appel LLM en échec (délai dépassé)", undefined, { reason: "timeout" });
+            }
             if (error instanceof Anthropic.APIError) {
                 throw new LlmUnavailableError(`Appel LLM en échec (${error.status ?? "réseau"})`, error.status);
             }
@@ -51,10 +55,10 @@ export class AnthropicProvider {
         }
         const usage = {
             step: request.step,
-            model: this.model,
+            model,
             inputTokens: response.usage.input_tokens,
             outputTokens: response.usage.output_tokens,
-            costUsd: estimateCostUsd(this.model, response.usage.input_tokens, response.usage.output_tokens),
+            costUsd: estimateCostUsd(model, response.usage.input_tokens, response.usage.output_tokens),
             latencyMs: Math.round(performance.now() - started),
         };
         if (response.stop_reason === "refusal") {
@@ -80,10 +84,22 @@ export function createClaudeClient(config) {
             projectId: config.vertexProjectId,
             region: config.vertexRegion ?? "eu",
             timeout: config.timeoutMs,
-            maxRetries: 2,
+            maxRetries: config.maxRetries ?? 2,
         });
     }
-    return new Anthropic({ timeout: config.timeoutMs, maxRetries: 2 });
+    return new Anthropic({ timeout: config.timeoutMs, maxRetries: config.maxRetries ?? 2 });
+}
+/**
+ * Lit `LLM_STEP_MODELS` (« etape=modele,etape=modele ») ; entrées mal formées ignorées.
+ */
+export function parseStepModels(value) {
+    const out = {};
+    for (const pair of (value ?? "").split(",")) {
+        const [step, model] = pair.split("=").map((p) => p.trim());
+        if (step && model && /^[a-z0-9-]+$/.test(step) && /^[w.@-]+$/.test(model))
+            out[step] = model;
+    }
+    return out;
 }
 /**
  * Fournisseur configuré d'un service ; « none » : aucun. En démonstration, `demo` donne les réponses
@@ -101,6 +117,6 @@ export function createLlmProvider(settings, demo = {}) {
                 timeoutMs: settings.timeoutMs,
                 vertexProjectId: settings.vertexProjectId,
                 vertexRegion: settings.vertexRegion,
-            }), { model: settings.model, timeoutMs: settings.timeoutMs });
+            }), { model: settings.model, timeoutMs: settings.timeoutMs, stepModels: settings.stepModels });
     }
 }

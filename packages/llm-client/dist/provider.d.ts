@@ -40,13 +40,22 @@ export interface LlmProvider {
     readonly model: string;
     generate<T>(request: LlmRequest<T>): Promise<LlmResult<T>>;
 }
+/** Cause d'une indisponibilité : « quota » (429) et « timeout » déclenchent le fournisseur suivant. */
+export type LlmUnavailableReason = "quota" | "timeout" | "reseau" | "autre";
 /** Fournisseur injoignable, quota du fournisseur atteint, délai dépassé : mode dégradé. */
 export declare class LlmUnavailableError extends Error {
     readonly status?: number | undefined;
+    readonly reason: LlmUnavailableReason;
     constructor(message: string, status?: number | undefined, options?: {
         cause?: unknown;
+        reason?: LlmUnavailableReason;
     });
 }
+/**
+ * Erreur d'appel d'un fournisseur, sans rien de la requête ni de la réponse (elles peuvent contenir des
+ * données personnelles) : seulement le fournisseur et le statut HTTP.
+ */
+export declare function llmUnavailable(provider: string, status: number | undefined, timedOut?: boolean): LlmUnavailableError;
 /** Le modèle a décliné la requête (stop_reason « refusal »). */
 export declare class LlmRefusalError extends Error {
     readonly category: string | null;

@@ -87,6 +87,21 @@ describe("AnthropicProvider (contrat)", () => {
 
     await expect(provider.generate(request)).rejects.toBeInstanceOf(LlmUnavailableError);
   });
+
+  it("qualifie le quota atteint et le délai dépassé (déclencheurs du repli)", async () => {
+    const failing = (error: Error) =>
+      new AnthropicProvider({ messages: { parse: vi.fn(async () => Promise.reject(error)) } } as never, {
+        model: "claude-opus-5-5",
+        timeoutMs: 1000,
+      });
+
+    await expect(
+      failing(new Anthropic.RateLimitError(429, undefined, "quota", new Headers())).generate(request),
+    ).rejects.toMatchObject({ status: 429, reason: "quota" });
+    await expect(failing(new Anthropic.APIConnectionTimeoutError()).generate(request)).rejects.toMatchObject({
+      reason: "timeout",
+    });
+  });
 });
 
 describe("AnthropicProvider : sortie non analysable", () => {

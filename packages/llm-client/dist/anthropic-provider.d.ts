@@ -8,6 +8,8 @@ type MessagesClient = {
 export interface AnthropicProviderOptions {
     model: string;
     timeoutMs: number;
+    /** Modèle propre à une étape (ADR 0029, point 3) ; à défaut, `model`. */
+    stepModels?: Record<string, string>;
 }
 /**
  * Fournisseur Claude. Sorties structurées via `messages.parse` + schéma Zod ;
@@ -29,6 +31,8 @@ export interface ClaudeClientConfig {
     timeoutMs: number;
     vertexProjectId?: string;
     vertexRegion?: string;
+    /** Relances du SDK (429, 5xx, coupures) ; 0 quand un fournisseur de repli prend le relais. */
+    maxRetries?: number;
 }
 /**
  * Vertex AI en région « eu » : traitement dans l'Union européenne (décision Q5).
@@ -42,7 +46,13 @@ export interface ProviderSettings {
     timeoutMs: number;
     vertexProjectId?: string;
     vertexRegion?: string;
+    /** Surcharges par étape : `{ "traduction": "claude-haiku-5-5" }`. */
+    stepModels?: Record<string, string>;
 }
+/**
+ * Lit `LLM_STEP_MODELS` (« etape=modele,etape=modele ») ; entrées mal formées ignorées.
+ */
+export declare function parseStepModels(value: string | undefined): Record<string, string>;
 /**
  * Fournisseur configuré d'un service ; « none » : aucun. En démonstration, `demo` donne les réponses
  * recopiées propres au service, étape par étape.

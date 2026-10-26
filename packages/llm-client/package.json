@@ -2,7 +2,7 @@
   "name": "@attesta/llm-client",
   "version": "0.1.0",
   "private": true,
-  "description": "Client LLM technique : fournisseurs Claude, démonstration et rejeu, coûts, budget mensuel, prompts versionnés.",
+  "description": "Client LLM technique : fournisseurs Claude, Groq, Gemini et Ollama avec repli, démonstration et rejeu, coûts, budget mensuel, prompts versionnés.",
   "type": "module",
   "exports": {
     ".": {
@@ -19,7 +19,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
-    "@anthropic-ai/vertex-sdk": "^0.21.0"
+    "@anthropic-ai/vertex-sdk": "^0.21.0",
+    "@google/genai": "^2.31.0",
+    "openai": "^6.49.0"
   },
   "peerDependencies": {
     "zod": "^4.6.7"
