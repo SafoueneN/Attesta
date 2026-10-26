@@ -17,6 +17,10 @@ export declare const ProfileSave: z.ZodObject<{
                 network: z.ZodString;
                 url: z.ZodURL;
             }, z.core.$strip>>>;
+            birthDate: z.ZodOptional<z.ZodISODate>;
+            nationality: z.ZodOptional<z.ZodString>;
+            workPermit: z.ZodOptional<z.ZodString>;
+            drivingLicence: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>;
         work: z.ZodDefault<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
@@ -83,6 +87,10 @@ export declare const StoredProfile: z.ZodObject<{
                 network: z.ZodString;
                 url: z.ZodURL;
             }, z.core.$strip>>>;
+            birthDate: z.ZodOptional<z.ZodISODate>;
+            nationality: z.ZodOptional<z.ZodString>;
+            workPermit: z.ZodOptional<z.ZodString>;
+            drivingLicence: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>;
         work: z.ZodDefault<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
@@ -175,6 +183,55 @@ export declare const ImportedProfile: z.ZodObject<{
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type ImportedProfile = z.infer<typeof ImportedProfile>;
+export declare const EVIDENCE_MAX_BYTES: number;
+export declare const EVIDENCE_MAX_COUNT = 20;
+export declare const EVIDENCE_MIME: readonly ["application/pdf", "image/png", "image/jpeg"];
+/** Élément du profil qu'une pièce peut appuyer : une expérience, une formation, un certificat, une langue. */
+export declare const EvidenceTarget: z.ZodString;
+export declare const EvidenceKind: z.ZodEnum<{
+    diplome: "diplome";
+    attestation_employeur: "attestation_employeur";
+    certificat: "certificat";
+    recommandation: "recommandation";
+    autre: "autre";
+}>;
+export type EvidenceKind = z.infer<typeof EvidenceKind>;
+/** Champs du formulaire de dépôt (le fichier voyage à côté, en multipart). */
+export declare const EvidenceUpload: z.ZodObject<{
+    target: z.ZodString;
+    kind: z.ZodEnum<{
+        diplome: "diplome";
+        attestation_employeur: "attestation_employeur";
+        certificat: "certificat";
+        recommandation: "recommandation";
+        autre: "autre";
+    }>;
+    label: z.ZodString;
+}, z.core.$strip>;
+/** Pièce jointe par le candidat : métadonnées seulement (le fichier se télécharge à part). */
+export declare const Evidence: z.ZodObject<{
+    id: z.ZodString;
+    target: z.ZodString;
+    kind: z.ZodEnum<{
+        diplome: "diplome";
+        attestation_employeur: "attestation_employeur";
+        certificat: "certificat";
+        recommandation: "recommandation";
+        autre: "autre";
+    }>;
+    label: z.ZodString;
+    fileName: z.ZodString;
+    mimeType: z.ZodEnum<{
+        "application/pdf": "application/pdf";
+        "image/png": "image/png";
+        "image/jpeg": "image/jpeg";
+    }>;
+    sizeBytes: z.ZodNumber;
+    anchor: z.ZodString;
+    current: z.ZodBoolean;
+    createdAt: z.ZodString;
+}, z.core.$strip>;
+export type Evidence = z.infer<typeof Evidence>;
 export declare const ImportResult: z.ZodObject<{
     profile: z.ZodObject<{
         basics: z.ZodObject<{
@@ -213,5 +270,20 @@ export declare const ImportResult: z.ZodObject<{
         }, z.core.$strip>>;
     }, z.core.$strip>;
     dropped: z.ZodNumber;
+    method: z.ZodDefault<z.ZodEnum<{
+        ia: "ia";
+        regles: "regles";
+    }>>;
 }, z.core.$strip>;
 export type ImportResult = z.infer<typeof ImportResult>;
+/** Photo du CV (ADR 0036) : stockée chiffrée à part du profil, jamais envoyée à l'IA. */
+export declare const PHOTO_MAX_BYTES: number;
+export declare const ProfilePhoto: z.ZodObject<{
+    mimeType: z.ZodEnum<{
+        "image/png": "image/png";
+        "image/jpeg": "image/jpeg";
+    }>;
+    sizeBytes: z.ZodNumber;
+    updatedAt: z.ZodString;
+}, z.core.$strip>;
+export type ProfilePhoto = z.infer<typeof ProfilePhoto>;

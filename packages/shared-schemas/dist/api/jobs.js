@@ -2,7 +2,8 @@ import { z } from "zod";
 import { OfferAnalysis } from "../offer.js";
 import { Profile } from "../profile.js";
 import { ProviderKind, Uuid } from "./common.js";
-export const Country = z.enum(["DE", "FR"], "Choisissez un pays");
+/** Pays de la veille et des offres collectées (ADR 0033) : Allemagne, France, Canada, Tunisie. */
+export const Country = z.enum(["DE", "FR", "CA", "TN"], "Choisissez un pays");
 export const WorkingTime = z.enum(["indifferent", "plein", "partiel"]);
 /** Offre enregistrée par un candidat, avec son analyse (faite une fois, à l'enregistrement). */
 export const StoredOffer = z.object({
@@ -45,6 +46,15 @@ export const PostingSearch = z.object({
     q: z.string().trim().max(100).optional(),
     country: Country.optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
+    /** Pagination du catalogue (« Voir plus »). */
+    offset: z.coerce.number().int().min(0).max(5000).default(0),
+});
+/** Catalogue des offres collectées (ADR 0034) : volume par pays et dernière synchronisation. */
+export const PostingsOverview = z.object({
+    total: z.number().int(),
+    countries: z.array(z.object({ country: Country, count: z.number().int() })),
+    lastSyncAt: z.string().nullable(),
+    syncing: z.boolean(),
 });
 export const City = z.object({ nom: z.string(), pays: Country, lat: z.number(), lon: z.number() });
 /** Critères d'une veille : métiers, lieu résolu (coordonnées), rayon et temps de travail. */

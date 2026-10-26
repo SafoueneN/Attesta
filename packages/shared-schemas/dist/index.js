@@ -7,6 +7,7 @@ export * from "./cv.js";
 export * from "./offer.js";
 export * from "./pointer.js";
 export * from "./profile.js";
+export * from "./api/assistants.js";
 export * from "./api/auth.js";
 export * from "./api/common.js";
 export * from "./api/cv.js";

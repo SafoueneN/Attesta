@@ -57,6 +57,18 @@ export const Corrections = z.object({
         remove: z.boolean().optional(),
     }))
         .max(200),
+    /**
+     * Lignes ajoutées (ADR 0029, conseil ATS appliqué) : un fait du profil recopié, avec sa source, dans
+     * l'entrée du CV qui le porte. Le service vérifie que la source existe et appartient à cette entrée.
+     */
+    additions: z
+        .array(z.object({
+        entry: z.string().regex(/^\/(summary|(work|projects)\/\d+)$/),
+        text: z.string().trim().min(1).max(500),
+        sources: z.array(z.string().max(100)).min(1).max(5),
+    }))
+        .max(10)
+        .default([]),
 });
 /**
  * Contrôle de fidélité de lignes libres (paragraphes d'une lettre) contre le profil d'une génération :

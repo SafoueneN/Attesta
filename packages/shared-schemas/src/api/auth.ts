@@ -21,11 +21,58 @@ export const LoginLinkPreview = z.object({ maskedEmail: z.string() });
 
 export const SessionCreate = z.object({ token: LoginToken });
 
+/**
+ * Comptes par identifiant et mot de passe (ADR 0030) : aucun e-mail n'est demandé pour créer un compte.
+ * L'adresse e-mail n'est saisie que dans la veille, pour recevoir les rapports.
+ */
+export const Username = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3, "3 caractères au moins")
+  .max(30, "30 caractères au plus")
+  .regex(/^[a-z0-9][a-z0-9._-]*$/, "Lettres sans accent, chiffres, point, tiret ou tiret bas.");
+export const Password = z.string().min(10, "10 caractères au moins").max(128, "128 caractères au plus");
+
+export const AccountCreate = z.object({
+  username: Username,
+  password: Password,
+  policyAccepted: z.literal(true, "Acceptez la politique de confidentialité pour continuer."),
+});
+export type AccountCreate = z.input<typeof AccountCreate>;
+
+/** Connexion : aucune règle de format sur le mot de passe saisi, seulement des bornes. */
+export const PasswordLogin = z.object({
+  username: z.string().trim().toLowerCase().min(1, "Saisissez votre identifiant.").max(30),
+  password: z.string().min(1, "Saisissez votre mot de passe.").max(128),
+});
+export type PasswordLogin = z.input<typeof PasswordLogin>;
+
+/** Mot de passe oublié (ADR 0039) : identifiant, un code de récupération inutilisé, nouveau mot de passe. */
+export const PasswordReset = z.object({
+  username: z.string().trim().toLowerCase().min(1, "Saisissez votre identifiant.").max(30),
+  code: z.string().trim().min(8, "Saisissez un code de récupération.").max(20),
+  password: Password,
+});
+export type PasswordReset = z.input<typeof PasswordReset>;
+
+export const PasswordChange = z.object({
+  current: z.string().min(1, "Saisissez votre mot de passe actuel.").max(128),
+  password: Password,
+});
+export type PasswordChange = z.input<typeof PasswordChange>;
+
+/** Codes de récupération en clair, remis une seule fois. */
+export const RecoveryCodes = z.object({ codes: z.array(z.string()) });
+export type RecoveryCodes = z.infer<typeof RecoveryCodes>;
+
 export const SessionUser = z.object({
   id: z.string(),
   role: Role,
   /** Absente pour un invité. */
   email: z.string().optional(),
+  /** Identifiant de connexion (ADR 0030) ; absent pour un invité et pour un ancien compte par lien. */
+  username: z.string().optional(),
 });
 export type SessionUser = z.infer<typeof SessionUser>;
 
@@ -34,6 +81,8 @@ export const SessionResponse = z.object({
   accessToken: z.string(),
   expiresIn: z.number().int().positive(),
   user: SessionUser,
+  /** Codes de récupération, remis une seule fois à la création du compte (ADR 0039). */
+  recoveryCodes: z.array(z.string()).optional(),
 });
 export type SessionResponse = z.infer<typeof SessionResponse>;
 
@@ -48,7 +97,11 @@ export const Consent = z.object({
 
 export const Me = z.object({
   id: z.string(),
-  email: z.string(),
+  /** Adresse d'un ancien compte par lien de connexion ; null pour un compte par identifiant (ADR 0030). */
+  email: z.string().nullable(),
+  username: z.string().nullable(),
+  /** Codes de récupération encore utilisables ; null pour un ancien compte par e-mail (ADR 0039). */
+  recoveryCodesLeft: z.number().int().nullable(),
   role: Role,
   createdAt: z.string(),
   consents: z.array(Consent),
@@ -74,7 +127,8 @@ export const ServiceTokenResponse = z.object({ accessToken: z.string(), expiresI
 /** Coordonnées d'un compte, pour un service autorisé (`users:contact`) : envoi de la veille. */
 export const UserContact = z.object({
   id: z.string(),
-  email: z.string(),
+  /** Null pour un compte par identifiant : la veille envoie alors à l'adresse saisie dans la veille. */
+  email: z.string().nullable(),
   status: z.enum(["active", "deleting"]),
 });
 export type UserContact = z.infer<typeof UserContact>;

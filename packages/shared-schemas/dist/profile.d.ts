@@ -15,6 +15,10 @@ export declare const Basics: z.ZodObject<{
         network: z.ZodString;
         url: z.ZodURL;
     }, z.core.$strip>>>;
+    birthDate: z.ZodOptional<z.ZodISODate>;
+    nationality: z.ZodOptional<z.ZodString>;
+    workPermit: z.ZodOptional<z.ZodString>;
+    drivingLicence: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export declare const Work: z.ZodObject<{
     name: z.ZodString;
@@ -75,6 +79,10 @@ export declare const Profile: z.ZodObject<{
             network: z.ZodString;
             url: z.ZodURL;
         }, z.core.$strip>>>;
+        birthDate: z.ZodOptional<z.ZodISODate>;
+        nationality: z.ZodOptional<z.ZodString>;
+        workPermit: z.ZodOptional<z.ZodString>;
+        drivingLicence: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     work: z.ZodDefault<z.ZodArray<z.ZodObject<{
         name: z.ZodString;

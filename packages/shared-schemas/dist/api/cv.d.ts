@@ -20,8 +20,8 @@ export declare const RemovedLine: z.ZodObject<{
 }, z.core.$strip>;
 export type RemovedLine = z.infer<typeof RemovedLine>;
 export declare const GenerationStatus: z.ZodEnum<{
-    ok: "ok";
     degraded: "degraded";
+    ok: "ok";
 }>;
 export declare const DegradedReason: z.ZodEnum<{
     indisponible: "indisponible";
@@ -42,8 +42,8 @@ export declare const Generation: z.ZodObject<{
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     status: z.ZodEnum<{
-        ok: "ok";
         degraded: "degraded";
+        ok: "ok";
     }>;
     degradedReason: z.ZodNullable<z.ZodEnum<{
         indisponible: "indisponible";
@@ -171,6 +171,10 @@ export declare const Generation: z.ZodObject<{
                 network: z.ZodString;
                 url: z.ZodURL;
             }, z.core.$strip>>>;
+            birthDate: z.ZodOptional<z.ZodISODate>;
+            nationality: z.ZodOptional<z.ZodString>;
+            workPermit: z.ZodOptional<z.ZodString>;
+            drivingLicence: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>;
         work: z.ZodDefault<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
@@ -228,8 +232,8 @@ export declare const GenerationSummary: z.ZodObject<{
     offerTitle: z.ZodString;
     createdAt: z.ZodString;
     status: z.ZodEnum<{
-        ok: "ok";
         degraded: "degraded";
+        ok: "ok";
     }>;
     score: z.ZodNullable<z.ZodNumber>;
     providerKind: z.ZodEnum<{
@@ -245,6 +249,11 @@ export declare const Corrections: z.ZodObject<{
         text: z.ZodOptional<z.ZodString>;
         remove: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
+    additions: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        entry: z.ZodString;
+        text: z.ZodString;
+        sources: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type Corrections = z.infer<typeof Corrections>;
 /**
@@ -286,8 +295,8 @@ export declare const GenerationEvent: z.ZodDiscriminatedUnion<[z.ZodObject<{
     type: z.ZodLiteral<"done">;
     generationId: z.ZodUUID;
     status: z.ZodEnum<{
-        ok: "ok";
         degraded: "degraded";
+        ok: "ok";
     }>;
 }, z.core.$strip>, z.ZodObject<{
     type: z.ZodLiteral<"failure">;

@@ -24,6 +24,8 @@ export const ServiceStats = z.object({
   service: z.string(),
   counters: z.record(z.string(), z.number()),
   llm: LlmUsageSummary.optional(),
+  /** Avis 👍 / 👎 anonymes des 30 derniers jours, par rôle d’assistant (ADR 0029). */
+  votes: z.array(z.object({ role: z.string(), up: z.number().int(), down: z.number().int() })).optional(),
 });
 export type ServiceStats = z.infer<typeof ServiceStats>;
 

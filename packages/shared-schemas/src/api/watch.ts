@@ -18,6 +18,15 @@ export const SubscriptionInput = z.object({
     .int()
     .refine((n) => (WATCH_RADII as readonly number[]).includes(n), "Choisissez un rayon dans la liste"),
   workingTime: WorkingTime,
+  /**
+   * Adresse qui reçoit la veille ; absente : celle du compte. Une adresse nouvelle ou modifiée est toujours
+   * confirmée par un lien envoyé à cette adresse (double opt-in) avant tout envoi d'offres.
+   */
+  email: z
+    .email("Saisissez une adresse e-mail valide.")
+    .max(254, "254 caractères au plus")
+    .transform((e) => e.toLowerCase())
+    .optional(),
   consent: z.literal(true, "Cochez la case pour accepter de recevoir la veille par e-mail"),
 });
 export type SubscriptionInput = z.input<typeof SubscriptionInput>;
@@ -30,6 +39,8 @@ export const Subscription = z.object({
   city: z.string(),
   radiusKm: z.number().int(),
   workingTime: WorkingTime,
+  /** Adresse de réception choisie ; `null` : celle du compte. */
+  email: z.string().nullable(),
   status: SubscriptionStatus,
   confirmedAt: z.string().nullable(),
   createdAt: z.string(),
@@ -65,3 +76,32 @@ export const WatchRun = z.object({
   summary: z.record(z.string(), z.unknown()),
 });
 export type WatchRun = z.infer<typeof WatchRun>;
+
+/**
+ * Rappel par courriel (ADR 0029, point 5) : étape du plan de progression ou relance d'une candidature,
+ * envoyé à l'adresse du compte le jour dit. Le lien reste interne à l'application.
+ */
+export const ReminderKind = z.enum(["progression", "relance"]);
+export const ReminderInput = z.object({
+  kind: ReminderKind,
+  sendOn: z.iso.date(),
+  title: z.string().trim().min(1).max(200),
+  detail: z.string().trim().max(1000).default(""),
+  link: z
+    .string()
+    .regex(/^\/[\w\-/?=&%.]*$/, "Lien interne attendu")
+    .max(300)
+    .nullable()
+    .default(null),
+});
+export type ReminderInput = z.input<typeof ReminderInput>;
+export const Reminder = z.object({
+  id: z.string(),
+  kind: ReminderKind,
+  sendOn: z.string(),
+  title: z.string(),
+  detail: z.string(),
+  link: z.string().nullable(),
+  sentAt: z.string().nullable(),
+});
+export type Reminder = z.infer<typeof Reminder>;

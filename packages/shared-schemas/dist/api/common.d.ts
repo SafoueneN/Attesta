@@ -39,6 +39,11 @@ export declare const ServiceStats: z.ZodObject<{
             costEur: z.ZodNumber;
         }, z.core.$strip>>;
     }, z.core.$strip>>;
+    votes: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        role: z.ZodString;
+        up: z.ZodNumber;
+        down: z.ZodNumber;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type ServiceStats = z.infer<typeof ServiceStats>;
 /** Export RGPD d'un service (art. 15 et 20) : données propres au service, agrégées par auth. */

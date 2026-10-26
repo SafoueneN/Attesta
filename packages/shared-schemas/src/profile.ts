@@ -41,6 +41,16 @@ export const Basics = z.object({
     .array(z.object({ network: ShortText, url: WebUrl }))
     .max(10)
     .default([]),
+  /*
+   * Informations personnelles (ADR 0036) : affichées ou masquées selon les usages du pays visé (date de
+   * naissance et nationalité en Allemagne et en Tunisie, jamais au Canada). Jamais transmises à l'IA.
+   */
+  birthDate: z.iso.date("Date au format AAAA-MM-JJ").optional(),
+  nationality: z.string().trim().max(80).optional(),
+  /** Autorisation de travail, titre de séjour (« Blue Card UE », « Résident permanent »…). */
+  workPermit: z.string().trim().max(120).optional(),
+  /** Permis de conduire (« B »). */
+  drivingLicence: z.string().trim().max(40).optional(),
 });
 
 export const Work = withDateOrder(

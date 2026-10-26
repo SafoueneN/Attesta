@@ -4,6 +4,7 @@ export * from "./cv.js";
 export * from "./offer.js";
 export * from "./pointer.js";
 export * from "./profile.js";
+export * from "./api/assistants.js";
 export * from "./api/auth.js";
 export * from "./api/common.js";
 export * from "./api/cv.js";
@@ -32,6 +33,10 @@ export declare function toJsonSchemas(): {
                 network: z.ZodString;
                 url: z.ZodURL;
             }, z.core.$strip>>>;
+            birthDate: z.ZodOptional<z.ZodISODate>;
+            nationality: z.ZodOptional<z.ZodString>;
+            workPermit: z.ZodOptional<z.ZodString>;
+            drivingLicence: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>;
         work: z.ZodDefault<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
@@ -83,8 +88,8 @@ export declare function toJsonSchemas(): {
         company: z.ZodOptional<z.ZodString>;
         language: z.ZodEnum<{
             fr: "fr";
-            de: "de";
             en: "en";
+            de: "de";
         }>;
         location: z.ZodOptional<z.ZodString>;
         contractType: z.ZodOptional<z.ZodEnum<{

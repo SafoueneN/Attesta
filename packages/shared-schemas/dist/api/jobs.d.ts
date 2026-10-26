@@ -1,8 +1,12 @@
 import { z } from "zod";
+/** Pays de la veille et des offres collectées (ADR 0033) : Allemagne, France, Canada, Tunisie. */
 export declare const Country: z.ZodEnum<{
     DE: "DE";
     FR: "FR";
+    CA: "CA";
+    TN: "TN";
 }>;
+export type Country = z.infer<typeof Country>;
 export declare const WorkingTime: z.ZodEnum<{
     indifferent: "indifferent";
     plein: "plein";
@@ -71,6 +75,8 @@ export declare const JobPosting: z.ZodObject<{
     country: z.ZodEnum<{
         DE: "DE";
         FR: "FR";
+        CA: "CA";
+        TN: "TN";
     }>;
     postedAt: z.ZodString;
     url: z.ZodString;
@@ -88,14 +94,35 @@ export declare const PostingSearch: z.ZodObject<{
     country: z.ZodOptional<z.ZodEnum<{
         DE: "DE";
         FR: "FR";
+        CA: "CA";
+        TN: "TN";
     }>>;
     limit: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    offset: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
 }, z.core.$strip>;
+/** Catalogue des offres collectées (ADR 0034) : volume par pays et dernière synchronisation. */
+export declare const PostingsOverview: z.ZodObject<{
+    total: z.ZodNumber;
+    countries: z.ZodArray<z.ZodObject<{
+        country: z.ZodEnum<{
+            DE: "DE";
+            FR: "FR";
+            CA: "CA";
+            TN: "TN";
+        }>;
+        count: z.ZodNumber;
+    }, z.core.$strip>>;
+    lastSyncAt: z.ZodNullable<z.ZodString>;
+    syncing: z.ZodBoolean;
+}, z.core.$strip>;
+export type PostingsOverview = z.infer<typeof PostingsOverview>;
 export declare const City: z.ZodObject<{
     nom: z.ZodString;
     pays: z.ZodEnum<{
         DE: "DE";
         FR: "FR";
+        CA: "CA";
+        TN: "TN";
     }>;
     lat: z.ZodNumber;
     lon: z.ZodNumber;
@@ -107,6 +134,8 @@ export declare const WatchCriteria: z.ZodObject<{
     country: z.ZodEnum<{
         DE: "DE";
         FR: "FR";
+        CA: "CA";
+        TN: "TN";
     }>;
     city: z.ZodString;
     lat: z.ZodNumber;
@@ -125,6 +154,8 @@ export declare const IngestionRequest: z.ZodObject<{
         country: z.ZodEnum<{
             DE: "DE";
             FR: "FR";
+            CA: "CA";
+            TN: "TN";
         }>;
         city: z.ZodString;
         lat: z.ZodNumber;
@@ -168,6 +199,10 @@ export declare const MatchRequest: z.ZodObject<{
                 network: z.ZodString;
                 url: z.ZodURL;
             }, z.core.$strip>>>;
+            birthDate: z.ZodOptional<z.ZodISODate>;
+            nationality: z.ZodOptional<z.ZodString>;
+            workPermit: z.ZodOptional<z.ZodString>;
+            drivingLicence: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>;
         work: z.ZodDefault<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
@@ -217,6 +252,8 @@ export declare const MatchRequest: z.ZodObject<{
         country: z.ZodEnum<{
             DE: "DE";
             FR: "FR";
+            CA: "CA";
+            TN: "TN";
         }>;
         city: z.ZodString;
         lat: z.ZodNumber;
@@ -242,6 +279,8 @@ export declare const MatchedPosting: z.ZodObject<{
         country: z.ZodEnum<{
             DE: "DE";
             FR: "FR";
+            CA: "CA";
+            TN: "TN";
         }>;
         postedAt: z.ZodString;
         url: z.ZodString;
@@ -274,6 +313,8 @@ export declare const MatchResponse: z.ZodObject<{
             country: z.ZodEnum<{
                 DE: "DE";
                 FR: "FR";
+                CA: "CA";
+                TN: "TN";
             }>;
             postedAt: z.ZodString;
             url: z.ZodString;

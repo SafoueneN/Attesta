@@ -20,6 +20,41 @@ export declare const LoginLinkPreview: z.ZodObject<{
 export declare const SessionCreate: z.ZodObject<{
     token: z.ZodString;
 }, z.core.$strip>;
+/**
+ * Comptes par identifiant et mot de passe (ADR 0030) : aucun e-mail n'est demandé pour créer un compte.
+ * L'adresse e-mail n'est saisie que dans la veille, pour recevoir les rapports.
+ */
+export declare const Username: z.ZodString;
+export declare const Password: z.ZodString;
+export declare const AccountCreate: z.ZodObject<{
+    username: z.ZodString;
+    password: z.ZodString;
+    policyAccepted: z.ZodLiteral<true>;
+}, z.core.$strip>;
+export type AccountCreate = z.input<typeof AccountCreate>;
+/** Connexion : aucune règle de format sur le mot de passe saisi, seulement des bornes. */
+export declare const PasswordLogin: z.ZodObject<{
+    username: z.ZodString;
+    password: z.ZodString;
+}, z.core.$strip>;
+export type PasswordLogin = z.input<typeof PasswordLogin>;
+/** Mot de passe oublié (ADR 0039) : identifiant, un code de récupération inutilisé, nouveau mot de passe. */
+export declare const PasswordReset: z.ZodObject<{
+    username: z.ZodString;
+    code: z.ZodString;
+    password: z.ZodString;
+}, z.core.$strip>;
+export type PasswordReset = z.input<typeof PasswordReset>;
+export declare const PasswordChange: z.ZodObject<{
+    current: z.ZodString;
+    password: z.ZodString;
+}, z.core.$strip>;
+export type PasswordChange = z.input<typeof PasswordChange>;
+/** Codes de récupération en clair, remis une seule fois. */
+export declare const RecoveryCodes: z.ZodObject<{
+    codes: z.ZodArray<z.ZodString>;
+}, z.core.$strip>;
+export type RecoveryCodes = z.infer<typeof RecoveryCodes>;
 export declare const SessionUser: z.ZodObject<{
     id: z.ZodString;
     role: z.ZodEnum<{
@@ -28,6 +63,7 @@ export declare const SessionUser: z.ZodObject<{
         guest: "guest";
     }>;
     email: z.ZodOptional<z.ZodString>;
+    username: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type SessionUser = z.infer<typeof SessionUser>;
 /** Jeton d'accès (15 min, en mémoire côté navigateur) ; le refresh token part en cookie HttpOnly. */
@@ -42,7 +78,9 @@ export declare const SessionResponse: z.ZodObject<{
             guest: "guest";
         }>;
         email: z.ZodOptional<z.ZodString>;
+        username: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
+    recoveryCodes: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type SessionResponse = z.infer<typeof SessionResponse>;
 export declare const ConsentPurpose: z.ZodEnum<{
@@ -62,7 +100,9 @@ export declare const Consent: z.ZodObject<{
 }, z.core.$strip>;
 export declare const Me: z.ZodObject<{
     id: z.ZodString;
-    email: z.ZodString;
+    email: z.ZodNullable<z.ZodString>;
+    username: z.ZodNullable<z.ZodString>;
+    recoveryCodesLeft: z.ZodNullable<z.ZodNumber>;
     role: z.ZodEnum<{
         candidate: "candidate";
         admin: "admin";
@@ -102,7 +142,7 @@ export declare const ServiceTokenResponse: z.ZodObject<{
 /** Coordonnées d'un compte, pour un service autorisé (`users:contact`) : envoi de la veille. */
 export declare const UserContact: z.ZodObject<{
     id: z.ZodString;
-    email: z.ZodString;
+    email: z.ZodNullable<z.ZodString>;
     status: z.ZodEnum<{
         active: "active";
         deleting: "deleting";
