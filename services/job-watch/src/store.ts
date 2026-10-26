@@ -3,7 +3,7 @@ import type { MatchedPosting, WatchCriteria } from "@attesta/shared-schemas";
 import type pg from "pg";
 
 /** Version de la politique de confidentialité, enregistrée avec chaque consentement de veille. */
-export const POLICY_VERSION = "2026-10-18";
+export const POLICY_VERSION = "2026-10-24";
 export const CONFIRM_TOKEN_MS = 48 * 60 * 60 * 1000;
 
 const newToken = () => randomBytes(32).toString("base64url");
@@ -15,6 +15,8 @@ export type SubscriptionStatus = "en_attente" | "active" | "desabonnee" | "suspe
 export interface SubscriptionRow extends WatchCriteria {
   id: string;
   userId: string;
+  /** Adresse de réception choisie ; `null` : celle du compte. */
+  recipientEmail: string | null;
   status: SubscriptionStatus;
   confirmedAt: Date | null;
   unsubscribeToken: string;
@@ -23,10 +25,25 @@ export interface SubscriptionRow extends WatchCriteria {
 }
 
 const SUB_COLUMNS = `id, user_id AS "userId", occupations, country, city, lat, lon, radius_km AS "radiusKm",
-  working_time AS "workingTime", status, confirmed_at AS "confirmedAt", unsubscribe_token AS "unsubscribeToken",
+  working_time AS "workingTime", recipient_email AS "recipientEmail", status, confirmed_at AS "confirmedAt",
+  unsubscribe_token AS "unsubscribeToken",
   created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 type Db = pg.Pool | pg.PoolClient;
+
+export interface ReminderRow {
+  id: string;
+  userId: string;
+  kind: "progression" | "relance";
+  sendOn: string;
+  title: string;
+  detail: string;
+  link: string | null;
+  sentAt: Date | null;
+}
+
+const REMINDER_COLUMNS = `id, user_id AS "userId", kind, to_char(send_on, 'YYYY-MM-DD') AS "sendOn", title, detail,
+  link, sent_at AS "sentAt"`;
 
 export class WatchStore {
   constructor(private readonly pool: pg.Pool) {}
@@ -52,22 +69,31 @@ export class WatchStore {
    * Crée ou modifie l'abonnement. Un abonnement actif le reste (consentement déjà confirmé) ; sinon il
    * repasse « en attente » et un jeton de confirmation (double opt-in) est renvoyé, à envoyer par e-mail.
    */
+  /**
+   * Crée ou modifie la veille, active tout de suite (ADR 0030, point 5) : aucun lien de confirmation, les
+   * rapports partent dès le prochain passage. Le consentement coché est journalisé ; chaque e-mail garde son
+   * lien de désabonnement en un clic. Une veille suspendue (rebond) ou désabonnée est réactivée.
+   */
   async saveSubscription(
     userId: string,
     c: WatchCriteria,
+    recipientEmail: string | null,
     ipHash: string,
-  ): Promise<{ row: SubscriptionRow; confirmToken?: string }> {
-    const confirmToken = newToken();
+  ): Promise<{ row: SubscriptionRow }> {
+    const stillActive = `watch_subscription.status = 'active'
+      AND watch_subscription.recipient_email IS NOT DISTINCT FROM EXCLUDED.recipient_email`;
     const { rows } = await this.pool.query<SubscriptionRow>(
-      `INSERT INTO watch_subscription (user_id, occupations, country, city, lat, lon, radius_km, working_time, status,
-         confirm_token_hash, confirm_expires_at, unsubscribe_token)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'en_attente', $9, now() + $10 * interval '1 millisecond', $11)
+      `INSERT INTO watch_subscription (user_id, occupations, country, city, lat, lon, radius_km, working_time,
+         recipient_email, status, confirmed_at, unsubscribe_token)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $10, 'active', now(), $9)
        ON CONFLICT (user_id) DO UPDATE SET
          occupations = EXCLUDED.occupations, country = EXCLUDED.country, city = EXCLUDED.city, lat = EXCLUDED.lat,
          lon = EXCLUDED.lon, radius_km = EXCLUDED.radius_km, working_time = EXCLUDED.working_time, updated_at = now(),
-         status = CASE WHEN watch_subscription.status = 'active' THEN 'active' ELSE 'en_attente' END,
-         confirm_token_hash = CASE WHEN watch_subscription.status = 'active' THEN NULL ELSE EXCLUDED.confirm_token_hash END,
-         confirm_expires_at = CASE WHEN watch_subscription.status = 'active' THEN NULL ELSE EXCLUDED.confirm_expires_at END
+         status = 'active',
+         confirmed_at = CASE WHEN ${stillActive} THEN watch_subscription.confirmed_at ELSE now() END,
+         confirm_token_hash = NULL,
+         confirm_expires_at = NULL,
+         recipient_email = EXCLUDED.recipient_email
        RETURNING ${SUB_COLUMNS}`,
       [
         userId,
@@ -78,14 +104,13 @@ export class WatchStore {
         c.lon,
         c.radiusKm,
         c.workingTime,
-        hashToken(confirmToken),
-        CONFIRM_TOKEN_MS,
         newToken(),
+        recipientEmail,
       ],
     );
     const row = rows[0]!;
     await this.consent(this.pool, userId, true, "demande", ipHash);
-    return row.status === "active" ? { row } : { row, confirmToken };
+    return { row };
   }
 
   private async consent(db: Db, userId: string, granted: boolean, reason: string, ipHash: string | null) {
@@ -377,12 +402,61 @@ export class WatchStore {
 
   // --- RGPD, administration, rétention --------------------------------------------------------------
 
+  // --- Rappels (ADR 0029, point 5) -----------------------------------------------------------------
+
+  /** Ajoute un rappel ; `undefined` si le compte en a déjà 20 en attente. */
+  async addReminder(
+    userId: string,
+    r: { kind: string; sendOn: string; title: string; detail: string; link: string | null },
+  ): Promise<ReminderRow | undefined> {
+    const { rows } = await this.pool.query<ReminderRow>(
+      `INSERT INTO reminder (user_id, kind, send_on, title, detail, link)
+       SELECT $1, $2, $3, $4, $5, $6
+       WHERE (SELECT count(*) FROM reminder WHERE user_id = $1 AND sent_at IS NULL) < 20
+       RETURNING ${REMINDER_COLUMNS}`,
+      [userId, r.kind, r.sendOn, r.title, r.detail, r.link],
+    );
+    return rows[0];
+  }
+
+  async reminders(userId: string): Promise<ReminderRow[]> {
+    const { rows } = await this.pool.query<ReminderRow>(
+      `SELECT ${REMINDER_COLUMNS} FROM reminder WHERE user_id = $1 ORDER BY send_on, created_at LIMIT 100`,
+      [userId],
+    );
+    return rows;
+  }
+
+  async deleteReminder(userId: string, id: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query("DELETE FROM reminder WHERE user_id = $1 AND id = $2", [
+      userId,
+      id,
+    ]);
+    return (rowCount ?? 0) > 0;
+  }
+
+  async dueReminders(today: string, limit: number): Promise<ReminderRow[]> {
+    const { rows } = await this.pool.query<ReminderRow>(
+      `SELECT ${REMINDER_COLUMNS} FROM reminder WHERE sent_at IS NULL AND send_on <= $1 ORDER BY send_on LIMIT $2`,
+      [today, limit],
+    );
+    return rows;
+  }
+
+  async markReminderSent(id: string): Promise<void> {
+    await this.pool.query("UPDATE reminder SET sent_at = now() WHERE id = $1", [id]);
+  }
+
   async exportUser(userId: string) {
     const q = async (sql: string) => (await this.pool.query(sql, [userId])).rows;
     return {
+      rappels: await q(
+        "SELECT kind, send_on, title, detail, link, created_at, sent_at FROM reminder WHERE user_id = $1 ORDER BY send_on",
+      ),
       veille: (
         await q(
-          `SELECT occupations, country, city, radius_km, working_time, status, confirmed_at, created_at
+          `SELECT occupations, country, city, radius_km, working_time, recipient_email, status, confirmed_at,
+             created_at
            FROM watch_subscription WHERE user_id = $1`,
         )
       )[0],
@@ -405,6 +479,7 @@ export class WatchStore {
   async deleteUser(userId: string): Promise<void> {
     await this.pool.query("DELETE FROM watch_subscription WHERE user_id = $1", [userId]);
     await this.pool.query("DELETE FROM watch_consent WHERE user_id = $1", [userId]);
+    await this.pool.query("DELETE FROM reminder WHERE user_id = $1", [userId]);
   }
 
   async stats() {
@@ -426,6 +501,7 @@ export class WatchStore {
         WHERE status = 'en_attente' AND created_at < now() - interval '7 days'`,
       evenementsEmail: "DELETE FROM email_event WHERE at < now() - interval '13 months'",
       executions: "DELETE FROM watch_run WHERE started_at < now() - interval '13 months'",
+      rappels: "DELETE FROM reminder WHERE sent_at < now() - interval '13 months'",
     };
     const counts: Record<string, number> = {};
     for (const [name, sql] of Object.entries(statements))

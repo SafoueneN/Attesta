@@ -1,6 +1,7 @@
 import { createServiceClient, createServiceTokens } from "@attesta/http-kit";
 import {
   City,
+  type Country,
   IngestionSummary,
   MatchResponse,
   StoredProfile,
@@ -18,7 +19,7 @@ import {
 export interface Upstreams {
   contact(userId: string): Promise<UserContact | undefined>;
   profile(userId: string): Promise<StoredProfile | undefined>;
-  resolveCity(userToken: string, country: "DE" | "FR", name: string): Promise<City | undefined>;
+  resolveCity(userToken: string, country: Country, name: string): Promise<City | undefined>;
   ingest(criteria: WatchCriteria[], date: string): Promise<IngestionSummary>;
   match(request: MatchRequest): Promise<MatchResponse>;
   offersReport(view: OffersReport): Promise<Uint8Array>;

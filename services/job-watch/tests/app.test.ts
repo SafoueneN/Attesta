@@ -12,7 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { processSubscription, runDaily } from "../src/daily.js";
 import { migrate } from "../src/db.js";
-import { MailError, MemoryMailer, type MailMessage } from "../src/mail.js";
+import { MailError, MemoryMailer } from "../src/mail.js";
 import { WatchStore } from "../src/store.js";
 import type { Upstreams } from "../src/upstreams.js";
 import { testLogger } from "./helpers.js";
@@ -107,8 +107,6 @@ const input = {
   consent: true,
 };
 
-const tokenFromMail = (m: MailMessage) => /\/veille\/confirmer\/([A-Za-z0-9_-]+)/.exec(m.text)![1]!;
-
 describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
   let pool: pg.Pool;
   let store: WatchStore;
@@ -147,41 +145,31 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
       brevoWebhookToken: "secret-du-webhook-0000",
     });
 
-  async function subscribeAndConfirm(upstreams?: Upstreams) {
+  // Veille active dès l'enregistrement, sans lien de confirmation (ADR 0030, point 5).
+  async function subscribe(upstreams?: Upstreams, email?: string) {
     const token = await t.user(userId);
     await request(app(upstreams))
       .put("/v1/subscriptions/me")
       .auth(token, { type: "bearer" })
-      .send(input)
+      .send({ ...input, email })
       .expect(200);
-    await request(app(upstreams))
-      .post(`/v1/subscriptions/confirm/${tokenFromMail(mailer.sent[0]!)}`)
-      .expect(204);
     return (await store.subscription(userId))!;
   }
 
-  describe("abonnement et double opt-in", () => {
-    it("enregistre la veille en attente et envoie le lien de confirmation vers le frontend", async () => {
+  describe("abonnement", () => {
+    it("active la veille tout de suite, sans e-mail de confirmation", async () => {
       const res = await request(app())
         .put("/v1/subscriptions/me")
         .auth(await t.user(userId), { type: "bearer" })
         .send(input);
       expect(res.status).toBe(200);
-      expect(res.body.confirmationSent).toBe(true);
-      expect(Subscription.parse(res.body.subscription)).toMatchObject({
-        status: "en_attente",
-        city: "Berlin",
-      });
-      expect(mailer.sent[0]!.to).toBe("lea@example.org");
-      expect(mailer.sent[0]!.text).toMatch(/http:\/\/localhost:8080\/veille\/confirmer\//);
+      expect(res.body.confirmationSent).toBe(false);
+      expect(Subscription.parse(res.body.subscription)).toMatchObject({ status: "active", city: "Berlin" });
+      expect(mailer.sent).toHaveLength(0);
     });
 
-    it("active la veille au clic, une seule fois, et ne redemande pas de confirmation ensuite", async () => {
-      await subscribeAndConfirm();
-      expect((await store.subscription(userId))?.status).toBe("active");
-      expect(
-        (await request(app()).post(`/v1/subscriptions/confirm/${tokenFromMail(mailer.sent[0]!)}`)).status,
-      ).toBe(410);
+    it("met à jour les critères sans désactiver la veille ; un ancien lien de confirmation a expiré", async () => {
+      await subscribe();
       const res = await request(app())
         .put("/v1/subscriptions/me")
         .auth(await t.user(userId), { type: "bearer" })
@@ -190,6 +178,47 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
         confirmationSent: false,
         subscription: { status: "active", radiusKm: 50 },
       });
+      expect((await request(app()).post(`/v1/subscriptions/confirm/${"a".repeat(43)}`)).status).toBe(410);
+    });
+
+    it("enregistre l'adresse de réception choisie par le candidat, en minuscules", async () => {
+      const res = await request(app())
+        .put("/v1/subscriptions/me")
+        .auth(await t.user(userId), { type: "bearer" })
+        .send({ ...input, email: "Lea.Perso@Example.NET" });
+      expect(res.body).toMatchObject({
+        confirmationSent: false,
+        subscription: { status: "active", email: "lea.perso@example.net" },
+      });
+      expect(mailer.sent).toHaveLength(0);
+    });
+
+    it("ne recopie pas l'adresse du compte comme adresse de réception", async () => {
+      await subscribe();
+      const put = async (email: string) =>
+        request(app())
+          .put("/v1/subscriptions/me")
+          .auth(await t.user(userId), { type: "bearer" })
+          .send({ ...input, email });
+      // Adresse du compte, même écrite autrement : elle suit le compte, rien n'est stocké.
+      expect((await put("LEA@example.org")).body).toMatchObject({
+        subscription: { status: "active", email: null },
+      });
+      expect((await put("lea.perso@example.net")).body).toMatchObject({
+        subscription: { status: "active", email: "lea.perso@example.net" },
+      });
+    });
+
+    it("refuse une adresse de réception invalide", async () => {
+      const res = await request(app())
+        .put("/v1/subscriptions/me")
+        .auth(await t.user(userId), { type: "bearer" })
+        .send({ ...input, email: "pas-une-adresse" });
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toEqual([
+        expect.objectContaining({ champ: "email", message: "Saisissez une adresse e-mail valide." }),
+      ]);
+      expect(mailer.sent).toHaveLength(0);
     });
 
     it("refuse une ville inconnue, un rayon hors liste, l'absence de consentement ou de profil", async () => {
@@ -220,7 +249,7 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
     });
 
     it("désabonne en un clic (RFC 8058), de façon idempotente, et journalise le retrait", async () => {
-      const s = await subscribeAndConfirm();
+      const s = await subscribe();
       const once = () =>
         request(app())
           .post(`/v1/subscriptions/unsubscribe/${s.unsubscribeToken}`)
@@ -230,11 +259,11 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
       expect((await once()).status).toBe(200);
       expect((await store.subscription(userId))?.status).toBe("desabonnee");
       const consents = await pool.query("SELECT granted, reason FROM watch_consent ORDER BY id");
-      expect(consents.rows.map((r) => r.reason)).toEqual(["demande", "confirmation", "desabonnement"]);
+      expect(consents.rows.map((r) => r.reason)).toEqual(["demande", "desabonnement"]);
     });
 
     it("arrête la veille depuis le compte", async () => {
-      await subscribeAndConfirm();
+      await subscribe();
       await request(app())
         .delete("/v1/subscriptions/me")
         .auth(await t.user(userId), { type: "bearer" })
@@ -254,7 +283,7 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
 
     it("envoie un rapport avec deux PDF, désabonnement en un clic vers l'API, et une seule fois par jour", async () => {
       const upstreams = fakeUpstreams({ postings });
-      await subscribeAndConfirm(upstreams);
+      await subscribe(upstreams);
       mailer.sent.length = 0;
       const summary = await runDaily(deps(upstreams), today, "manuelle");
       expect(summary).toMatchObject({ abonnes: { envoye: 1 }, echecs: 0 });
@@ -274,9 +303,17 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
       expect(mailer.sent).toHaveLength(1);
     });
 
+    it("envoie le rapport à l'adresse de réception choisie, pas à celle du compte", async () => {
+      const upstreams = fakeUpstreams({ postings });
+      await subscribe(upstreams, "lea.perso@example.net");
+      mailer.sent.length = 0;
+      await runDaily(deps(upstreams), today, "manuelle");
+      expect(mailer.sent.map((m) => m.to)).toEqual(["lea.perso@example.net"]);
+    });
+
     it("n'envoie jamais deux fois la même offre, ni d'e-mail vide", async () => {
       const upstreams = fakeUpstreams({ postings });
-      await subscribeAndConfirm(upstreams);
+      await subscribe(upstreams);
       mailer.sent.length = 0;
       await runDaily(deps(upstreams), today, "manuelle");
       await runDaily(deps(upstreams), tomorrow, "manuelle");
@@ -295,7 +332,7 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
 
     it("lève la réservation si l'e-mail n'est certainement pas parti, pour la relance", async () => {
       const upstreams = fakeUpstreams({ postings });
-      const s = await subscribeAndConfirm(upstreams);
+      const s = await subscribe(upstreams);
       const failing = { send: async () => Promise.reject(new MailError("EAUTH", 535, true)) };
       await expect(
         processSubscription({ ...deps(upstreams), mailer: failing }, s, today),
@@ -306,7 +343,7 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
     });
 
     it("saute un abonné sans profil, et lance l'exécution depuis l'administration", async () => {
-      await subscribeAndConfirm(fakeUpstreams({ postings }));
+      await subscribe(fakeUpstreams({ postings }));
       const upstreams = fakeUpstreams({ postings, profile: false });
       const admin = await t.user(randomUUID(), "admin");
       const a = app(upstreams);
@@ -324,7 +361,7 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
   describe("retours du fournisseur, RGPD et administration", () => {
     it("arrête la veille sur une plainte, après vérification du secret du webhook", async () => {
       const upstreams = fakeUpstreams({ postings: [matched(randomUUID(), "Dev")] });
-      await subscribeAndConfirm(upstreams);
+      await subscribe(upstreams);
       await runDaily(deps(upstreams), today, "manuelle");
       const deliveryId = (await pool.query("SELECT id FROM email_delivery")).rows[0].id;
       expect(
@@ -341,7 +378,7 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
 
     it("suspend la veille sur un rebond définitif", async () => {
       const upstreams = fakeUpstreams({ postings: [matched(randomUUID(), "Dev")] });
-      await subscribeAndConfirm(upstreams);
+      await subscribe(upstreams);
       await runDaily(deps(upstreams), today, "manuelle");
       const messageId = (await pool.query("SELECT provider_message_id FROM email_delivery")).rows[0]
         .provider_message_id;
@@ -350,7 +387,7 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
     });
 
     it("exporte puis efface la veille d'un utilisateur", async () => {
-      await subscribeAndConfirm();
+      await subscribe();
       const exp = await request(app())
         .get(`/internal/v1/users/${userId}/export`)
         .auth(await t.service("users:export"), { type: "bearer" });
@@ -363,15 +400,15 @@ describe.skipIf(!db)("service job-watch (intégration PostgreSQL)", () => {
       expect((await pool.query("SELECT 1 FROM watch_consent")).rowCount).toBe(0);
     });
 
-    it("donne des compteurs à l'administrateur et purge les veilles non confirmées", async () => {
-      await request(app())
-        .put("/v1/subscriptions/me")
-        .auth(await t.user(userId), { type: "bearer" })
-        .send(input);
+    it("donne des compteurs à l'administrateur et purge les anciennes veilles jamais confirmées", async () => {
+      await subscribe();
       const admin = await t.user(randomUUID(), "admin");
       const stats = await request(app()).get("/v1/admin/stats").auth(admin, { type: "bearer" });
-      expect(stats.body.counters).toMatchObject({ pending: 1, active: 0 });
-      await pool.query("UPDATE watch_subscription SET created_at = now() - interval '8 days'");
+      expect(stats.body.counters).toMatchObject({ pending: 0, active: 1 });
+      // Veille en attente d'avant l'ADR 0030 (double opt-in) : purgée après 7 jours.
+      await pool.query(
+        "UPDATE watch_subscription SET status = 'en_attente', created_at = now() - interval '8 days'",
+      );
       expect((await store.purge()).veillesNonConfirmees).toBe(1);
     });
   });

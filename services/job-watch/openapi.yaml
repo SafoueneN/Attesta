@@ -58,6 +58,225 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/reminders":
+    get:
+      operationId: "mesRappels"
+      summary: "Rappels par courriel programmés par le candidat (ADR 0029)"
+      tags:
+        - "rappels"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Rappels"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                    kind:
+                      type: "string"
+                      enum:
+                        - "progression"
+                        - "relance"
+                    sendOn:
+                      type: "string"
+                    title:
+                      type: "string"
+                    detail:
+                      type: "string"
+                    link:
+                      type:
+                        - "string"
+                        - "null"
+                    sentAt:
+                      type:
+                        - "string"
+                        - "null"
+                  required:
+                    - "id"
+                    - "kind"
+                    - "sendOn"
+                    - "title"
+                    - "detail"
+                    - "link"
+                    - "sentAt"
+                  additionalProperties: false
+    post:
+      operationId: "programmerRappel"
+      summary: "Programme un rappel (étape du plan, relance) ; 20 en attente au plus"
+      tags:
+        - "rappels"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                kind:
+                  type: "string"
+                  enum:
+                    - "progression"
+                    - "relance"
+                sendOn:
+                  type: "string"
+                  format: "date"
+                  pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                title:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 200
+                detail:
+                  default: ""
+                  type: "string"
+                  maxLength: 1000
+                link:
+                  default: null
+                  anyOf:
+                    -
+                      type: "string"
+                      maxLength: 300
+                      pattern: "^\\/[\\w\\-/?=&%.]*$"
+                    -
+                      type: "null"
+              required:
+                - "kind"
+                - "sendOn"
+                - "title"
+      responses:
+        "201":
+          description: "Rappel programmé"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                  kind:
+                    type: "string"
+                    enum:
+                      - "progression"
+                      - "relance"
+                  sendOn:
+                    type: "string"
+                  title:
+                    type: "string"
+                  detail:
+                    type: "string"
+                  link:
+                    type:
+                      - "string"
+                      - "null"
+                  sentAt:
+                    type:
+                      - "string"
+                      - "null"
+                required:
+                  - "id"
+                  - "kind"
+                  - "sendOn"
+                  - "title"
+                  - "detail"
+                  - "link"
+                  - "sentAt"
+                additionalProperties: false
+        "400":
+          description: "Date invalide"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+        "409":
+          description: "Trop de rappels en attente"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/reminders/{id}":
+    delete:
+      operationId: "supprimerRappel"
+      summary: "Supprime un rappel"
+      tags:
+        - "rappels"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Supprimé"
   "/v1/subscriptions/me":
     get:
       operationId: "maVeille"
@@ -85,6 +304,8 @@ paths:
                     enum:
                       - "DE"
                       - "FR"
+                      - "CA"
+                      - "TN"
                   city:
                     type: "string"
                   radiusKm:
@@ -97,6 +318,10 @@ paths:
                       - "indifferent"
                       - "plein"
                       - "partiel"
+                  email:
+                    type:
+                      - "string"
+                      - "null"
                   status:
                     type: "string"
                     enum:
@@ -118,6 +343,7 @@ paths:
                   - "city"
                   - "radiusKm"
                   - "workingTime"
+                  - "email"
                   - "status"
                   - "confirmedAt"
                   - "createdAt"
@@ -188,6 +414,8 @@ paths:
                   enum:
                     - "DE"
                     - "FR"
+                    - "CA"
+                    - "TN"
                 city:
                   type: "string"
                   minLength: 1
@@ -202,6 +430,11 @@ paths:
                     - "indifferent"
                     - "plein"
                     - "partiel"
+                email:
+                  type: "string"
+                  maxLength: 254
+                  format: "email"
+                  pattern: "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
                 consent:
                   type: "boolean"
                   const: true
@@ -233,6 +466,8 @@ paths:
                         enum:
                           - "DE"
                           - "FR"
+                          - "CA"
+                          - "TN"
                       city:
                         type: "string"
                       radiusKm:
@@ -245,6 +480,10 @@ paths:
                           - "indifferent"
                           - "plein"
                           - "partiel"
+                      email:
+                        type:
+                          - "string"
+                          - "null"
                       status:
                         type: "string"
                         enum:
@@ -266,6 +505,7 @@ paths:
                       - "city"
                       - "radiusKm"
                       - "workingTime"
+                      - "email"
                       - "status"
                       - "confirmedAt"
                       - "createdAt"
@@ -586,6 +826,26 @@ paths:
                       - "budgetEur"
                       - "byStep"
                     additionalProperties: false
+                  votes:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        role:
+                          type: "string"
+                        up:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        down:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                      required:
+                        - "role"
+                        - "up"
+                        - "down"
+                      additionalProperties: false
                 required:
                   - "service"
                   - "counters"

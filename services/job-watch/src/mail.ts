@@ -136,6 +136,30 @@ export function confirmSubscriptionMessage(to: string, link: string): MailMessag
   };
 }
 
+/** Rappel du candidat (ADR 0029) : son titre, son détail et un lien vers l'écran concerné. */
+export function reminderMessage(
+  to: string,
+  r: { kind: "progression" | "relance"; title: string; detail: string; link: string | null },
+  appBaseUrl: string,
+): MailMessage {
+  return {
+    to,
+    subject: `Attesta – rappel : ${r.title}`,
+    ...layout(
+      [
+        "Bonjour,",
+        r.kind === "relance"
+          ? "Vous nous avez demandé de vous rappeler de relancer cette candidature :"
+          : "Vous nous avez demandé de vous rappeler cette étape de votre plan de progression :",
+        r.title,
+        ...(r.detail ? [r.detail] : []),
+        "Vous recevez ce message parce que vous avez programmé ce rappel ; vous pouvez gérer vos rappels depuis votre compte.",
+      ],
+      r.link ? { href: new URL(r.link, appBaseUrl).href, label: "Ouvrir Attesta" } : undefined,
+    ),
+  };
+}
+
 export interface DailyMessageInput {
   to: string;
   /** Identifiant de l'envoi, renvoyé par Brevo dans ses webhooks (en-tête X-Mailin-custom). */

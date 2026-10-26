@@ -15,7 +15,8 @@ COPY packages/shared-schemas/package.json packages/shared-schemas/
 COPY packages/shared-schemas/dist packages/shared-schemas/dist
 WORKDIR /repo/services/job-watch
 COPY services/job-watch/package.json services/job-watch/package-lock.json services/job-watch/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les builds, reprises réseau : une relance réutilise les paquets déjà téléchargés.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-maxtimeout=120000
 COPY services/job-watch/tsconfig.json services/job-watch/tsconfig.build.json ./
 COPY services/job-watch/src src
 RUN npm run build && npm prune --omit=dev

@@ -3,9 +3,10 @@ import { createJwksVerifier, startServer, USER_AUDIENCE } from "@attesta/http-ki
 import { createLogger } from "@attesta/logger";
 import { createApp } from "./app.js";
 import { loadConfig, SERVICE } from "./config.js";
-import { startScheduler } from "./daily.js";
+import { parisNow, startScheduler } from "./daily.js";
 import { checkDatabase, createPool, migrate } from "./db.js";
 import { SmtpMailer } from "./mail.js";
+import { startReminders } from "./reminders.js";
 import { WatchStore } from "./store.js";
 import { httpUpstreams } from "./upstreams.js";
 
@@ -41,6 +42,7 @@ const deps = {
 const stopScheduler = config.DAILY_RUN_ENABLED
   ? startScheduler(deps, config.DAILY_RUN_HOUR)
   : () => undefined;
+const stopReminders = startReminders(deps, () => parisNow().date);
 const purge = setInterval(
   () =>
     store
@@ -65,6 +67,7 @@ await startServer({
   logger,
   onClose: async () => {
     stopScheduler();
+    stopReminders();
     clearInterval(purge);
     await pool.end();
   },

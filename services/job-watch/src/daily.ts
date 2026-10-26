@@ -83,6 +83,9 @@ export async function processSubscription(
   if (await store.deliveredToday(s.id, date)) return { status: "deja-envoye" };
   const contact = await upstreams.contact(s.userId);
   if (!contact || contact.status !== "active") return { status: "compte-inactif" };
+  // Adresse confirmée par le candidat pour la veille, sinon celle d'un ancien compte par lien (ADR 0030).
+  const to = s.recipientEmail ?? contact.email;
+  if (!to) return { status: "compte-inactif" };
   const profile = await upstreams.profile(s.userId);
   if (!profile) return { status: "sans-profil" };
 
@@ -121,7 +124,7 @@ export async function processSubscription(
   try {
     ({ messageId } = await deps.mailer.send(
       dailyReportMessage({
-        to: contact.email,
+        to,
         deliveryId: delivery,
         date: frDate(date),
         offers: result.postings.map((m) => ({

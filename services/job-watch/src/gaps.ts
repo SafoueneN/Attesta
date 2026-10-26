@@ -83,8 +83,11 @@ export function skillGaps(postings: GapPosting[], profileSkills: string[], limit
       if (paidWith.length >= MIN_SALARY_SAMPLE && paidWithout.length >= MIN_SALARY_SAMPLE) {
         const medianWith = median(paidWith.map((x) => x.mid));
         const medianWithout = median(paidWithout.map((x) => x.mid));
-        const low = median(paidWith.map((x) => x.p.salaryMinEur ?? x.mid));
-        const high = median(paidWith.map((x) => x.p.salaryMaxEur ?? x.mid));
+        // Bornes remises dans l'ordre : une source peut publier une fourchette inversée (aucun contrôle amont).
+        const bound = (x: { p: GapPosting; mid: number }, pick: typeof Math.min) =>
+          pick(x.p.salaryMinEur ?? x.mid, x.p.salaryMaxEur ?? x.mid);
+        const low = median(paidWith.map((x) => bound(x, Math.min)));
+        const high = median(paidWith.map((x) => bound(x, Math.max)));
         salary = { status: "ok", medianWith, medianWithout, rangeWith: [low, high], sample };
         gapScore = Math.max(0, Math.min(1, (medianWith - medianWithout) / medianWithout / FULL_GAP));
       }

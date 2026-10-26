@@ -13,6 +13,8 @@ import {
 } from "@attesta/http-kit";
 import type { Logger } from "@attesta/logger";
 import {
+  Reminder,
+  ReminderInput,
   ServiceStats,
   Subscription,
   SubscriptionInput,
@@ -24,8 +26,8 @@ import {
 import express, { type Express, type Request, type Response } from "express";
 import { z } from "zod";
 import { parisNow, runDaily, type DailyDeps } from "./daily.js";
-import { confirmSubscriptionMessage } from "./mail.js";
-import type { SubscriptionRow } from "./store.js";
+import { recipientOf } from "./reminders.js";
+import type { ReminderRow, SubscriptionRow } from "./store.js";
 
 export interface RouteDeps extends DailyDeps {
   verifier: TokenVerifier;
@@ -41,6 +43,38 @@ const invalidLink = () =>
   new AppError("lien_invalide", 410, "Ce lien n'est plus valide : il a déjà servi ou il a expiré.");
 
 export const operations: Operation[] = [
+  {
+    method: "get",
+    path: "/v1/reminders",
+    operationId: "mesRappels",
+    summary: "Rappels par courriel programmés par le candidat (ADR 0029)",
+    tags: ["rappels"],
+    auth: true,
+    responses: { 200: { description: "Rappels", schema: z.array(Reminder) } },
+  },
+  {
+    method: "post",
+    path: "/v1/reminders",
+    operationId: "programmerRappel",
+    summary: "Programme un rappel (étape du plan, relance) ; 20 en attente au plus",
+    tags: ["rappels"],
+    auth: true,
+    body: ReminderInput,
+    responses: {
+      201: { description: "Rappel programmé", schema: Reminder },
+      400: { description: "Date invalide" },
+      409: { description: "Trop de rappels en attente" },
+    },
+  },
+  {
+    method: "delete",
+    path: "/v1/reminders/{id}",
+    operationId: "supprimerRappel",
+    summary: "Supprime un rappel",
+    tags: ["rappels"],
+    auth: true,
+    responses: { 204: { description: "Supprimé" } },
+  },
   {
     method: "get",
     path: "/v1/subscriptions/me",
@@ -158,6 +192,7 @@ const toDto = (s: SubscriptionRow) => ({
   city: s.city,
   radiusKm: s.radiusKm,
   workingTime: s.workingTime,
+  email: s.recipientEmail,
   status: s.status,
   confirmedAt: s.confirmedAt?.toISOString() ?? null,
   createdAt: s.createdAt.toISOString(),
@@ -177,6 +212,53 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
     res.set("Cache-Control", "no-store").set("Referrer-Policy", "no-referrer");
     next();
   };
+
+  // --- Rappels par courriel (ADR 0029, point 5) ------------------------------------------------------
+
+  const reminderDto = (r: ReminderRow) => ({
+    id: r.id,
+    kind: r.kind,
+    sendOn: r.sendOn,
+    title: r.title,
+    detail: r.detail,
+    link: r.link,
+    sentAt: r.sentAt?.toISOString() ?? null,
+  });
+
+  app.get("/v1/reminders", auth, requireAccount(), async (_req, res) => {
+    res.json((await store.reminders(me(res))).map(reminderDto));
+  });
+
+  app.post("/v1/reminders", auth, requireAccount(), async (req, res) => {
+    const input = parseInput(ReminderInput, req.body);
+    const today = parisNow().date;
+    const limit = new Date(Date.parse(`${today}T00:00:00Z`) + 366 * 86_400_000).toISOString().slice(0, 10);
+    // Un jour de tolérance : le navigateur du candidat peut être en retard d’un jour sur Paris.
+    const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    if (input.sendOn < yesterday || input.sendOn > limit) {
+      throw new AppError("entree_invalide", 400, "Certaines informations sont invalides.", [
+        { champ: "sendOn", message: "Choisissez une date entre aujourd'hui et dans un an." },
+      ]);
+    }
+    const contact = await upstreams.contact(me(res));
+    if (!(await recipientOf(store, me(res), contact?.email ?? null))) {
+      throw new AppError(
+        "sans_adresse",
+        409,
+        "Ajoutez et confirmez d'abord votre adresse e-mail dans la veille emploi : c'est là que partent les rappels.",
+      );
+    }
+    const row = await store.addReminder(me(res), input);
+    if (!row) throw new AppError("trop_de_rappels", 409, "Vous avez déjà 20 rappels en attente.");
+    logger.info({ event: "rappel_programme", kind: input.kind }, "rappels");
+    res.status(201).json(reminderDto(row));
+  });
+
+  app.delete("/v1/reminders/:id", auth, requireAccount(), async (req, res) => {
+    const { id } = parseInput(UserParam, req.params);
+    if (!(await store.deleteReminder(me(res), id))) throw notFound("Ce rappel n'existe plus.");
+    res.status(204).end();
+  });
 
   app.get("/v1/subscriptions/me", auth, requireAccount(), async (_req, res) => {
     const s = await store.subscription(me(res));
@@ -210,7 +292,16 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
     }
     if (!contact)
       throw new AppError("compte_inconnu", 409, "Votre compte est introuvable. Reconnectez-vous.");
-    const { row, confirmToken } = await store.saveSubscription(
+    // Adresse d'un ancien compte par lien (déjà prouvée) : rien à stocker, elle suit le compte. Un compte par
+    // identifiant n'a pas d'adresse (ADR 0030) : celle de la veille est obligatoire.
+    const accountEmail = contact.email?.toLowerCase() ?? null;
+    if (!input.email && !accountEmail) {
+      throw new AppError("entree_invalide", 400, "Certaines informations sont invalides.", [
+        { champ: "email", message: "Indiquez l'adresse e-mail où recevoir vos rapports de veille." },
+      ]);
+    }
+    const recipient = input.email && input.email !== accountEmail ? input.email : null;
+    const { row } = await store.saveSubscription(
       userId,
       {
         occupations: input.occupations,
@@ -221,18 +312,12 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
         radiusKm: input.radiusKm,
         workingTime: input.workingTime,
       },
+      recipient,
       ipHash(req),
     );
-    if (confirmToken) {
-      await deps.mailer.send(
-        confirmSubscriptionMessage(
-          contact.email,
-          new URL(`/veille/confirmer/${confirmToken}`, deps.appBaseUrl).href,
-        ),
-      );
-    }
-    logger.info({ event: "veille_enregistree", confirmation: Boolean(confirmToken) }, "veille");
-    res.json({ subscription: toDto(row), confirmationSent: Boolean(confirmToken) });
+    // Veille active tout de suite, sans lien de confirmation (ADR 0030, point 5).
+    logger.info({ event: "veille_enregistree" }, "veille");
+    res.json({ subscription: toDto(row), confirmationSent: false });
   });
 
   app.delete("/v1/subscriptions/me", auth, requireAccount(), async (req, res) => {
