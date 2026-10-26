@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Attesta</title>
+<style>
+  body { width: 320px; margin: 0; padding: 16px; font: 14px system-ui, sans-serif; background: #1d2a22; color: #f4f7f0; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; color: #b9c7bd; line-height: 1.4; }
+  button { width: 100%; padding: 10px; border: 0; border-radius: 999px; background: #e3f56b; color: #1d2a22; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  label { display: block; margin-top: 12px; font-size: 12px; color: #b9c7bd; }
+  input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 8px; border-radius: 8px; border: 1px solid #3b4a40; background: #24332a; color: #f4f7f0; }
+  #etat { margin-top: 10px; font-size: 12px; min-height: 16px; }
+</style>
+</head>
+<body>
+  <h1>Cibler cette offre</h1>
+  <p>Le texte de l'annonce affichée (ou votre sélection) est envoyé à Attesta, qui prépare un CV fidèle à votre parcours. Vous relisez tout avant d'enregistrer.</p>
+  <button id="envoyer" type="button">Envoyer l'offre à Attesta</button>
+  <div id="etat" role="status"></div>
+  <label>Adresse d'Attesta
+    <input id="adresse" type="url" value="http://localhost:8081">
+  </label>
+  <script src="popup.js"></script>
+</body>
+</html>

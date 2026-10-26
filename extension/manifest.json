@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Attesta : cibler cette offre",
+  "version": "0.1.0",
+  "description": "Envoie l'offre d'emploi affichée vers Attesta pour créer un CV ciblé, fidèle à votre parcours.",
+  "action": { "default_title": "Cibler cette offre avec Attesta", "default_popup": "popup.html" },
+  "permissions": ["activeTab", "scripting", "storage"]
+}
