@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 type Kind = "succes" | "erreur" | "info";
 interface Toast {
@@ -9,10 +9,11 @@ interface Toast {
 
 const Context = createContext<((kind: Kind, text: string) => void) | null>(null);
 
-const STYLES: Record<Kind, string> = {
-  succes: "border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100",
-  erreur: "border-red-600 bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-100",
-  info: "border-brand-600 bg-brand-50 text-brand-900 dark:bg-slate-900 dark:text-brand-100",
+/** Pastille de couleur et symbole : l'état ne repose jamais sur la seule couleur (WCAG 1.4.1). */
+const STYLES: Record<Kind, { dot: string; mark: string }> = {
+  succes: { dot: "bg-proved text-surface", mark: "✓" },
+  erreur: { dot: "bg-removed text-surface", mark: "!" },
+  info: { dot: "bg-accent text-on-accent", mark: "i" },
 };
 
 /**
@@ -34,26 +35,66 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4"
+        className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end"
       >
         {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`pointer-events-auto flex max-w-lg items-start gap-3 rounded-lg border-l-4 px-4 py-3 shadow-lg ${STYLES[t.kind]}`}
-          >
-            <p className="text-sm font-medium">{t.text}</p>
-            <button
-              type="button"
-              onClick={() => dismiss(t.id)}
-              className="ml-auto text-sm underline"
-              aria-label="Fermer la notification"
-            >
-              Fermer
-            </button>
-          </div>
+          <ToastCard key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
         ))}
       </div>
     </Context.Provider>
+  );
+}
+
+/**
+ * Une notification : barre de temps restant (même durée que la fermeture automatique), et fermeture par
+ * glissement horizontal au doigt ou à la souris, en plus du bouton « Fermer ».
+ */
+function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const start = useRef<number | null>(null);
+  const [dx, setDx] = useState(0);
+  return (
+    <div
+      className="toast pointer-events-auto relative flex w-full max-w-md animate-enter touch-pan-y items-start gap-3 overflow-hidden rounded-2xl border border-line bg-surface px-4 py-3 text-ink shadow-float select-none"
+      style={{
+        transform: dx ? `translateX(${dx}px)` : undefined,
+        opacity: dx ? Math.max(0.2, 1 - Math.abs(dx) / 220) : undefined,
+        transition: start.current === null ? "transform 250ms, opacity 250ms" : "none",
+      }}
+      onPointerDown={(e) => {
+        if ((e.target as Element).closest("button")) return;
+        start.current = e.clientX;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (start.current !== null) setDx(e.clientX - start.current);
+      }}
+      onPointerUp={() => {
+        start.current = null;
+        if (Math.abs(dx) > 110) onDismiss();
+        else setDx(0);
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className={`mt-0.5 grid size-5 shrink-0 animate-pop place-items-center rounded-full text-xs font-bold ${STYLES[toast.kind].dot}`}
+      >
+        {STYLES[toast.kind].mark}
+      </span>
+      <p className="text-sm font-medium">{toast.text}</p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="ml-auto shrink-0 rounded-md px-1.5 text-sm text-ink-muted underline underline-offset-2 hover:text-ink"
+        aria-label="Fermer la notification"
+      >
+        Fermer
+      </button>
+      <span
+        aria-hidden="true"
+        className={`toast-timer absolute inset-x-0 bottom-0 h-0.5 ${STYLES[toast.kind].dot}`}
+        style={{ animationDuration: `${toast.kind === "erreur" ? 8000 : 5000}ms` }}
+      />
+    </div>
   );
 }
 

@@ -17,29 +17,65 @@ export function useDocumentTitle(title: string, hasErrors = false) {
   }, [title, hasErrors]);
 }
 
-type Variant = "primary" | "secondary" | "danger" | "ghost";
+export type Variant = "primary" | "secondary" | "danger" | "ghost";
+export type Size = "md" | "lg";
+
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-brand-700 text-white hover:bg-brand-800 disabled:bg-slate-400",
-  secondary:
-    "border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
-  danger: "bg-red-700 text-white hover:bg-red-800 disabled:bg-slate-400",
-  ghost: "text-brand-700 hover:bg-brand-50 dark:text-brand-100 dark:hover:bg-slate-800",
+  primary:
+    "bg-accent text-on-accent shadow-card hover:bg-accent-hover hover:shadow-[0_10px_30px_-10px_var(--accent)]",
+  secondary: "border border-line-strong bg-surface text-ink hover:border-ink-subtle hover:bg-surface-sunken",
+  danger: "bg-removed text-surface shadow-card hover:opacity-90",
+  ghost: "text-accent-text hover:bg-accent-soft",
 };
+/** Pilules : forme de la marque, cohérente du bandeau aux formulaires. */
+const SIZES: Record<Size, string> = {
+  md: "rounded-full px-4 py-2 text-sm",
+  lg: "rounded-full px-6 py-3 text-base",
+};
+/** À ajouter à un bouton `lg` qui se termine par une `ArrowBadge` : la pastille touche presque le bord. */
+export const WITH_ARROW = "group gap-3 py-1.5! pr-1.5! pl-6!";
+
+/**
+ * Pastille ronde à flèche des appels à l'action (taille `lg`) ; pivote au survol du bouton (classe `group`).
+ * Décorative : le libellé du bouton porte le sens.
+ */
+export function ArrowBadge({ tone = "dark" }: { tone?: "dark" | "light" }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`arrow-badge grid size-9 shrink-0 place-items-center rounded-full text-base ${
+        tone === "dark" ? "bg-on-accent text-accent" : "bg-ink text-paper"
+      }`}
+    >
+      ↗
+    </span>
+  );
+}
+
+/**
+ * Classes d'un bouton, partagées avec les liens qui en ont l'apparence (`<Link className={buttonClass()}>`) :
+ * un lien qui navigue reste un lien pour les lecteurs d'écran. Léger enfoncement au clic, sans animation
+ * des dimensions (pas de reflow).
+ */
+export function buttonClass(variant: Variant = "primary", size: Size = "md", extra = "") {
+  return `btn inline-flex items-center justify-center gap-2 font-semibold transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100 ${SIZES[size]} ${VARIANTS[variant]} ${extra}`;
+}
 
 export function Button({
   variant = "primary",
+  size = "md",
   busy = false,
   className = "",
   children,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; busy?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size; busy?: boolean }) {
   return (
     <button
       type="button"
       {...props}
       disabled={props.disabled || busy}
       aria-busy={busy || undefined}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${VARIANTS[variant]} ${className}`}
+      className={buttonClass(variant, size, className)}
     >
       {busy && <Spinner small />}
       {children}
@@ -85,8 +121,7 @@ function FieldShell({
   return (
     <div>
       <label htmlFor={id} className="label">
-        {label}{" "}
-        {optional && <span className="font-normal text-slate-500 dark:text-slate-400">(facultatif)</span>}
+        {label} {optional && <span className="font-normal text-ink-subtle">(facultatif)</span>}
       </label>
       {children({
         id,
@@ -99,7 +134,11 @@ function FieldShell({
         </p>
       )}
       {errorId && (
-        <p id={errorId} className="mt-1 text-sm font-medium text-red-700 dark:text-red-400">
+        <p
+          id={errorId}
+          className="mt-1.5 flex animate-enter items-start gap-1.5 text-sm font-semibold text-removed"
+        >
+          <span aria-hidden="true">!</span>
           {messages.join(" ")}
         </p>
       )}
@@ -117,7 +156,24 @@ export function TextField({
 }: FieldProps & InputHTMLAttributes<HTMLInputElement>) {
   return (
     <FieldShell {...{ id, label, hint, optional, errors }}>
-      {(aria) => <input className="input" {...input} {...aria} />}
+      {(aria) => {
+        const filled = typeof input.value === "string" && input.value.trim() !== "";
+        const invalid = (aria as { "aria-invalid"?: boolean })["aria-invalid"];
+        return (
+          <div className="relative">
+            <input className={`input ${filled && !invalid ? "pr-10" : ""}`} {...input} {...aria} />
+            {/* Coche décorative : le champ est rempli et sans erreur connue. */}
+            {filled && !invalid && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 right-3 grid size-5 -translate-y-1/2 animate-pop place-items-center rounded-full bg-proved-soft text-xs font-bold text-proved"
+              >
+                ✓
+              </span>
+            )}
+          </div>
+        );
+      }}
     </FieldShell>
   );
 }
@@ -158,9 +214,9 @@ export function ErrorSummary({
       tabIndex={-1}
       role="alert"
       aria-labelledby="resume-erreurs"
-      className="mb-6 rounded-lg border-2 border-red-700 bg-red-50 p-4 dark:bg-red-950"
+      className="mb-6 animate-enter rounded-xl border-2 border-removed bg-removed-soft p-5 text-ink"
     >
-      <h2 id="resume-erreurs" className="font-bold text-red-900 dark:text-red-100">
+      <h2 id="resume-erreurs" className="font-bold text-removed">
         {title}
       </h2>
       <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -168,7 +224,7 @@ export function ErrorSummary({
           <li key={`${e.field}-${i}`}>
             <a
               href={`#${e.field}`}
-              className="text-red-900 underline dark:text-red-100"
+              className="font-medium text-ink underline decoration-removed underline-offset-3"
               onClick={(event) => {
                 event.preventDefault();
                 document.getElementById(e.field)?.focus();
@@ -195,24 +251,31 @@ export const errorMessage = (error: unknown) =>
     : "Une erreur inattendue est survenue. Réessayez dans un instant.";
 
 type Tone = "info" | "success" | "warning" | "error";
+/** Fond pâle de l'état, bordure de sa couleur, texte à l'encre : contraste AA quel que soit le thème. */
 const TONES: Record<Tone, string> = {
-  info: "border-brand-600 bg-brand-50 text-brand-900 dark:bg-slate-900 dark:text-brand-100",
-  success: "border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100",
-  warning: "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100",
-  error: "border-red-700 bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-100",
+  info: "border-accent bg-accent-soft",
+  success: "border-proved bg-proved-soft",
+  warning: "border-flagged bg-flagged-soft",
+  error: "border-removed bg-removed-soft",
 };
 
 export function Alert({
   tone = "info",
   title,
   children,
+  announce = false,
 }: {
   tone?: Tone;
   title?: string;
   children?: ReactNode;
+  /** Annonce aux lecteurs d'écran un message qui n'est pas une erreur (résultat d'une action). */
+  announce?: boolean;
 }) {
   return (
-    <div role={tone === "error" ? "alert" : undefined} className={`rounded-lg border-l-4 p-4 ${TONES[tone]}`}>
+    <div
+      role={tone === "error" ? "alert" : announce ? "status" : undefined}
+      className={`animate-enter rounded-xl border-l-4 p-4 text-ink ${TONES[tone]}`}
+    >
       {title && <p className="font-semibold">{title}</p>}
       {children && <div className={title ? "mt-1 text-sm" : "text-sm"}>{children}</div>}
     </div>
@@ -231,27 +294,107 @@ export function PageHeader({
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-        {lead && <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-400">{lead}</p>}
+        <h1 className="font-display text-title font-semibold tracking-tight">{title}</h1>
+        {lead && <p className="mt-3 max-w-2xl text-lead text-ink-muted">{lead}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }
 
+/** Petites illustrations vectorielles des états vides, aux couleurs des jetons (décoratives). */
+const ILLUSTRATIONS = {
+  documents: (
+    <>
+      <rect
+        x="34"
+        y="18"
+        width="62"
+        height="78"
+        rx="10"
+        fill="var(--surface-sunken)"
+        stroke="var(--line-strong)"
+        strokeWidth="2"
+      />
+      <rect
+        x="22"
+        y="28"
+        width="62"
+        height="78"
+        rx="10"
+        fill="var(--surface)"
+        stroke="var(--line-strong)"
+        strokeWidth="2"
+      />
+      <rect x="34" y="44" width="38" height="6" rx="3" fill="var(--line)" />
+      <rect x="34" y="58" width="30" height="6" rx="3" fill="var(--line)" />
+      <rect x="34" y="72" width="34" height="6" rx="3" fill="var(--line)" />
+      <circle cx="84" cy="96" r="14" fill="var(--accent)" />
+      <path
+        d="M78 96l4.5 4.5L91 92"
+        fill="none"
+        stroke="var(--on-accent)"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </>
+  ),
+  search: (
+    <>
+      <rect
+        x="18"
+        y="26"
+        width="70"
+        height="56"
+        rx="12"
+        fill="var(--surface)"
+        stroke="var(--line-strong)"
+        strokeWidth="2"
+      />
+      <rect x="30" y="40" width="34" height="6" rx="3" fill="var(--line)" />
+      <rect x="30" y="54" width="46" height="6" rx="3" fill="var(--line)" />
+      <circle cx="82" cy="78" r="16" fill="var(--paper)" stroke="var(--accent)" strokeWidth="5" />
+      <path d="M93 90l12 12" stroke="var(--accent)" strokeWidth="6" strokeLinecap="round" />
+    </>
+  ),
+  letter: (
+    <>
+      <rect
+        x="18"
+        y="34"
+        width="84"
+        height="58"
+        rx="10"
+        fill="var(--surface)"
+        stroke="var(--line-strong)"
+        strokeWidth="2"
+      />
+      <path d="M20 38l40 30 40-30" fill="none" stroke="var(--line-strong)" strokeWidth="2" />
+      <circle cx="96" cy="34" r="12" fill="var(--accent)" />
+      <path d="M96 28v12M90 34h12" stroke="var(--on-accent)" strokeWidth="3" strokeLinecap="round" />
+    </>
+  ),
+};
+
 export function EmptyState({
   title,
   children,
   action,
+  illustration = "documents",
 }: {
   title: string;
   children?: ReactNode;
   action?: ReactNode;
+  illustration?: keyof typeof ILLUSTRATIONS;
 }) {
   return (
-    <div className="card text-center">
-      <p className="text-lg font-semibold">{title}</p>
-      {children && <p className="mx-auto mt-2 max-w-md text-slate-600 dark:text-slate-400">{children}</p>}
+    <div className="card border-dashed py-12 text-center">
+      <svg aria-hidden="true" viewBox="0 0 120 120" className="illustration mx-auto mb-4 size-28">
+        {ILLUSTRATIONS[illustration]}
+      </svg>
+      <p className="font-display text-xl font-semibold">{title}</p>
+      {children && <p className="mx-auto mt-2 max-w-md text-ink-muted">{children}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );
@@ -259,15 +402,15 @@ export function EmptyState({
 
 export function Badge({ tone = "info", children }: { tone?: Tone | "neutral"; children: ReactNode }) {
   const colors: Record<string, string> = {
-    info: "bg-brand-100 text-brand-900",
-    success: "bg-emerald-100 text-emerald-900",
-    warning: "bg-amber-100 text-amber-900",
-    error: "bg-red-100 text-red-900",
-    neutral: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+    info: "bg-accent-soft text-accent-text",
+    success: "bg-proved-soft text-proved",
+    warning: "bg-flagged-soft text-flagged",
+    error: "bg-removed-soft text-removed",
+    neutral: "bg-surface-sunken text-ink-muted",
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors[tone]}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${colors[tone]}`}
     >
       {children}
     </span>
@@ -283,10 +426,40 @@ export function ScoreBadge({ score }: { score: number | null }) {
   );
 }
 
-export function Loading({ label = "Chargement…" }: { label?: string }) {
+/** Bloc de chargement à la forme du contenu ; purement visuel (le libellé est annoncé par `Loading`). */
+export function Skeleton({ className = "h-4 w-full" }: { className?: string }) {
+  return <span aria-hidden="true" className={`skeleton block ${className}`} />;
+}
+
+/** Chargement d'une page ou d'un bloc : squelette visible, libellé annoncé aux lecteurs d'écran. */
+export function Loading({
+  label = "Chargement…",
+  variant = "lines",
+}: {
+  label?: string;
+  /** `cards` : grille de cartes, pour les listes (Mes CV, offres). */
+  variant?: "lines" | "cards";
+}) {
+  if (variant === "cards")
+    return (
+      <div role="status" className="grid gap-4 py-2 md:grid-cols-2 xl:grid-cols-3">
+        <span className="sr-only">{label}</span>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-3xl border border-line bg-surface p-5">
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="mt-4 h-5 w-3/5" />
+            <Skeleton className="mt-2 h-4 w-2/5" />
+          </div>
+        ))}
+      </div>
+    );
   return (
-    <div className="flex justify-center py-16 text-slate-600 dark:text-slate-400">
-      <Spinner label={label} />
+    <div role="status" className="space-y-3 py-6">
+      <span className="sr-only">{label}</span>
+      <Skeleton className="h-7 w-2/5" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-11/12" />
+      <Skeleton className="h-4 w-3/4" />
     </div>
   );
 }
@@ -340,14 +513,14 @@ export function ConfirmDialog({
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      className="m-auto max-w-md rounded-xl p-0 shadow-xl backdrop:bg-slate-950/60 dark:bg-slate-900 dark:text-slate-100"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-line bg-surface p-0 text-ink shadow-float"
     >
       {open && (
         <div className="p-6">
-          <h2 id={titleId} className="text-lg font-bold">
+          <h2 id={titleId} className="font-display text-xl font-semibold">
             {title}
           </h2>
-          <div className="mt-2 text-slate-700 dark:text-slate-300">{children}</div>
+          <div className="mt-2 text-ink-muted">{children}</div>
           <div className="mt-6 flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>
               Annuler

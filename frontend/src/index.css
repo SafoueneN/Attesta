@@ -1,51 +1,1488 @@
 @import "tailwindcss";
 
-/* Thème sombre par classe (bouton du bandeau), initialisé avant le rendu dans index.html. */
+/* Thème par classe (bouton du bandeau), initialisé avant le rendu par public/theme.js. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Jetons de design : couleurs sémantiques, contrastes AA vérifiés dans les deux thèmes. */
+/*
+ * Police auto-hébergée (la CSP n'admet que `font-src 'self'`) : Plus Jakarta Sans variable, sous-ensemble
+ * latin (français compris), licence SIL OFL 1.1 (assets/fonts/OFL.txt). `swap` : le texte s'affiche tout de
+ * suite avec la police de secours.
+ */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("./assets/fonts/plus-jakarta-sans.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Écriture au feutre de la vidéo du Guide (Caveat, OFL : assets/fonts/OFL-caveat.txt), chargée à l'usage. */
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./assets/fonts/caveat.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+ * Jetons de design, direction « forêt et citron » : vert profond, crème, et un citron d'action ; trois états
+ * de fidélité (sourcé, signalé, retiré). Chaque couple texte/fond est AA dans les deux thèmes (4,5:1 pour le
+ * texte, 3:1 pour les bordures de champ et l'anneau de focus). Les composants n'utilisent que ces noms.
+ * `--accent` est un fond (boutons) ; en texte, on emploie `--accent-text`, lisible sur chaque thème.
+ */
+:root {
+  --paper: #f3f5ec;
+  --surface: #ffffff;
+  --surface-sunken: #e8ecdf;
+  --ink: #16281d;
+  --ink-muted: #3f5446;
+  --ink-subtle: #536657;
+  --line: #d9e0d0;
+  --line-strong: #7a8b7d;
+  --accent: #d6ee55;
+  --accent-hover: #c8e33a;
+  --accent-soft: #eef6c9;
+  --accent-text: #3a6620;
+  --on-accent: #16281d;
+  --focus: #16281d;
+  --proved: #1c6a3a;
+  --proved-soft: #e3f3e8;
+  --flagged: #8a4a0a;
+  --flagged-soft: #fbf0d9;
+  --removed: #b42318;
+  --removed-soft: #fdeceb;
+  --glow: rgb(214 238 85 / 0.35);
+  --shadow-color: 22 40 29;
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #1b3125;
+  --surface: #26402f;
+  --surface-sunken: #213929;
+  --ink: #f1f3e9;
+  --ink-muted: #c6d0c1;
+  --ink-subtle: #a9b7a6;
+  --line: #375441;
+  --line-strong: #849b89;
+  --accent: #e3f56b;
+  --accent-hover: #eefa9c;
+  --accent-soft: #34492c;
+  --accent-text: #e3f56b;
+  --on-accent: #16281d;
+  --focus: #e3f56b;
+  --proved: #93e2ab;
+  --proved-soft: #244634;
+  --flagged: #f6cf6e;
+  --flagged-soft: #433f22;
+  --removed: #ffab9f;
+  --removed-soft: #4a2d28;
+  --glow: rgb(227 245 107 / 0.16);
+  --shadow-color: 4 12 7;
+  color-scheme: dark;
+}
+
+/* Les jetons deviennent des utilitaires Tailwind : `bg-surface`, `text-ink-muted`, `border-line`… */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-on-accent: var(--on-accent);
+  --color-focus: var(--focus);
+  --color-proved: var(--proved);
+  --color-proved-soft: var(--proved-soft);
+  --color-flagged: var(--flagged);
+  --color-flagged-soft: var(--flagged-soft);
+  --color-removed: var(--removed);
+  --color-removed-soft: var(--removed-soft);
+}
+
 @theme {
-  --font-sans: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --color-brand-50: #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-800: #115e59;
-  --color-brand-900: #134e4a;
+  --font-sans: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+
+  /* Échelle fluide : du mobile à l'ultra-large sans palier brutal. */
+  --text-display: clamp(2.5rem, 1.5rem + 3.9vw, 5rem);
+  --text-display--line-height: 1.04;
+  --text-title: clamp(1.875rem, 1.45rem + 1.5vw, 2.875rem);
+  --text-title--line-height: 1.12;
+  --text-lead: clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem);
+  --text-lead--line-height: 1.65;
+
+  --shadow-card: 0 1px 2px rgb(var(--shadow-color) / 0.08), 0 1px 1px rgb(var(--shadow-color) / 0.05);
+  --shadow-raised:
+    0 14px 34px -14px rgb(var(--shadow-color) / 0.35), 0 2px 6px rgb(var(--shadow-color) / 0.1);
+  --shadow-float:
+    0 32px 64px -24px rgb(var(--shadow-color) / 0.55), 0 8px 18px rgb(var(--shadow-color) / 0.14);
+
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --animate-enter: enter 280ms var(--ease-out-soft) both;
+  --animate-pop: pop 360ms var(--ease-spring) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-marquee: marquee 38s linear infinite;
+  --animate-rise: rise 700ms var(--ease-out-soft) both;
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+  }
+  @keyframes shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+  /* Flottement lent des tuiles de la mosaïque, décalé par colonne. */
+  @keyframes float {
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  /* Bandeau défilant : le contenu est doublé, on le décale d'une moitié. */
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  /* Mot du titre qui monte depuis sous sa ligne de base, avec un léger flou. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.45em);
+      filter: blur(6px);
+    }
+  }
 }
 
 @layer base {
   html {
-    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-paper font-sans text-ink antialiased;
+    /* Ancres et focus : le bandeau collant ne masque jamais la cible. */
+    scroll-padding-top: 5rem;
   }
   body {
     @apply min-h-screen;
+    /* Sections pleine largeur (100vw) sans barre de défilement horizontale. */
+    overflow-x: clip;
   }
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-brand-600;
+    @apply rounded-sm outline-2 outline-offset-2 outline-focus;
   }
   h1,
   h2,
   h3 {
-    @apply text-balance;
+    @apply font-display text-balance;
+    letter-spacing: -0.025em;
+  }
+  ::selection {
+    @apply bg-accent text-on-accent;
   }
 }
 
 @layer components {
+  /* Largeur commune du bandeau, du contenu et du pied de page ; 90rem plafonne l'ultra-large. */
+  .shell {
+    @apply mx-auto w-full max-w-[90rem] px-4 sm:px-6 lg:px-10;
+  }
+  /* Section qui sort du conteneur pour occuper toute la largeur de la fenêtre. */
+  .full-bleed {
+    margin-inline: calc(50% - 50vw);
+  }
   .card {
-    @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900;
+    @apply rounded-3xl border border-line bg-surface p-6 shadow-card;
   }
   .input {
-    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/30 focus:outline-none aria-[invalid=true]:border-red-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100;
+    @apply block w-full rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-ink transition-[border-color,box-shadow] duration-150 placeholder:text-ink-subtle hover:border-ink-subtle focus:border-focus focus:ring-4 focus:ring-accent/30 focus:outline-none aria-[invalid=true]:border-removed aria-[invalid=true]:ring-removed/15;
   }
   .label {
-    @apply mb-1 block text-sm font-semibold text-slate-800 dark:text-slate-200;
+    @apply mb-1.5 block text-sm font-semibold text-ink;
   }
   .hint {
-    @apply mt-1 text-sm text-slate-600 dark:text-slate-400;
+    @apply mt-1.5 text-sm text-ink-muted;
   }
   .link {
-    @apply font-medium text-brand-700 underline underline-offset-2 hover:text-brand-900 dark:text-brand-100;
+    @apply font-semibold text-accent-text underline decoration-accent-text/40 underline-offset-3 transition-colors hover:decoration-accent-text;
+  }
+  /* Pastille de surtitre : point citron, texte discret, comme une étiquette. */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-sm font-medium text-ink-muted;
+  }
+  .eyebrow::before {
+    content: "";
+    @apply size-2 rounded-full bg-accent shadow-[0_0_0_4px_var(--accent-soft)];
+  }
+  /* Bloc de chargement : reflète la forme du contenu attendu (aucun saut de mise en page). */
+  .skeleton {
+    @apply animate-shimmer rounded-md;
+    background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line) 50%, var(--surface-sunken) 75%);
+    background-size: 200% 100%;
+  }
+  /* Halo qui suit le pointeur (variables posées par le composant), sinon centré en haut. */
+  .spotlight {
+    background-image: radial-gradient(
+      42rem 26rem at var(--x, 50%) var(--y, 0%),
+      var(--glow),
+      transparent 70%
+    );
+  }
+  /* Grain discret sur les grandes surfaces sombres, en SVG inline (aucune requête). */
+  .grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+  }
+  /* Bas de la mosaïque fondu dans le fond, comme une photo qui s'efface. */
+  .fade-bottom {
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  }
+}
+
+/* Entrée des pages : fondu et léger glissement, rejoué à chaque changement d'adresse (clé du Layout). */
+.page-enter {
+  animation: var(--animate-enter);
+}
+
+/* Titre mot par mot : chaque mot porte son rang (`--i`) pour un départ échelonné. */
+.word {
+  display: inline-block;
+  animation: var(--animate-rise);
+  animation-delay: calc(var(--i, 0) * 70ms + 80ms);
+}
+
+/* Apparition au défilement, sans JavaScript ; ignorée par les navigateurs qui ne la gèrent pas. */
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: enter linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+  /* Parallaxe des colonnes de la mosaïque : chacune glisse à sa vitesse (`--speed`) en défilant. */
+  @keyframes drift {
+    to {
+      transform: translateY(calc(var(--speed, 0) * -1px));
+    }
+  }
+  .parallax {
+    animation: drift linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 100vh;
+  }
+}
+
+/* Flèche des boutons pilule : pivote d'un quart de tour au survol. */
+.arrow-badge {
+  transition: transform 300ms var(--ease-spring);
+}
+.group:hover .arrow-badge,
+.group:focus-visible .arrow-badge {
+  transform: rotate(45deg);
+}
+
+/* Inclinaison légère des cartes au survol (perspective), sans toucher à la mise en page. */
+.tilt {
+  transition:
+    transform 400ms var(--ease-out-soft),
+    box-shadow 400ms var(--ease-out-soft);
+}
+.tilt:hover {
+  transform: perspective(900px) rotateX(3deg) translateY(-6px);
+  box-shadow: var(--shadow-float);
+}
+
+/* Démonstration : une ligne est surlignée puis tamponnée, une autre signalée, une autre retirée. */
+@keyframes sweep {
+  from {
+    background-size: 0% 100%;
+  }
+  to {
+    background-size: 100% 100%;
+  }
+}
+@keyframes strike {
+  from {
+    text-decoration-color: transparent;
+  }
+  to {
+    text-decoration-color: currentColor;
+  }
+}
+.demo-sweep {
+  background-image: linear-gradient(var(--proved-soft), var(--proved-soft));
+  background-repeat: no-repeat;
+  animation: sweep 900ms var(--ease-out-soft) 500ms both;
+}
+.demo-stamp {
+  animation: var(--animate-pop);
+  animation-delay: 1300ms;
+}
+.demo-flag {
+  animation: var(--animate-enter);
+  animation-delay: 1900ms;
+}
+.demo-strike {
+  text-decoration: line-through 2px;
+  animation: strike 500ms ease-out 2500ms both;
+}
+.demo-removed-note {
+  animation: var(--animate-enter);
+  animation-delay: 2800ms;
+}
+
+/* ------------------------------------------------------------------------------------------------------ */
+/* Dynamisme de l'interface (CSS seul, sauf les variables posées par lib/motion.tsx).                      */
+/* ------------------------------------------------------------------------------------------------------ */
+
+/* Animations en attente tant que leur bloc n'est pas à l'écran (`<InView>`) : on les voit se jouer. */
+[data-inview="false"] :is(.demo-sweep, .demo-stamp, .demo-flag, .demo-strike, .demo-removed-note, .count-up) {
+  animation-play-state: paused;
+}
+
+/* Barre de progression de lecture, en haut de la fenêtre, pilotée par le défilement. */
+.scroll-progress {
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+@supports (animation-timeline: scroll()) {
+  @keyframes progress {
+    to {
+      transform: scaleX(1);
+    }
+  }
+  .scroll-progress {
+    animation: progress linear both;
+    animation-timeline: scroll(root);
+  }
+  /* Bandeau qui se densifie (ombre, fond plus opaque) dès qu'on quitte le haut de page. */
+  @keyframes header-dense {
+    to {
+      box-shadow: 0 10px 30px -18px rgb(var(--shadow-color) / 0.7);
+      background-color: color-mix(in oklab, var(--paper) 96%, transparent);
+    }
+  }
+  .header-scroll {
+    animation: header-dense linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 140px;
+  }
+  /* Titres de section : chaque mot monte quand il entre à l'écran. */
+  .word-view {
+    display: inline-block;
+    animation: rise linear both;
+    animation-timeline: view();
+    animation-range: entry calc(var(--i, 0) * 4%) entry calc(45% + var(--i, 0) * 4%);
+  }
+  /* Ligne qui relie les étapes et se remplit au fil du défilement. */
+  @keyframes fill {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  .fill-on-scroll {
+    transform-origin: 0 50%;
+    animation: fill linear both;
+    animation-timeline: view();
+    animation-range: entry 20% cover 55%;
+  }
+}
+
+/* Halos du hero : deux taches de lumière qui dérivent lentement, très floues. */
+@keyframes drift-a {
+  50% {
+    transform: translate(12vw, 6vh) scale(1.15);
+  }
+}
+@keyframes drift-b {
+  50% {
+    transform: translate(-10vw, -4vh) scale(0.9);
+  }
+}
+.aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  pointer-events: none;
+}
+.aurora-a {
+  background: var(--accent);
+  opacity: 0.14;
+  animation: drift-a 18s ease-in-out infinite;
+}
+.aurora-b {
+  background: var(--proved);
+  opacity: 0.12;
+  animation: drift-b 22s ease-in-out infinite;
+}
+
+/* Mot qui tourne dans le titre : liste verticale qui défile, un mot à la fois, avec une pause. */
+@keyframes rotate-words {
+  0%,
+  28% {
+    transform: translateY(0);
+  }
+  33%,
+  61% {
+    transform: translateY(-1.3em);
+  }
+  66%,
+  94% {
+    transform: translateY(-2.6em);
+  }
+  100% {
+    transform: translateY(-3.9em);
+  }
+}
+.rotator {
+  display: inline-block;
+  height: 1.3em;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+.rotator > span {
+  display: flex;
+  flex-direction: column;
+  animation: rotate-words 7.5s var(--ease-out-soft) infinite;
+  animation-delay: 1.4s;
+}
+.rotator > span > span {
+  height: 1.3em;
+  line-height: 1.3em;
+}
+
+/* Tuiles de la mosaïque : entrée en cascade (`--i`) puis survol qui soulève et incline. */
+.tile-in {
+  animation: pop 600ms var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 90ms + 500ms);
+}
+.tile-in > * {
+  transition:
+    transform 350ms var(--ease-out-soft),
+    box-shadow 350ms var(--ease-out-soft),
+    border-color 350ms;
+}
+.tile-in:hover > * {
+  transform: translateY(-6px) rotate(-1deg) scale(1.03);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-float);
+}
+
+/* Lumière qui suit le pointeur sur les cartes `.spot` (variables posées par useCardSpotlight). */
+:is(.spot, .card) {
+  position: relative;
+  isolation: isolate;
+}
+:is(.spot, .card)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0;
+  background: radial-gradient(18rem circle at var(--mx, 50%) var(--my, 50%), var(--glow), transparent 65%);
+  transition: opacity 300ms;
+}
+:is(.spot, .card):hover::before {
+  opacity: 1;
+}
+
+/* Icônes des cartes : petite rotation élastique au survol de la carte. */
+.icon-bounce {
+  transition: transform 500ms var(--ease-spring);
+}
+:is(.spot, .card, .tilt):hover .icon-bounce {
+  transform: rotate(-12deg) scale(1.12);
+}
+
+/* Bouton magnétique : retour élastique quand le pointeur s'en va. */
+.magnetic {
+  transition: transform 450ms var(--ease-spring);
+}
+
+/* Compteur 0 → 100 % du score de fidélité, en CSS (propriété animable typée). */
+@property --p {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 0;
+}
+@keyframes count {
+  to {
+    --p: 100;
+  }
+}
+.count-up {
+  animation: count 1600ms var(--ease-out-soft) 300ms both;
+  counter-reset: p var(--p);
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line) 0);
+}
+.count-up .count-value::after {
+  content: counter(p) " %";
+}
+
+/* Second bandeau défilant, en sens inverse. */
+.marquee-reverse {
+  animation-direction: reverse;
+}
+
+/* Onde au clic des boutons (lib/motion.tsx, useRipple). */
+.btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.35;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+.ripple {
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  background: currentColor;
+  pointer-events: none;
+  animation: ripple 650ms var(--ease-out-soft) forwards;
+}
+
+/* Confettis du score parfait : chaque éclat part dans sa direction (`--angle`) et retombe. */
+@keyframes confetti {
+  0% {
+    transform: rotate(var(--angle)) translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle)) translateY(calc(var(--distance) * -1)) rotate(220deg) scale(0.4);
+    opacity: 0;
+  }
+}
+.confetti {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 10px;
+  margin: -5px -3px;
+  border-radius: 2px;
+  background: var(--hue);
+  animation: confetti 1100ms var(--ease-out-soft) var(--delay) both;
+}
+
+/* Curseur personnalisé : point net et anneau qui suit avec retard (lib/motion.tsx, CustomCursor). */
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: 9999px;
+}
+.cursor-dot {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: var(--accent);
+}
+.cursor-ring {
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 1.5px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  transition:
+    width 250ms var(--ease-out-soft),
+    height 250ms var(--ease-out-soft),
+    margin 250ms var(--ease-out-soft),
+    background-color 250ms;
+}
+.cursor-ring.is-hot {
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+}
+@media (pointer: coarse) {
+  .cursor-dot,
+  .cursor-ring {
+    display: none;
+  }
+}
+
+/* Champ en erreur : léger tremblement à l'apparition de l'erreur. */
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+.input[aria-invalid="true"] {
+  animation: shake 380ms ease-in-out;
+}
+
+/* Transitions entre étapes du parcours : on avance depuis la droite, on recule depuis la gauche. */
+@keyframes from-right {
+  from {
+    opacity: 0;
+    transform: translateX(48px);
+  }
+}
+@keyframes from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-48px);
+  }
+}
+.step-forward {
+  animation: from-right 380ms var(--ease-out-soft) both;
+}
+.step-back {
+  animation: from-left 380ms var(--ease-out-soft) both;
+}
+
+/* Zone de dépôt du CV PDF : s'illumine quand un fichier la survole. */
+.dropzone {
+  transition:
+    border-color 200ms,
+    background-color 200ms,
+    transform 200ms var(--ease-out-soft);
+}
+.dropzone.is-over {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  transform: scale(1.01);
+}
+
+/* Onglets : pastille qui glisse sous l'onglet actif (position posée en style). */
+.tab-indicator {
+  transition:
+    transform 350ms var(--ease-spring),
+    width 350ms var(--ease-spring);
+}
+
+/* Barre de temps restant des notifications. */
+@keyframes deplete {
+  to {
+    transform: scaleX(0);
+  }
+}
+.toast-timer {
+  transform-origin: 0 50%;
+  animation: deplete linear forwards;
+}
+
+/* Ligne de CV qui s'écrit pendant la génération (révélation de gauche à droite). */
+@keyframes write {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+.write-in {
+  animation: write 700ms var(--ease-out-soft) both;
+}
+
+/* Point vivant (veille active, service disponible) : halo qui pulse autour d'un point fixe. */
+@keyframes live {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+.live-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: live 1.8s ease-out infinite;
+}
+
+/* Enveloppe qui s'envole quand le lien de connexion est envoyé. */
+@keyframes fly {
+  0% {
+    transform: translate(0, 0) rotate(0) scale(0.6);
+    opacity: 0;
+  }
+  35% {
+    transform: translate(0, -6px) rotate(-6deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) rotate(0) scale(1);
+    opacity: 1;
+  }
+}
+.envelope {
+  animation: fly 900ms var(--ease-spring) both;
+}
+
+/* Illustrations des états vides : flottement lent. */
+.illustration {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Comparaison avant / après : la largeur de la couche « après » suit le curseur (`--split`). */
+.compare-after {
+  clip-path: inset(0 0 0 var(--split, 50%));
+}
+.compare-handle {
+  left: var(--split, 50%);
+}
+
+/* FAQ : ouverture animée des <details> (hauteur auto interpolée là où c'est pris en charge). */
+.faq {
+  interpolate-size: allow-keywords;
+}
+.faq::details-content {
+  height: 0;
+  overflow: clip;
+  transition:
+    height 350ms var(--ease-out-soft),
+    content-visibility 350ms allow-discrete;
+}
+.faq[open]::details-content {
+  height: auto;
+}
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+.faq .faq-icon {
+  transition: transform 350ms var(--ease-spring);
+}
+.faq[open] .faq-icon {
+  transform: rotate(45deg);
+}
+
+/* ------------------------------------------------------------------------------------------------------ */
+/* Guide : tableau blanc                                                                                  */
+/* ------------------------------------------------------------------------------------------------------ */
+
+/* Fond du tableau : papier à points, comme un tableau d'atelier. */
+.whiteboard {
+  background-color: var(--paper);
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--ink) 18%, transparent) 1.2px,
+    transparent 1.2px
+  );
+  background-size: 24px 24px;
+  touch-action: pan-x pan-y;
+}
+
+/* Post-it : légère inclinaison propre à chacun (`--tilt`), entrée en cascade, soulevé au survol. */
+@keyframes stick {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) rotate(calc(var(--tilt) * 3)) scale(0.92);
+  }
+}
+.sticky-note {
+  transform: rotate(var(--tilt, 0deg));
+  animation: stick 520ms var(--ease-spring) both;
+  transition:
+    transform 300ms var(--ease-out-soft),
+    box-shadow 300ms var(--ease-out-soft),
+    opacity 300ms,
+    filter 300ms;
+  cursor: pointer;
+}
+.sticky-note:hover {
+  transform: rotate(0deg) translateY(-6px) scale(1.03);
+  box-shadow: var(--shadow-float);
+  z-index: 2;
+}
+.sticky-note.is-active {
+  transform: rotate(0deg) scale(1.05);
+  box-shadow:
+    0 0 0 3px var(--paper),
+    0 0 0 6px var(--focus),
+    var(--shadow-float);
+  z-index: 3;
+}
+/* Ruban adhésif en haut de la note. */
+.sticky-note .tape {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 70px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: color-mix(in oklab, var(--ink) 12%, transparent);
+  border-radius: 3px;
+}
+/* Présentation : la note courante ressort, les autres s'effacent. */
+.is-presenting .sticky-note:not(.is-active) {
+  opacity: 0.35;
+  filter: saturate(0.4);
+}
+
+/* Flèches : apparition en fondu, une à une. */
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+.draw-path {
+  animation: appear 600ms ease-out both;
+}
+
+/* ------------------------------------------------------------------------------------------------------ */
+/* Guide : vidéo « whiteboard » (pilotée par l'horloge de WhiteboardVideo.tsx, pas par des animations CSS) */
+/* ------------------------------------------------------------------------------------------------------ */
+
+/* Le tableau reste blanc dans les deux thèmes : c'est un vrai tableau blanc, encre foncée. */
+.wb-stage {
+  background: radial-gradient(120% 90% at 50% 40%, #ffffff 60%, #f1f2ec), #ffffff;
+  color: #1d2a22;
+  font-family: "Caveat", "Segoe Print", "Comic Sans MS", cursive;
+}
+/* Traits : longueur normalisée (pathLength=1), révélés par l'horloge via stroke-dashoffset. */
+.wb-ink {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+}
+/* Écriture : révélée de gauche à droite, découpée sur la boîte du texte. */
+.wb-write {
+  clip-path: inset(0 100% 0 0) fill-box;
+}
+/* Aplats et tampons : apparaissent en grandissant depuis leur centre. */
+.wb-pop {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+/* Changement de scène : coup d'éponge (fondu et léger glissement). */
+@keyframes wb-scene {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+.wb-scene {
+  animation: wb-scene 450ms var(--ease-out-soft) both;
+}
+.wb-subtitle {
+  text-shadow: 0 1px 0 #ffffff;
+}
+/* Titre de chapitre : glisse depuis la gauche, reste un instant, puis s'efface. */
+@keyframes wb-chapter {
+  0% {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  12%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.wb-chapter {
+  animation: wb-chapter 2.8s var(--ease-out-soft) both;
+}
+
+/* Dialogue natif : ouverture animée par @starting-style (aucune bibliothèque). */
+dialog[open] {
+  transition:
+    opacity 200ms var(--ease-out-soft),
+    transform 200ms var(--ease-out-soft);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+dialog::backdrop {
+  background: rgb(10 22 15 / 0.6);
+  backdrop-filter: blur(3px);
+}
+
+/* --- Assistants IA : chaque rôle a son interface (ADR 0028) ------------------------------------------- */
+
+/* En-tête d'un assistant : halo citron discret derrière l'avatar. */
+.assistant-hero::before {
+  content: "";
+  position: absolute;
+  inset: -40% auto auto -10%;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent) 22%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.assistant-avatar {
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
+  animation: avatar-pulse 2.8s ease-out infinite;
+}
+@keyframes avatar-pulse {
+  70% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* L'assistant réfléchit : trois points. */
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.typing-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-text);
+  animation: typing 1.2s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+/* Bulles de conversation : l'assistant à gauche, le candidat à droite. */
+.chat-bubble {
+  border-radius: 1.25rem;
+  padding: 0.75rem 1rem;
+}
+.chat-bubble-in {
+  background: var(--surface-sunken);
+  border-top-left-radius: 0.35rem;
+}
+.chat-bubble-out {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-bottom-right-radius: 0.35rem;
+}
+
+/* Jauge circulaire : le trait se dessine à l'apparition. */
+.ring-draw {
+  transition: stroke-dashoffset 900ms var(--ease-out-soft);
+  animation: ring-draw 1s var(--ease-out-soft) both;
+}
+@keyframes ring-draw {
+  from {
+    stroke-dashoffset: var(--ring-c);
+  }
+}
+
+/* Barres qui se remplissent (verdicts, frise du plan). */
+.grow-bar {
+  transform-origin: left;
+  animation: grow-bar 800ms var(--ease-out-soft) both;
+}
+@keyframes grow-bar {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Tampon du juge : il « tombe » sur la ligne. */
+.verdict-stamp {
+  rotate: -4deg;
+  animation: stamp 450ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes stamp {
+  from {
+    opacity: 0;
+    scale: 1.8;
+  }
+}
+
+/* Lettres STAR qui se révèlent une à une. */
+.star-tile {
+  animation: tile-pop 420ms var(--ease-out-soft) both;
+}
+@keyframes tile-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+}
+
+/* Conseillère ATS : une ligne de lecture balaie le CV pendant l'analyse. */
+.ats-scan {
+  position: relative;
+  overflow: hidden;
+  background: repeating-linear-gradient(to bottom, var(--surface) 0 14px, var(--surface-sunken) 14px 18px);
+}
+.ats-scan::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 18px 4px color-mix(in oklab, var(--accent) 60%, transparent);
+  animation: scan 1.6s ease-in-out infinite alternate;
+}
+@keyframes scan {
+  to {
+    transform: translateY(calc(6rem - 3px));
+  }
+}
+
+/* CV traduit : une feuille claire, quel que soit le thème. */
+.paper-sheet {
+  background: #fff;
+  color: #1a1f1c;
+  border-radius: 0.75rem;
+  padding: 2.5rem;
+  box-shadow: 0 20px 50px -20px rgb(0 0 0 / 0.35);
+}
+.paper-sheet h3 {
+  border-color: #d7dcd8;
+}
+
+/* --- Studio IA : trois zones, une scène par assistant ------------------------------------------------- */
+
+.studio-grid {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr) 24rem;
+}
+.studio-grid.no-rail {
+  grid-template-columns: minmax(0, 1fr) 24rem;
+}
+.studio-grid.no-paper {
+  grid-template-columns: 17rem minmax(0, 1fr);
+}
+.studio-grid.no-rail.no-paper {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 80rem) {
+  .studio-grid,
+  .studio-grid.no-rail {
+    grid-template-columns: 17rem minmax(0, 1fr);
+  }
+  .studio-grid.no-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-cv {
+    display: none;
+  }
+}
+@media (max-width: 48rem) {
+  .studio-grid,
+  .studio-grid.no-paper {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-rail {
+    display: none;
+  }
+}
+.studio kbd {
+  font-family: inherit;
+}
+
+/* La feuille de CV : claire quel que soit le thème, comme le PDF. */
+.studio-paper {
+  background: #fff;
+  color: #1a1f1c;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 24px 60px -28px rgb(0 0 0 / 0.55);
+}
+.cv-focus {
+  background: #f4fbcf;
+  box-shadow: 0 0 0 2px #c8e33a;
+}
+.cv-flash {
+  animation: cv-flash 2.2s var(--ease-out-soft);
+}
+@keyframes cv-flash {
+  0% {
+    background: #c8e33a;
+    transform: translateX(-6px) scale(1.02);
+  }
+  40% {
+    background: #e7f7a8;
+    transform: none;
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Changement d'assistant : la scène glisse et se fond (transition de vue quand le navigateur l'offre). */
+.scene-enter {
+  animation: scene-in 420ms var(--ease-out-soft) both;
+}
+@keyframes scene-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+  }
+}
+::view-transition-old(studio-scene) {
+  animation: 180ms ease-in both fade-out-left;
+}
+::view-transition-new(studio-scene) {
+  animation: 320ms var(--ease-out-soft) both scene-in;
+}
+@keyframes fade-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+}
+
+/* Palette Ctrl + K. */
+dialog.palette {
+  margin: 12vh auto auto;
+  width: min(42rem, calc(100vw - 2rem));
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0;
+  box-shadow: 0 40px 100px -20px rgb(0 0 0 / 0.6);
+}
+dialog.palette[open] {
+  animation: palette-in 220ms var(--ease-out-soft);
+}
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.97);
+  }
+}
+
+/* Juge : la balance penche, le comparateur se fait glisser, le dossier entre de côté. */
+.balance-beam {
+  transform-origin: 130px 30px;
+  transform-box: view-box;
+  transition: transform 900ms cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+.case-file {
+  animation: case-in 450ms var(--ease-out-soft) both;
+}
+@keyframes case-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px) rotate(1deg);
+  }
+}
+.judge-top {
+  clip-path: inset(0 calc(100% - var(--reveal)) 0 0);
+  transition: clip-path 80ms linear;
+}
+.judge-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--reveal);
+  width: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 16px var(--accent);
+}
+
+/* ATS : un laser balaie le document ; les rubriques s'ouvrent au glisser. */
+.scanner .scan-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: #c8e33a;
+  box-shadow: 0 0 22px 6px rgb(200 227 58 / 0.55);
+  opacity: 0;
+  pointer-events: none;
+}
+.scanner.is-scanning .scan-laser {
+  opacity: 1;
+  animation: laser 1.4s ease-in-out infinite alternate;
+}
+@keyframes laser {
+  to {
+    top: calc(100% - 3px);
+  }
+}
+.drop-ready {
+  outline: 2px dashed #a8c46a;
+  outline-offset: 2px;
+}
+.drop-over {
+  background: #eef8de;
+  outline-color: #5a9a2c;
+  transform: scale(1.01);
+}
+.gauge-arc {
+  stroke-dasharray: 400;
+  animation: gauge 1.1s var(--ease-out-soft) both;
+}
+@keyframes gauge {
+  from {
+    stroke-dashoffset: 400;
+  }
+}
+.kw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.8rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: transform 160ms var(--ease-out-soft);
+}
+button.kw-chip:hover {
+  transform: translateY(-2px) rotate(-2deg);
+  box-shadow: 0 10px 24px -10px rgb(0 0 0 / 0.5);
+}
+.proposal-pop {
+  animation: tile-pop 380ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+.checkup li {
+  animation: tile-pop 400ms var(--ease-out-soft) both;
+}
+
+/* Coach : plateau sous projecteur, recruteur qui parle, micro qui pulse, tuiles STAR qui se retournent. */
+.interview-stage {
+  background:
+    radial-gradient(ellipse at 20% 0%, rgb(227 245 107 / 0.18), transparent 55%),
+    linear-gradient(160deg, #1f3829, #10200f);
+  color: #f1f3e9;
+}
+.recruiter {
+  box-shadow: 0 0 0 8px rgb(241 243 233 / 0.08);
+}
+.type-caret::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: #e3f56b;
+  animation: blink 0.8s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.speak-bars {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+.speak-bars span {
+  width: 4px;
+  height: 6px;
+  border-radius: 2px;
+  background: #e3f56b;
+  opacity: 0.35;
+}
+.speak-bars.is-on span {
+  opacity: 1;
+  animation: speak 0.6s ease-in-out infinite alternate;
+}
+.speak-bars.is-on span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.speak-bars.is-on span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.speak-bars.is-on span:nth-child(4) {
+  animation-delay: 0.45s;
+}
+@keyframes speak {
+  to {
+    height: 20px;
+  }
+}
+.mic-button {
+  position: relative;
+  transition: transform 160ms var(--ease-out-soft);
+}
+.mic-button:hover {
+  transform: scale(1.05);
+}
+.mic-button.is-live::before,
+.mic-button.is-live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--removed);
+  animation: mic-ring 1.6s ease-out infinite;
+}
+.mic-button.is-live::after {
+  animation-delay: 0.8s;
+}
+@keyframes mic-ring {
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+.flip-tile {
+  display: grid;
+  place-items: center;
+  gap: 0.25rem;
+  border-radius: 1.25rem;
+  padding: 1rem;
+  border: 2px dashed var(--line);
+  color: var(--ink-subtle);
+  animation: flip 600ms var(--ease-out-soft) both;
+}
+.flip-tile.is-on {
+  border: 2px solid var(--proved);
+  background: var(--proved-soft);
+  color: var(--proved);
+}
+@keyframes flip {
+  from {
+    transform: perspective(600px) rotateY(90deg);
+    opacity: 0;
+  }
+}
+.level-card {
+  transition:
+    transform 220ms var(--ease-out-soft),
+    border-color 220ms;
+}
+.level-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+}
+
+/* Plan : barres du Gantt qui poussent, repère du jour, prochaine étape. */
+.gantt-bar {
+  transform-origin: left;
+  animation: grow-bar 700ms var(--ease-out-soft) both;
+  transition: transform 160ms;
+}
+.gantt-bar:hover {
+  transform: translateY(-2px);
+}
+.next-step {
+  animation: tile-pop 450ms var(--ease-out-soft) both;
+}
+
+/* Traduction : deux feuilles, la ligne jumelle s'allume. */
+.twin-line.is-twin {
+  background: #f4fbcf;
+}
+.twin-num {
+  position: absolute;
+  left: 0.25rem;
+  top: 0.15rem;
+  display: grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: #eef0ea;
+  color: #536657;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+.twin-line.is-twin .twin-num {
+  background: #c8e33a;
+  color: #16281d;
+}
+.sheet-right {
+  animation: sheet-in 600ms var(--ease-out-soft) both;
+}
+.sheet-right.is-empty {
+  opacity: 0.6;
+  background: repeating-linear-gradient(-45deg, #fff 0 12px, #f6f7f3 12px 24px);
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateY(-12deg) translateX(20px);
+  }
+}
+.lang-swap {
+  animation: spin-once 700ms var(--ease-out-soft);
+}
+@keyframes spin-once {
+  from {
+    transform: rotate(-180deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner.is-scanning .scan-laser,
+  .mic-button.is-live::before,
+  .mic-button.is-live::after,
+  .speak-bars.is-on span,
+  .type-caret::after {
+    animation: none !important;
+  }
+}
+
+/* Parcours des assistants : un fil relie les trois étapes (grand écran). */
+@media (min-width: 64rem) {
+  .journey::before {
+    content: "";
+    position: absolute;
+    top: 1.25rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    border-top: 2px dashed var(--line-strong);
+  }
+  .journey-dot {
+    position: relative;
+    box-shadow: 0 0 0 6px var(--paper);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-avatar,
+  .typing-dots span,
+  .ats-scan::after {
+    animation: none !important;
   }
 }
 
@@ -54,6 +1491,34 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+  /* Animations pilotées par le défilement : la durée n'y change rien, on les retire. */
+  .reveal,
+  .parallax,
+  .word-view,
+  .fill-on-scroll,
+  .header-scroll {
+    animation: none !important;
+  }
+  .scroll-progress,
+  .cursor-dot,
+  .cursor-ring,
+  .aurora {
+    display: none;
+  }
+  .tilt:hover {
+    transform: none;
+  }
+}
+
+/* Vitrine IA de l'accueil : l'après glisse sur l'avant. */
+.showcase-before {
+  animation: scene-in 380ms var(--ease-out-soft) both;
+}
+.showcase-after {
+  animation: case-in 520ms var(--ease-out-soft) 120ms both;
 }

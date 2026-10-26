@@ -13,6 +13,11 @@ export interface BasicsForm {
   countryCode: string;
   url: string;
   summary: string;
+  /** Informations personnelles, affichées selon les usages du pays visé (ADR 0036). */
+  birthDate: string;
+  nationality: string;
+  workPermit: string;
+  drivingLicence: string;
 }
 
 export interface WorkForm {
@@ -61,7 +66,20 @@ export const emptyEducation = (): EducationForm => ({
 });
 
 export const emptyDraft = (): Draft => ({
-  basics: { name: "", label: "", email: "", phone: "", city: "", countryCode: "", url: "", summary: "" },
+  basics: {
+    name: "",
+    label: "",
+    email: "",
+    phone: "",
+    city: "",
+    countryCode: "",
+    url: "",
+    summary: "",
+    birthDate: "",
+    nationality: "",
+    workPermit: "",
+    drivingLicence: "",
+  },
   work: [emptyWork()],
   education: [emptyEducation()],
   skills: "",
@@ -94,6 +112,10 @@ function toBasics(b: BasicsForm) {
     url: opt(b.url),
     summary: opt(b.summary),
     location: city || countryCode ? { city, countryCode } : undefined,
+    birthDate: opt(b.birthDate),
+    nationality: opt(b.nationality),
+    workPermit: opt(b.workPermit),
+    drivingLicence: opt(b.drivingLicence),
   };
 }
 
@@ -223,6 +245,10 @@ export function draftFromProfile(p: Profile, offer: Draft["offer"] = { rawText: 
       countryCode: s(p.basics.location?.countryCode),
       url: s(p.basics.url),
       summary: s(p.basics.summary),
+      birthDate: s(p.basics.birthDate),
+      nationality: s(p.basics.nationality),
+      workPermit: s(p.basics.workPermit),
+      drivingLicence: s(p.basics.drivingLicence),
     },
     work: p.work.length
       ? p.work.map((w) => ({
@@ -285,6 +311,11 @@ export function draftFromImported(ex: ImportedProfile, current: Draft): Draft {
       countryCode: s(ex.basics.countryCode).slice(0, 2),
       url: s(ex.basics.url),
       summary: s(ex.basics.summary),
+      // Informations personnelles : jamais extraites d'un CV importé, celles déjà saisies sont gardées.
+      birthDate: current.basics.birthDate,
+      nationality: current.basics.nationality,
+      workPermit: current.basics.workPermit,
+      drivingLicence: current.basics.drivingLicence,
     },
     work: (work.length ? work : [emptyWork()]).slice(0, 30),
     education: (education.length ? education : [emptyEducation()]).slice(0, 15),

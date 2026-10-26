@@ -151,7 +151,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-/** Appel d'auth sans jeton (lien magique), avec l'en-tête anti-CSRF. */
+/** Appel d'auth sans jeton (connexion, création de compte), avec l'en-tête anti-CSRF. */
 export async function authCall<T>(path: string, method: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API}/auth/v1${path}`, {
     method,

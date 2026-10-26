@@ -30,7 +30,8 @@ const SECTIONS: [string, string[]][] = [
     "Ce que nous traitons",
     [
       "Votre profil (parcours, compétences, coordonnées que vous choisissez d'indiquer), les offres que vous collez, les CV ciblés et lettres générés, et, si vous l'activez, vos critères de veille emploi.",
-      "Votre adresse e-mail sert uniquement à vous connecter et à vous envoyer la veille que vous avez confirmée.",
+      "Votre compte repose sur un identifiant et un mot de passe, conservé sous forme d'empreinte (scrypt), jamais en clair. Aucune adresse e-mail n'est demandée pour le créer.",
+      "L'adresse e-mail que vous indiquez dans la veille emploi sert uniquement à vous envoyer les rapports et les rappels. Chaque e-mail contient un lien de désabonnement en un clic.",
     ],
   ],
   [
@@ -61,13 +62,13 @@ export function Privacy() {
   useDocumentTitle("Confidentialité");
   return (
     <article className="mx-auto max-w-3xl">
-      <PageHeader title="Politique de confidentialité" lead="Version du 18 octobre 2026." />
+      <PageHeader title="Politique de confidentialité" lead="Version du 24 octobre 2026." />
       <div className="space-y-8">
         {SECTIONS.map(([title, paragraphs]) => (
           <section key={title}>
             <h2 className="text-xl font-bold">{title}</h2>
             {paragraphs.map((p) => (
-              <p key={p} className="mt-2 text-slate-700 dark:text-slate-300">
+              <p key={p} className="mt-2 text-ink-muted">
                 {p}
               </p>
             ))}

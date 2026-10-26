@@ -16,6 +16,7 @@ import {
   QueryError,
   useDocumentTitle,
 } from "../components/ui";
+import { AiBadge, CopyButton, Segmented, Thinking, VoteButtons } from "./assistants/shared";
 import { describeIssue, formatDateTime } from "../lib/describe";
 
 export function LetterList() {
@@ -25,7 +26,7 @@ export function LetterList() {
     <div>
       <PageHeader
         title="Lettres de motivation"
-        lead="Chaque lettre est rédigée à partir d'un CV vérifié ; aucun paragraphe non prouvé n'est gardé."
+        lead="Chaque lettre est rédigée à partir d'un CV vérifié ; aucun paragraphe sans source n'est gardé."
       />
       {list.isPending && <Loading />}
       {list.isError && <QueryError error={list.error} retry={() => void list.refetch()} />}
@@ -47,7 +48,7 @@ export function LetterList() {
             <Link to={`/lettres/${l.id}`} className="text-lg font-semibold hover:underline">
               {l.offerTitle}
             </Link>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-ink-muted">
               {l.company ? `${l.company} · ` : ""}modifiée le {formatDateTime(l.updatedAt)}
             </p>
           </li>
@@ -58,8 +59,8 @@ export function LetterList() {
 }
 
 const STATUS: Record<Letter["paragraphs"][number]["status"], [string, "success" | "warning" | "info"]> = {
-  supported: ["Prouvé par votre CV", "success"],
-  unsupported: ["Non prouvé", "warning"],
+  supported: ["Sourcé dans votre CV", "success"],
+  unsupported: ["Sans source", "warning"],
   edited: ["Modifié par vous", "info"],
 };
 
@@ -90,6 +91,9 @@ export function LetterEditor() {
     },
   });
   const pdf = useMutation({ mutationFn: () => letters.pdf(id) });
+  // Lettre traduite (ADR 0029) : affichée pour relecture et copie, paragraphes écartés si un chiffre change.
+  const [lang, setLang] = useState<"en" | "de">("en");
+  const translate = useMutation({ mutationFn: () => letters.translateLetter(id, lang) });
   const remove = useMutation({
     mutationFn: () => letters.remove(id),
     onSuccess: () => {
@@ -130,10 +134,63 @@ export function LetterEditor() {
       )}
       {letter.removed > 0 && (
         <Alert tone="info">
-          {letter.removed} paragraphe(s) rédigé(s) mais non prouvé(s) par votre CV ont été retiré(s).
+          {letter.removed} paragraphe(s) rédigé(s) mais sans source dans votre CV ont été retiré(s).
         </Alert>
       )}
       {dirty && <Alert tone="warning">Enregistrez vos modifications avant de télécharger le PDF.</Alert>}
+      <section className="card space-y-4" aria-labelledby="traduction-lettre">
+        <h2 id="traduction-lettre" className="text-lg font-bold">
+          🌍 Traduire la lettre
+        </h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <Segmented
+            name="langue-lettre"
+            legend="Langue"
+            value={lang}
+            onChange={setLang}
+            options={[
+              ["en", "Anglais"],
+              ["de", "Allemand"],
+            ]}
+          />
+          <Button
+            variant="secondary"
+            busy={translate.isPending}
+            disabled={dirty}
+            onClick={() => translate.mutate()}
+          >
+            Traduire
+          </Button>
+        </div>
+        {translate.isPending && <Thinking label="Traduction paragraphe par paragraphe…" />}
+        {translate.isError && <Alert tone="error">{errorMessage(translate.error)}</Alert>}
+        {translate.data && (
+          <div className="animate-enter space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <AiBadge kind={translate.data.providerKind} />
+              {translate.data.rejected > 0 && (
+                <Badge tone="warning">
+                  {translate.data.rejected} paragraphe(s) écarté(s) : chiffres modifiés
+                </Badge>
+              )}
+              <VoteButtons role="traduction-lettre" kind={translate.data.providerKind} />
+            </div>
+            <article lang={translate.data.lang} className="paper-sheet space-y-3">
+              <p>{translate.data.greeting}</p>
+              {translate.data.paragraphs.map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+              <p>{translate.data.closing}</p>
+            </article>
+            <CopyButton
+              text={[translate.data.greeting, ...translate.data.paragraphs, translate.data.closing].join(
+                "\n\n",
+              )}
+              label="Copier la lettre traduite"
+            />
+          </div>
+        )}
+      </section>
       {pdf.isError && <Alert tone="error">{errorMessage(pdf.error)}</Alert>}
       <form
         className="card space-y-5"
@@ -174,7 +231,7 @@ export function LetterEditor() {
                 onChange={(e) => setParagraphs((list) => list.map((p, j) => (j === i ? e.target.value : p)))}
               />
               {checked && checked.text === text && checked.issues.length > 0 && (
-                <ul className="mt-1 list-disc pl-5 text-sm text-amber-900 dark:text-amber-200">
+                <ul className="mt-1 list-disc pl-5 text-sm text-flagged">
                   {checked.issues.map((issue, k) => (
                     <li key={k}>{describeIssue(issue)}</li>
                   ))}

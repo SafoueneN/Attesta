@@ -10,11 +10,12 @@ import { useToast } from "../components/toasts";
 import {
   Alert,
   apiFieldErrors,
+  buttonClass,
   Button,
   ErrorSummary,
   errorMessage,
   PageHeader,
-  Spinner,
+  Loading,
   TextArea,
   TextField,
   useDocumentTitle,
@@ -33,33 +34,53 @@ import {
 
 const STEPS = ["Profil", "Expériences et formations", "Offre visée", "Génération"];
 
+/** Pastille d'étape : coche si faite, anneau d'accent si en cours, contour neutre sinon. */
+const DOT: Record<"done" | "current" | "todo", string> = {
+  done: "border-accent bg-accent text-on-accent",
+  current: "border-accent bg-surface text-accent-text ring-4 ring-accent/20",
+  todo: "border-line-strong bg-surface text-ink-subtle",
+};
+
 function Stepper({ step }: { step: number }) {
   return (
-    <nav aria-label="Étapes du parcours" className="mb-8">
-      <p className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">
+    <nav aria-label="Étapes du parcours" className="mb-10">
+      <p className="mb-4 text-sm font-semibold text-ink-muted">
         Étape {step} sur {STEPS.length}
       </p>
-      <ol className="grid grid-cols-4 gap-2">
+      <ol className="grid grid-cols-4">
         {STEPS.map((label, i) => {
           const n = i + 1;
           const state = n < step ? "done" : n === step ? "current" : "todo";
           return (
-            <li key={label}>
-              <div
-                className={`h-1.5 rounded-full ${state === "todo" ? "bg-slate-200 dark:bg-slate-800" : "bg-brand-600"}`}
+            <li key={label} className="relative flex flex-col items-start">
+              {/* Trait vers l'étape suivante, rempli d'accent une fois l'étape franchie. */}
+              {n < STEPS.length && (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-4 right-0 left-9 h-0.5 overflow-hidden bg-line"
+                >
+                  <span
+                    className={`block h-full origin-left bg-accent transition-transform duration-500 ease-out-soft ${n < step ? "scale-x-100" : "scale-x-0"}`}
+                  />
+                </span>
+              )}
+              <span
                 aria-hidden="true"
-              />
+                className={`relative grid size-8 place-items-center rounded-full border-2 text-sm font-bold transition-colors duration-300 ${DOT[state]}`}
+              >
+                {state === "done" ? "✓" : n}
+              </span>
               {n < step ? (
                 <Link
                   to={`/cv/etape/${n}`}
-                  className="mt-2 block text-sm text-brand-700 underline dark:text-brand-100"
+                  className="mt-2 pr-2 text-xs font-medium text-accent-text underline underline-offset-2 sm:text-sm"
                 >
                   {label}
                 </Link>
               ) : (
                 <span
                   aria-current={state === "current" ? "step" : undefined}
-                  className={`mt-2 block text-sm ${state === "current" ? "font-semibold" : "text-slate-500"}`}
+                  className={`mt-2 pr-2 text-xs sm:text-sm ${state === "current" ? "font-bold text-ink" : "text-ink-subtle"}`}
                 >
                   {label}
                 </span>
@@ -68,24 +89,32 @@ function Stepper({ step }: { step: number }) {
           );
         })}
       </ol>
+      {/* Rail et pastille glissante : le Builder reste monté d'une étape à l'autre, la transition se voit. */}
+      <div aria-hidden="true" className="relative mt-5 h-1.5 rounded-full bg-line">
+        <span
+          className="absolute inset-y-0 left-0 rounded-full bg-accent transition-[width] duration-700 ease-spring"
+          style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
+        />
+        <span
+          className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_6px_var(--accent-soft)] transition-[left] duration-700 ease-spring"
+          style={{ left: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
+        />
+      </div>
     </nav>
   );
 }
 
 function StepNav({ step, busy, next = "Continuer" }: { step: number; busy?: boolean; next?: string }) {
   return (
-    <div className="mt-8 flex flex-wrap justify-between gap-3">
+    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
       {step > 1 ? (
-        <Link
-          to={`/cv/etape/${step - 1}`}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-        >
-          Étape précédente
+        <Link to={`/cv/etape/${step - 1}`} className={buttonClass("secondary")}>
+          <span aria-hidden="true">←</span> Étape précédente
         </Link>
       ) : (
         <span />
       )}
-      <Button type="submit" busy={busy}>
+      <Button type="submit" size="lg" busy={busy}>
         {next}
       </Button>
     </div>
@@ -94,11 +123,179 @@ function StepNav({ step, busy, next = "Continuer" }: { step: number; busy?: bool
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <fieldset className="card space-y-4">
+    <fieldset className="card animate-enter space-y-5 transition-shadow duration-200 focus-within:shadow-raised">
       <legend className="sr-only">{title}</legend>
-      <h2 className="text-lg font-bold">{title}</h2>
+      <h2 className="font-display text-xl font-semibold">{title}</h2>
       {children}
     </fieldset>
+  );
+}
+
+/** Recadre une photo au format d'identité (3:4, 450 × 600) et la compresse en JPEG avant l'envoi. */
+async function toIdPhoto(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const ratio = 3 / 4;
+  const [sw, sh] =
+    bitmap.width / bitmap.height > ratio
+      ? [bitmap.height * ratio, bitmap.height]
+      : [bitmap.width, bitmap.width / ratio];
+  const canvas = document.createElement("canvas");
+  canvas.width = 450;
+  canvas.height = 600;
+  // Recadrage centré, un peu vers le haut : le visage est en général dans le tiers supérieur.
+  canvas
+    .getContext("2d")!
+    .drawImage(bitmap, (bitmap.width - sw) / 2, (bitmap.height - sh) / 3, sw, sh, 0, 0, 450, 600);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("photo"))), "image/jpeg", 0.85),
+  );
+}
+
+/**
+ * Photo du CV (ADR 0036) : comptes seulement, stockée chiffrée à part du profil, jamais envoyée à l'IA ;
+ * affichée sur le CV seulement si les usages du pays visé l'admettent.
+ */
+function PhotoField() {
+  const { isAccount } = useSession();
+  const queryClient = useQueryClient();
+  const input = useRef<HTMLInputElement>(null);
+  const photo = useQuery({
+    queryKey: ["photo"],
+    queryFn: profiles.photo,
+    enabled: isAccount,
+    retry: false,
+  });
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!photo.data) return setUrl(undefined);
+    const next = URL.createObjectURL(photo.data);
+    setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [photo.data]);
+  const save = useMutation({
+    mutationFn: async (file: File) => profiles.setPhoto(await toIdPhoto(file)),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["photo"] }),
+  });
+  const remove = useMutation({
+    mutationFn: profiles.removePhoto,
+    onSuccess: () => queryClient.setQueryData(["photo"], null),
+  });
+  if (!isAccount)
+    return (
+      <p className="text-sm text-ink-muted">
+        <Link to="/connexion" className="link">
+          Créez un compte
+        </Link>{" "}
+        pour ajouter une photo d'identité (CV allemands et tunisiens).
+      </p>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      {url ? (
+        <img
+          src={url}
+          alt="Votre photo de CV"
+          className="h-24 w-18 rounded-xl object-cover ring-2 ring-accent"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="grid h-24 w-18 place-items-center rounded-xl border-2 border-dashed border-line text-2xl text-ink-subtle"
+        >
+          ☺
+        </span>
+      )}
+      <div className="space-y-2">
+        <p className="text-sm font-semibold">Photo d'identité</p>
+        <p className="text-xs text-ink-muted">
+          JPEG ou PNG, recadrée au format 3:4. Jamais affichée au Canada.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={input}
+            type="file"
+            accept="image/jpeg,image/png"
+            className="sr-only"
+            aria-label="Choisir une photo"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) save.mutate(file);
+              e.target.value = "";
+            }}
+          />
+          <Button variant="secondary" busy={save.isPending} onClick={() => input.current?.click()}>
+            {url ? "Changer la photo" : "Ajouter une photo"}
+          </Button>
+          {url && (
+            <Button variant="ghost" busy={remove.isPending} onClick={() => remove.mutate()}>
+              Retirer
+            </Button>
+          )}
+        </div>
+        {(save.isError || remove.isError) && (
+          <Alert tone="error">{errorMessage(save.error ?? remove.error)}</Alert>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Repères affichés à côté du formulaire sur grand écran : ce qui est fait des données à chaque étape. */
+const ASIDE: Record<number, { title: string; points: string[] }> = {
+  1: {
+    title: "Votre profil est la seule source",
+    points: [
+      "Rien de ce qui n'y figure ne pourra apparaître dans un CV généré.",
+      "À l'import d'un PDF, chaque élément proposé est vérifié dans votre fichier.",
+    ],
+  },
+  2: {
+    title: "Vos chiffres, rien que vos chiffres",
+    points: [
+      "Saisissez vos réalisations avec leurs chiffres réels : ce sont les seuls que le CV pourra citer.",
+      "Une ligne par réalisation : chacune devient une source vérifiable.",
+    ],
+  },
+  3: {
+    title: "L'offre est une donnée",
+    points: [
+      "Le texte de l'annonce est analysé, jamais traité comme une consigne.",
+      "Les mots-clés absents de votre profil seront signalés, jamais ajoutés.",
+    ],
+  },
+  4: {
+    title: "Ce qui va se passer",
+    points: [
+      "Vos faits sont choisis et reformulés pour l'offre.",
+      "Chaque ligne est contrôlée ; une ligne sans source est retirée avant affichage.",
+      "Vous relisez tout avant d'exporter.",
+    ],
+  },
+};
+
+function StepAside({ step }: { step: number }) {
+  const aside = ASIDE[step];
+  if (!aside) return null;
+  return (
+    <aside aria-label="Repères" className="hidden lg:block">
+      <div
+        key={step}
+        className="sticky top-24 animate-enter rounded-2xl border border-line bg-surface-sunken p-6"
+      >
+        <p className="eyebrow">Bon à savoir</p>
+        <h2 className="mt-2 font-display text-lg font-semibold">{aside.title}</h2>
+        <ul className="mt-4 space-y-3 text-sm text-ink-muted">
+          {aside.points.map((p) => (
+            <li key={p} className="flex gap-2.5">
+              <span aria-hidden="true" className="mt-0.5 font-bold text-proved">
+                ✓
+              </span>
+              {p}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
   );
 }
 
@@ -115,18 +312,32 @@ export function Builder() {
   const { step: raw = "1" } = useParams();
   const step = Number(raw);
   useRestoreProfile();
+  // Sens de la transition : on avance (entrée par la droite) ou on revient (entrée par la gauche).
+  const previous = useRef(step);
+  const direction = step >= previous.current ? "step-forward" : "step-back";
+  useEffect(() => {
+    previous.current = step;
+  }, [step]);
   if (![1, 2, 3, 4].includes(step)) return <Navigate to="/cv/etape/1" replace />;
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       <PageHeader
         title="Créer un CV ciblé"
         lead="Votre profil est la seule source : rien n'est ajouté, tout est vérifié."
       />
-      <Stepper step={step} />
-      {step === 1 && <StepProfile />}
-      {step === 2 && <StepParcours />}
-      {step === 3 && <StepOffer />}
-      {step === 4 && <StepGenerate />}
+      {/* Formulaire à largeur de lecture ; la colonne de repères occupe l'espace des grands écrans. */}
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,48rem)_minmax(16rem,1fr)] xl:gap-16">
+        <div className="min-w-0">
+          <Stepper step={step} />
+          <div key={step} className={direction}>
+            {step === 1 && <StepProfile />}
+            {step === 2 && <StepParcours />}
+            {step === 3 && <StepOffer />}
+            {step === 4 && <StepGenerate />}
+          </div>
+        </div>
+        <StepAside step={step} />
+      </div>
     </div>
   );
 }
@@ -139,12 +350,13 @@ function StepProfile() {
   const [errors, setErrors] = useState<FieldError[]>([]);
   useDocumentTitle("Étape 1 sur 4 : Profil", errors.length > 0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   const importer = useMutation({
     mutationFn: profiles.importPdf,
     onSuccess: (result) => {
       update((d) => draftFromImported(result.profile, d));
       toast.success(
-        `Profil pré-rempli à partir de votre CV. Relisez chaque champ.${result.dropped ? ` ${result.dropped} élément(s) absent(s) de votre PDF ont été écarté(s).` : ""}`,
+        `Profil pré-rempli à partir de votre CV${result.method === "regles" ? " (lecture automatique, sans IA)" : ""}. Relisez chaque champ.${result.dropped ? ` ${result.dropped} élément(s) absent(s) de votre PDF ont été écarté(s).` : ""}`,
       );
     },
   });
@@ -167,15 +379,17 @@ function StepProfile() {
     <form noValidate onSubmit={submit} className="space-y-6">
       <ErrorSummary errors={errors} />
       <Section title="Importer un CV existant">
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-ink-muted">
           PDF de 5 Mo au plus. Le texte est extrait, puis chaque élément proposé est vérifié dans votre PDF ;
           rien n'est enregistré sans votre relecture.
         </p>
+        {/* `hidden` : hors de l'ordre de tabulation et de l'arbre d'accessibilité ; le bouton ci-dessous,
+            seul point d'entrée, ouvre le sélecteur de fichier. */}
         <input
           ref={fileInput}
           type="file"
           accept="application/pdf"
-          className="sr-only"
+          hidden
           id="cv-pdf"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -183,15 +397,39 @@ function StepProfile() {
             e.target.value = "";
           }}
         />
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Zone de dépôt : on peut aussi glisser le PDF ; le bouton reste l'accès au clavier. */}
+        <div
+          className={`dropzone flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-line-strong px-6 py-8 text-center ${dragging ? "is-over" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            const file = e.dataTransfer.files[0];
+            if (file) importer.mutate(file);
+          }}
+        >
+          <span
+            aria-hidden="true"
+            className={`grid size-12 place-items-center rounded-2xl bg-accent text-lg font-black text-on-accent transition-transform duration-300 ${dragging ? "-translate-y-1 scale-110" : ""}`}
+          >
+            ↥
+          </span>
+          <p className="text-sm text-ink-muted">
+            {dragging ? "Déposez votre PDF ici" : "Glissez votre CV PDF ici, ou"}
+          </p>
           <Button variant="secondary" busy={importer.isPending} onClick={() => fileInput.current?.click()}>
             Importer mon CV PDF
           </Button>
-          {importer.isPending && <span className="text-sm">Analyse du PDF…</span>}
+          {importer.isPending && <span className="text-sm text-ink-muted">Analyse du PDF…</span>}
         </div>
         {importer.isError && (
           <Alert
             tone={importer.error instanceof ApiError && importer.error.status === 503 ? "warning" : "error"}
+            announce
           >
             {errorMessage(importer.error)}
           </Alert>
@@ -219,6 +457,25 @@ function StepProfile() {
         </div>
         <TextField label="Site ou portfolio" optional type="url" hint="https://…" {...f("url")} />
         <TextArea label="Résumé" optional rows={4} {...f("summary")} />
+      </Section>
+      <Section title="Selon le pays visé">
+        <p className="text-sm text-ink-muted">
+          Facultatif. Ces informations ne figurent sur le CV que si les usages du pays l'admettent : date de
+          naissance et nationalité en Allemagne et en Tunisie, jamais au Canada. Elles ne sont jamais
+          transmises à l'IA.
+        </p>
+        <PhotoField />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField label="Date de naissance" optional type="date" {...f("birthDate")} />
+          <TextField label="Nationalité" optional autoComplete="country-name" {...f("nationality")} />
+          <TextField
+            label="Autorisation de travail"
+            optional
+            hint="Par exemple : Blue Card UE, Résident permanent (Canada)"
+            {...f("workPermit")}
+          />
+          <TextField label="Permis de conduire" optional hint="Par exemple : B" {...f("drivingLicence")} />
+        </div>
       </Section>
       <StepNav step={1} />
     </form>
@@ -426,6 +683,15 @@ function StepOffer() {
   useEffect(() => {
     if (fromUrl) setOfferId(fromUrl);
   }, [fromUrl, setOfferId]);
+  // Offre envoyée par l'extension « Cibler cette offre » (ADR 0044) : dans le fragment de l'URL, jamais
+  // transmis au serveur ; le texte pré-remplit le formulaire, le candidat le relit avant d'enregistrer.
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const text = hash.get("annonce");
+    if (!text) return;
+    update((d) => ({ ...d, offer: { rawText: text.slice(0, 20000), sourceUrl: hash.get("source") ?? "" } }));
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, [update]);
   const create = useMutation({
     mutationFn: () => jobs.createOffer(draft.offer.rawText.trim(), draft.offer.sourceUrl.trim() || undefined),
     onSuccess: (offer) => {
@@ -456,16 +722,20 @@ function StepOffer() {
       <ErrorSummary errors={errors} />
       {create.isError && !errors.length && <Alert tone="error">{errorMessage(create.error)}</Alert>}
       <fieldset className="card">
-        <legend className="text-lg font-bold">Quelle offre visez-vous ?</legend>
-        <div className="mt-4 flex flex-wrap gap-6">
+        <legend className="float-left font-display text-xl font-semibold">Quelle offre visez-vous ?</legend>
+        {/* Choix en tuiles : toute la surface est cliquable, l'option choisie est bordée d'accent. */}
+        <div className="clear-both grid gap-3 pt-4 sm:grid-cols-2">
           {(["nouvelle", "existante"] as const).map((m) => (
-            <label key={m} className="flex items-center gap-2">
+            <label
+              key={m}
+              className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-line p-4 font-medium transition-colors hover:border-line-strong has-checked:border-accent has-checked:bg-accent-soft"
+            >
               <input
                 type="radio"
                 name="mode"
                 checked={mode === m}
                 onChange={() => setMode(m)}
-                className="size-4 accent-brand-700"
+                className="size-4 accent-accent"
               />
               {m === "nouvelle" ? "Coller une nouvelle offre" : "Reprendre une offre enregistrée"}
             </label>
@@ -492,7 +762,7 @@ function StepOffer() {
             onChange={(e) => update((d) => ({ ...d, offer: { ...d.offer, sourceUrl: e.target.value } }))}
             errors={errors}
           />
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-ink-muted">
             Pas d'offre sous la main ?{" "}
             <Link to="/offres/collectees" className="link">
               Parcourez les offres collectées
@@ -502,7 +772,7 @@ function StepOffer() {
         </Section>
       ) : (
         <Section title="Offres enregistrées">
-          {saved.isPending && <Spinner label="Chargement des offres…" />}
+          {saved.isPending && <Loading label="Chargement des offres…" />}
           {saved.data?.length === 0 && <p>Aucune offre enregistrée pour le moment.</p>}
           {saved.data && saved.data.length > 0 && (
             <div>
@@ -534,6 +804,36 @@ function StepOffer() {
         next={mode === "nouvelle" ? "Analyser l'offre et continuer" : "Continuer"}
       />
     </form>
+  );
+}
+
+/**
+ * CV en construction pendant la génération (décoratif) : une ligne s'écrit à chaque événement reçu et
+ * reçoit son tampon « sourcé » ; une ligne fantôme scintille tant que le flux continue.
+ */
+function BuildingCv({ lines, running }: { lines: number; running: boolean }) {
+  const widths = ["w-11/12", "w-9/12", "w-10/12", "w-8/12", "w-11/12", "w-7/12"];
+  return (
+    <div aria-hidden="true" className="rounded-2xl border border-line bg-paper p-5 shadow-raised">
+      <div className="flex items-center gap-3 border-b border-line pb-3">
+        <span className="size-9 rounded-full bg-accent" />
+        <div className="space-y-1.5">
+          <span className="block h-2.5 w-28 rounded-full bg-line-strong/60" />
+          <span className="block h-2 w-20 rounded-full bg-line" />
+        </div>
+      </div>
+      <div className="mt-4 space-y-3">
+        {Array.from({ length: Math.min(lines, widths.length) }, (_, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className={`write-in block h-2 rounded-full bg-ink-subtle/50 ${widths[i]}`} />
+            <span className="grid size-4 shrink-0 animate-pop place-items-center rounded-full bg-proved text-[0.55rem] font-bold text-surface [animation-delay:600ms]">
+              ✓
+            </span>
+          </div>
+        ))}
+        {running && <span className="skeleton block h-2 w-10/12" />}
+      </div>
+    </div>
   );
 }
 
@@ -591,56 +891,79 @@ function StepGenerate() {
   return (
     <div className="space-y-6">
       <div className="card space-y-4">
-        <h2 className="text-lg font-bold">Offre visée</h2>
+        <h2 className="font-display text-xl font-semibold">Offre visée</h2>
         {offer.data ? (
           <div>
-            <p className="font-semibold">{offer.data.title}</p>
-            {offer.data.company && <p className="text-slate-600 dark:text-slate-400">{offer.data.company}</p>}
-            <p className="mt-2 text-sm">
-              Mots-clés repérés :{" "}
-              {offer.data.analysis.keywords
-                .slice(0, 12)
-                .map((k) => k.term)
-                .join(", ") || "aucun"}
+            <p className="text-lg font-semibold">{offer.data.title}</p>
+            {offer.data.company && <p className="text-ink-muted">{offer.data.company}</p>}
+            {/* Phrase complète pour les lecteurs d'écran ; puces visuelles pour l'œil. */}
+            <p className="mt-3 text-sm">
+              <span className="font-semibold">Mots-clés repérés : </span>
+              <span className="sr-only">
+                {offer.data.analysis.keywords
+                  .slice(0, 12)
+                  .map((k) => k.term)
+                  .join(", ") || "aucun"}
+              </span>
             </p>
+            <ul aria-hidden="true" className="mt-2 flex flex-wrap gap-1.5">
+              {offer.data.analysis.keywords.slice(0, 12).map((k, i) => (
+                <li
+                  key={`${k.term}-${i}`}
+                  className="rounded-full border border-line bg-surface-sunken px-2.5 py-0.5 text-xs font-semibold text-ink-muted"
+                >
+                  {k.term}
+                </li>
+              ))}
+            </ul>
             {offer.data.providerKind === "demo" && (
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                Analyse faite sans IA (mode démonstration).
-              </p>
+              <p className="mt-3 text-sm text-ink-muted">Analyse faite sans IA (mode démonstration).</p>
             )}
           </div>
         ) : (
-          <Spinner label="Chargement de l'offre…" />
+          <Loading label="Chargement de l'offre…" />
         )}
       </div>
-      <div className="card space-y-4">
-        <h2 className="text-lg font-bold">Générer le CV ciblé</h2>
-        <p className="text-slate-700 dark:text-slate-300">
+      <div className="card space-y-5 border-accent/40">
+        <h2 className="font-display text-xl font-semibold">Générer le CV ciblé</h2>
+        <p className="text-ink-muted">
           Vos faits sont choisis et reformulés pour cette offre, puis chaque ligne est contrôlée : une ligne
           qui ne renvoie pas à votre profil est retirée avant affichage.
         </p>
-        <Button onClick={() => void generate()} busy={running}>
+        <Button size="lg" onClick={() => void generate()} busy={running}>
           {running ? "Génération en cours…" : "Générer mon CV ciblé"}
         </Button>
+        {/* Frise de progression : chaque événement du flux s'ajoute avec sa coche ; un point pulse tant
+            que la génération tourne. */}
         {(progress.length > 0 || running) && (
-          <ol aria-live="polite" className="space-y-1 text-sm">
-            {progress.map((p, i) => (
-              <li key={i} className="flex items-center gap-2">
-                <span aria-hidden="true" className="text-brand-700">
-                  ✓
-                </span>{" "}
-                {p}
-              </li>
-            ))}
-          </ol>
+          <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <ol aria-live="polite" className="relative space-y-3 border-l-2 border-line pl-6 text-sm">
+              {progress.map((p, i) => (
+                <li key={i} className="relative animate-enter">
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-0.5 -left-[2.0625rem] grid size-4 animate-pop place-items-center rounded-full bg-proved text-[0.6rem] font-bold text-surface"
+                  >
+                    ✓
+                  </span>
+                  {p}
+                </li>
+              ))}
+              {running && (
+                <li aria-hidden="true" className="relative text-ink-subtle">
+                  <span className="absolute top-1 -left-[1.9375rem] size-3 animate-ping rounded-full bg-accent/60" />
+                  <span className="absolute top-1 -left-[1.9375rem] size-3 rounded-full bg-accent" />…
+                </li>
+              )}
+            </ol>
+            <BuildingCv lines={progress.length} running={running} />
+          </div>
         )}
         {failure && <Alert tone="error">{failure}</Alert>}
       </div>
       <div className="card space-y-3">
-        <h2 className="text-lg font-bold">Ou exporter sans adaptation</h2>
-        <p className="text-slate-700 dark:text-slate-300">
-          Votre CV tel que saisi, sans IA, au format lisible par les ATS.
-        </p>
+        <h2 className="font-display text-xl font-semibold">Ou exporter sans adaptation</h2>
+        <p className="text-ink-muted">Votre CV tel que saisi, sans IA, au format lisible par les ATS.</p>
         <Button variant="secondary" busy={exportPlain.isPending} onClick={() => exportPlain.mutate()}>
           Télécharger le CV non adapté (PDF)
         </Button>

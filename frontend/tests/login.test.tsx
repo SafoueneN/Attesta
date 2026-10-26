@@ -31,36 +31,41 @@ afterEach(() => {
 });
 
 describe("connexion", () => {
-  it("affiche un résumé d'erreurs focalisé qui mène aux champs", async () => {
+  it("affiche un résumé d'erreurs focalisé qui mène aux champs (création de compte)", async () => {
     vi.stubGlobal("fetch", async () =>
       json(200, { accessToken: "t", expiresIn: 60, user: { id: "g", role: "guest" } }),
     );
     const user = userEvent.setup();
     wrap(<Login />);
-    await user.type(screen.getByLabelText("Adresse e-mail"), "pas-une-adresse");
-    await user.click(screen.getByRole("button", { name: "Recevoir mon lien de connexion" }));
+    await user.click(screen.getByRole("tab", { name: "Créer un compte" }));
+    await user.type(screen.getByLabelText("Mot de passe"), "un-mot-de-passe-long");
+    await user.type(screen.getByLabelText("Confirmer le mot de passe"), "un-autre");
+    await user.click(screen.getByRole("button", { name: "Créer mon compte" }));
     const summary = await screen.findByRole("alert");
     expect(summary).toHaveFocus();
-    expect(summary).toHaveTextContent("Saisissez une adresse e-mail valide.");
+    expect(summary).toHaveTextContent("Les deux mots de passe ne sont pas identiques.");
     expect(summary).toHaveTextContent("Acceptez la politique de confidentialité");
-    expect(screen.getByLabelText("Adresse e-mail")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Identifiant")).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("envoie le lien et confirme sans révéler si le compte existe", async () => {
-    const calls: string[] = [];
+  it("connecte avec l'identifiant et le mot de passe, sans adresse e-mail", async () => {
+    const calls: { route: string; body?: unknown }[] = [];
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
-      calls.push(`${init.method} ${url}`);
-      if (url.includes("/session"))
-        return json(200, { accessToken: "t", expiresIn: 60, user: { id: "g", role: "guest" } });
-      return json(202, { message: "ok" });
+      calls.push({ route: `${init.method} ${url}`, body: init.body && JSON.parse(String(init.body)) });
+      const role = url.endsWith("/session/password") ? "candidate" : "guest";
+      return json(200, { accessToken: "t", expiresIn: 60, user: { id: "u", role } });
     });
     const user = userEvent.setup();
     wrap(<Login />);
-    await user.type(screen.getByLabelText("Adresse e-mail"), "Lea@Example.org");
-    await user.click(screen.getByLabelText(/politique de confidentialité/));
-    await user.click(screen.getByRole("button", { name: "Recevoir mon lien de connexion" }));
-    expect(await screen.findByText("Lien envoyé")).toBeInTheDocument();
-    expect(calls).toContain("POST /api/auth/v1/login-links");
+    await user.type(screen.getByLabelText("Identifiant"), "  lea.martin ");
+    await user.type(screen.getByLabelText("Mot de passe"), "demo-attesta-local");
+    await user.click(screen.getByRole("button", { name: "Me connecter" }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        route: "POST /api/auth/v1/session/password",
+        body: { username: "lea.martin", password: "demo-attesta-local" },
+      }),
+    );
   });
 });
 

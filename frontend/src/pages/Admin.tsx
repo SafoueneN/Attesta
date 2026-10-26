@@ -13,6 +13,7 @@ import {
   useDocumentTitle,
 } from "../components/ui";
 import { formatDateTime } from "../lib/describe";
+import { CountUp } from "../lib/motion";
 
 const SERVICE_LABELS: Record<string, string> = {
   auth: "Comptes (auth)",
@@ -69,15 +70,78 @@ function Budget({ llm }: { llm: NonNullable<ServiceStats["llm"]> }) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(ratio * 100)}
-        className="mt-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800"
+        className="mt-1 h-2 rounded-full bg-surface-sunken"
       >
         <div
-          className={`h-2 rounded-full ${ratio >= 0.9 ? "bg-red-600" : ratio >= 0.7 ? "bg-amber-500" : "bg-brand-600"}`}
+          className={`h-2 rounded-full ${ratio >= 0.9 ? "bg-removed" : ratio >= 0.7 ? "bg-flagged" : "bg-accent"}`}
           style={{ width: `${ratio * 100}%` }}
         />
       </div>
-      <p className="mt-1 text-xs text-slate-500">{llm.calls} appel(s) ce mois-ci</p>
+      <p className="mt-1 text-xs text-ink-subtle">{llm.calls} appel(s) ce mois-ci</p>
+      {llm.byStep.length > 0 && (
+        <table className="mt-3 w-full text-sm">
+          <caption className="sr-only">Coût du mois par étape (rôle d'assistant)</caption>
+          <thead>
+            <tr className="text-left text-xs text-ink-subtle">
+              <th scope="col" className="font-semibold">
+                Étape
+              </th>
+              <th scope="col" className="text-right font-semibold">
+                Appels
+              </th>
+              <th scope="col" className="text-right font-semibold">
+                Coût
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...llm.byStep]
+              .sort((a, b) => b.costEur - a.costEur)
+              .map((s) => (
+                <tr key={s.step} className="border-t border-line">
+                  <td className="py-1">{s.step}</td>
+                  <td className="py-1 text-right">{s.calls}</td>
+                  <td className="py-1 text-right">
+                    {s.costEur.toLocaleString("fr-FR", {
+                      style: "currency",
+                      currency: "EUR",
+                      maximumFractionDigits: 3,
+                    })}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      )}
     </div>
+  );
+}
+
+/** Avis 👍 / 👎 des candidats sur les assistants (30 jours, anonymes, ADR 0029). */
+function Votes({ votes }: { votes: NonNullable<ServiceStats["votes"]> }) {
+  if (!votes.length)
+    return <p className="mt-3 text-xs text-ink-subtle">Aucun avis sur les assistants ces 30 jours.</p>;
+  return (
+    <ul className="mt-3 space-y-1 text-sm">
+      {votes.map((v) => {
+        const total = v.up + v.down;
+        return (
+          <li key={v.role} className="flex items-center gap-2">
+            <span className="w-40 shrink-0 truncate">{v.role}</span>
+            <span
+              className="flex h-2 flex-1 overflow-hidden rounded-full bg-surface-sunken"
+              aria-hidden="true"
+            >
+              <span className="bg-proved" style={{ width: `${total ? (v.up / total) * 100 : 0}%` }} />
+              <span className="bg-removed" style={{ width: `${total ? (v.down / total) * 100 : 0}%` }} />
+            </span>
+            <span className="w-20 text-right text-xs">
+              👍 {v.up} · 👎 {v.down}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -95,6 +159,11 @@ export function Admin() {
         queryFn: fn,
       }),
     ),
+  });
+  // Catalogue d'offres toutes régions (ADR 0034) : synchronisé seul toutes les 6 h, ou à la demande.
+  const sync = useMutation({
+    mutationFn: jobs.syncCatalogue,
+    onSuccess: (r) => toast.info(r.message),
   });
   const runNow = useMutation({
     mutationFn: watch.runNow,
@@ -118,11 +187,22 @@ export function Admin() {
         {health.isError && <QueryError error={health.error} />}
         {health.data && (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {health.data.services.map((s) => (
-              <li key={s.service} className="card flex items-center justify-between gap-2 p-4">
-                <div>
-                  <p className="font-semibold">{SERVICE_LABELS[s.service] ?? s.service}</p>
-                  <p className="text-xs text-slate-500">{s.ms} ms</p>
+            {health.data.services.map((s, i) => (
+              <li
+                key={s.service}
+                className="card flex animate-enter items-center justify-between gap-2 p-4"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <div className="flex items-center gap-3">
+                  {/* Point vivant : vert qui pulse si le service répond, rouge fixe sinon (l'état est écrit). */}
+                  <span
+                    aria-hidden="true"
+                    className={`live-dot ${s.status === "ok" ? "text-proved" : "text-removed [animation:none]"}`}
+                  />
+                  <div>
+                    <p className="font-semibold">{SERVICE_LABELS[s.service] ?? s.service}</p>
+                    <p className="text-xs text-ink-subtle">{s.ms} ms</p>
+                  </div>
                 </div>
                 <Badge tone={s.status === "ok" ? "success" : "error"}>
                   {s.status === "ok"
@@ -153,11 +233,11 @@ export function Admin() {
               ] as const
             ).map(([label, value]) => (
               <div key={label} className="card p-4">
-                <dt className="text-sm text-slate-600 dark:text-slate-400">{label}</dt>
+                <dt className="text-sm text-ink-muted">{label}</dt>
                 <dd
-                  className={`text-2xl font-bold ${label === "Suppressions en échec" && value > 0 ? "text-red-700" : ""}`}
+                  className={`text-3xl font-bold tracking-tight ${label === "Suppressions en échec" && value > 0 ? "text-removed" : ""}`}
                 >
-                  {value}
+                  <CountUp value={value} />
                 </dd>
               </div>
             ))}
@@ -184,16 +264,17 @@ export function Admin() {
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                   {Object.entries(q.data.counters).map(([key, value]) => (
                     <div key={key} className="flex justify-between gap-2">
-                      <dt className="text-slate-600 dark:text-slate-400">{COUNTER_LABELS[key] ?? key}</dt>
+                      <dt className="text-ink-muted">{COUNTER_LABELS[key] ?? key}</dt>
                       <dd className="font-semibold">{formatCounter(key, value)}</dd>
                     </div>
                   ))}
                 </dl>
                 {q.data.llm && <Budget llm={q.data.llm} />}
+                {q.data.votes && <Votes votes={q.data.votes} />}
               </div>
             ) : (
               <div key={i} className="card">
-                {q.isError ? <p className="text-sm text-red-700">{errorMessage(q.error)}</p> : <Loading />}
+                {q.isError ? <p className="text-sm text-removed">{errorMessage(q.error)}</p> : <Loading />}
               </div>
             ),
           )}
@@ -204,19 +285,23 @@ export function Admin() {
           <h2 id="executions" className="text-xl font-bold">
             Exécutions de la veille
           </h2>
-          <Button busy={runNow.isPending} onClick={() => runNow.mutate()}>
-            Lancer la veille maintenant
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" busy={sync.isPending} onClick={() => sync.mutate()}>
+              Synchroniser le catalogue d'offres
+            </Button>
+            <Button busy={runNow.isPending} onClick={() => runNow.mutate()}>
+              Lancer la veille maintenant
+            </Button>
+          </div>
         </div>
         {runNow.isError && <Alert tone="error">{errorMessage(runNow.error)}</Alert>}
-        {runs.data?.length === 0 && (
-          <p className="text-slate-600 dark:text-slate-400">Aucune exécution pour le moment.</p>
-        )}
+        {sync.isError && <Alert tone="error">{errorMessage(sync.error)}</Alert>}
+        {runs.data?.length === 0 && <p className="text-ink-muted">Aucune exécution pour le moment.</p>}
         {runs.data && runs.data.length > 0 && (
           <div className="card overflow-x-auto p-0">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Dernières exécutions de la veille</caption>
-              <thead className="border-b border-slate-200 dark:border-slate-800">
+              <thead className="border-b border-line">
                 <tr>
                   <th scope="col" className="px-4 py-2">
                     Date
@@ -234,7 +319,7 @@ export function Admin() {
               </thead>
               <tbody>
                 {runs.data.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                  <tr key={r.id} className="border-b border-line last:border-0">
                     <td className="px-4 py-2">{r.runDate}</td>
                     <td className="px-4 py-2">{r.trigger === "manuelle" ? "Manuel" : "Planifié"}</td>
                     <td className="px-4 py-2">{formatDateTime(r.startedAt)}</td>

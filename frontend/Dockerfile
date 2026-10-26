@@ -9,7 +9,8 @@ COPY packages/shared-schemas/package.json packages/shared-schemas/
 COPY packages/shared-schemas/dist packages/shared-schemas/dist
 WORKDIR /repo/frontend
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les builds, reprises réseau : une relance réutilise les paquets déjà téléchargés.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-maxtimeout=120000
 COPY frontend/tsconfig.json frontend/vite.config.ts frontend/index.html ./
 COPY frontend/public public
 COPY frontend/src src
