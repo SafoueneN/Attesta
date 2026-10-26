@@ -12,7 +12,8 @@ COPY packages/http-kit/package.json packages/http-kit/
 COPY packages/http-kit/dist packages/http-kit/dist
 WORKDIR /repo/gateway
 COPY gateway/package.json gateway/package-lock.json gateway/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les builds, reprises réseau : une relance réutilise les paquets déjà téléchargés.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-maxtimeout=120000
 COPY gateway/tsconfig.json gateway/tsconfig.build.json ./
 COPY gateway/src src
 RUN npm run build && npm prune --omit=dev

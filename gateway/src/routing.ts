@@ -36,6 +36,11 @@ const PUBLIC: Record<string, [method: string, path: RegExp][]> = {
     ["POST", /^\/v1\/login-links$/],
     ["GET", new RegExp(`^/v1/login-links/${TOKEN}$`)],
     ["POST", /^\/v1\/session$/],
+    // Comptes par identifiant et mot de passe (ADR 0030).
+    ["POST", /^\/v1\/accounts$/],
+    ["POST", /^\/v1\/session\/password$/],
+    // Mot de passe oublié, par code de récupération (ADR 0039).
+    ["POST", /^\/v1\/password\/reset$/],
     ["POST", /^\/v1\/session\/refresh$/],
     ["POST", /^\/v1\/session\/guest$/],
     ["DELETE", /^\/v1\/session$/],
@@ -48,6 +53,8 @@ const PUBLIC: Record<string, [method: string, path: RegExp][]> = {
     // Webhook du fournisseur d'e-mail, authentifié par son propre secret.
     ["POST", /^\/v1\/webhooks\/brevo$/],
   ],
+  // CV en ligne (ADR 0042) : le jeton secret du lien suffit.
+  "letters-export": [["GET", new RegExp(`^/v1/public/cv/${TOKEN}$`)]],
 };
 
 export function isPublic(service: string, method: string, path: string): boolean {

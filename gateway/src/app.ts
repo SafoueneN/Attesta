@@ -104,6 +104,19 @@ export function createGateway({ config, logger, verifier, fetchImpl = fetch }: G
     "/api/auth/v1/login-links",
     limiter(HOUR, config.RATE_LIMIT_LOGIN_PER_HOUR, "Trop de demandes de connexion. Réessayez plus tard."),
   );
+  // Création de compte et connexion par mot de passe (ADR 0030) : plafonds par IP, contre l'essai en masse.
+  app.post(
+    "/api/auth/v1/accounts",
+    limiter(HOUR, config.RATE_LIMIT_LOGIN_PER_HOUR, "Trop de créations de compte. Réessayez plus tard."),
+  );
+  app.post(
+    "/api/auth/v1/password/reset",
+    limiter(HOUR, config.RATE_LIMIT_LOGIN_PER_HOUR, "Trop d'essais de récupération. Réessayez plus tard."),
+  );
+  app.post(
+    "/api/auth/v1/session/password",
+    limiter(HOUR, config.RATE_LIMIT_LOGIN_PER_HOUR * 3, "Trop d'essais de connexion. Réessayez plus tard."),
+  );
   app.post(
     "/api/cv/v1/generations",
     limiter(HOUR, config.RATE_LIMIT_GENERATION_PER_HOUR, "Limite de générations atteinte pour cette heure."),
