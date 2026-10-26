@@ -1,0 +1,55 @@
+{
+  "description": "Cas annotés du juge de fidélité (ADR 0029) : une ligne du CV, ses sources, le verdict attendu. « a_revoir » = nuance ou infidèle.",
+  "cases": [
+    {
+      "text": "Développement de 12 tableaux de bord Power BI",
+      "sources": ["Conception de 12 tableaux de bord Power BI"],
+      "expected": "fidele"
+    },
+    {
+      "text": "Pilotage de la migration vers PostgreSQL",
+      "sources": ["Participation à la migration vers PostgreSQL"],
+      "expected": "a_revoir"
+    },
+    {
+      "text": "Responsable de l'équipe data de 5 personnes",
+      "sources": ["Membre d'une équipe data de 5 personnes"],
+      "expected": "a_revoir"
+    },
+    {
+      "text": "Automatisation des rapports hebdomadaires en Python",
+      "sources": ["Automatisation des rapports hebdomadaires en Python, soit 6 heures gagnées par semaine"],
+      "expected": "fidele"
+    },
+    {
+      "text": "Expert reconnu en SQL",
+      "sources": ["Écriture de requêtes SQL sur un entrepôt de 2 To"],
+      "expected": "a_revoir"
+    },
+    {
+      "text": "Formation de 20 utilisateurs à Excel avancé",
+      "sources": ["Formation de 20 utilisateurs à Excel avancé"],
+      "expected": "fidele"
+    },
+    {
+      "text": "A dirigé seul la refonte du reporting",
+      "sources": ["Contribution à la refonte du reporting mensuel"],
+      "expected": "a_revoir"
+    },
+    {
+      "text": "Fiabilisation du reporting mensuel des risques",
+      "sources": ["Fiabilisation du reporting mensuel des risques"],
+      "expected": "fidele"
+    },
+    {
+      "text": "Supervise les déploiements en production",
+      "sources": ["Déploiements en production avec l'équipe d'exploitation"],
+      "expected": "a_revoir"
+    },
+    {
+      "text": "Mise en place de tests d'intégration",
+      "sources": ["Mise en place de tests d'intégration sur l'API de facturation"],
+      "expected": "fidele"
+    }
+  ]
+}

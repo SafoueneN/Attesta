@@ -1,10 +1,11 @@
 import { ConfigError } from "@attesta/config";
 import { createJwksVerifier, startServer, USER_AUDIENCE } from "@attesta/http-kit";
-import { BudgetedProvider, createLlmProvider, pgUsageStore } from "@attesta/llm-client";
+import { BudgetedProvider, createAiProvider, pgUsageStore } from "@attesta/llm-client";
 import { createLogger } from "@attesta/logger";
 import { createApp } from "./app.js";
 import { loadConfig, SERVICE } from "./config.js";
 import { checkDatabase, createPool, migrate } from "./db.js";
+import { assistantDemoHandlers } from "./assistants.js";
 import { demoHandlers } from "./pipeline.js";
 import { GenerationStore, IaQuota } from "./store.js";
 import { httpUpstreams } from "./upstreams.js";
@@ -23,15 +24,11 @@ const pool = createPool(config.DATABASE_URL);
 pool.on("error", (err) => logger.error({ err, event: "pg_erreur" }, "connexion PostgreSQL perdue"));
 
 const store = new GenerationStore(pool);
-const provider = createLlmProvider(
-  {
-    provider: config.LLM_PROVIDER,
-    model: config.LLM_MODEL,
-    timeoutMs: config.LLM_TIMEOUT_MS,
-    vertexProjectId: config.VERTEX_PROJECT_ID,
-    vertexRegion: config.VERTEX_REGION,
-  },
-  demoHandlers,
+const provider = createAiProvider(
+  config,
+  config.NODE_ENV,
+  { ...demoHandlers, ...assistantDemoHandlers },
+  (event) => logger.warn({ event: "llm_repli", ...event }, "llm"),
 );
 const llm =
   provider &&

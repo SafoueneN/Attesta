@@ -85,7 +85,7 @@ describe.skipIf(!db)("service cv-generation (intégration PostgreSQL)", () => {
     await pool?.end();
     await db?.drop();
   });
-  beforeEach(() => pool.query("TRUNCATE generation, ia_quota, llm_usage"));
+  beforeEach(() => pool.query("TRUNCATE assistant_result, assistant_vote, generation, ia_quota, llm_usage"));
 
   const app = (options: { llm?: LlmProvider; upstreams?: Upstreams; dailyQuota?: number } = {}) => {
     const log = testLogger();

@@ -9,7 +9,21 @@ import {
   type Operation,
   type TokenVerifier,
 } from "@attesta/http-kit";
-import { BudgetedProvider, type LlmProvider } from "@attesta/llm-client";
+import { AssistUnavailableError, BudgetedProvider, type LlmProvider } from "@attesta/llm-client";
+import {
+  atsAdvice,
+  atsCoverage,
+  atsProposal,
+  AtsProposalError,
+  interviewFeedback,
+  interviewPrep,
+  judgeFidelity,
+  learningOverview,
+  learningPlan,
+  translateCv,
+  translationIssue,
+  type GenerationSnapshot,
+} from "./assistants.js";
 import type { Logger } from "@attesta/logger";
 import {
   Corrections,
@@ -22,10 +36,28 @@ import {
   ServiceStats,
   UserExport,
 } from "@attesta/shared-schemas";
+import {
+  AssistantResults,
+  AssistantVote,
+  AtsAdvice,
+  AtsApplyRequest,
+  AtsOverview,
+  AtsProposal,
+  CvTranslation,
+  FidelityJudgement,
+  InterviewAnswer,
+  InterviewFeedback,
+  InterviewPrep,
+  InterviewPrepRequest,
+  LearningOverview,
+  LearningPlan,
+  TranslateRequest,
+  TranslationEdit,
+} from "@attesta/shared-schemas";
 import type { Express, Response } from "express";
 import { z } from "zod";
-import { applyCorrections } from "./corrections.js";
-import { checkLine, lineContext } from "./faithfulness.js";
+import { AdditionError, applyCorrections } from "./corrections.js";
+import { checkLine, cvLines, lineContext } from "./faithfulness.js";
 import { generateTailoredCv, type ProgressEvent } from "./pipeline.js";
 import type { GenerationRow, GenerationStore, IaQuota } from "./store.js";
 import type { Upstreams } from "./upstreams.js";
@@ -70,6 +102,172 @@ export function progressMessage(event: ProgressEvent): string {
 }
 
 export const operations: Operation[] = [
+  {
+    method: "post",
+    path: "/v1/generations/{id}/judge",
+    operationId: "jugerFidelite",
+    summary: "Juge de fidélité : verdict de sens par ligne (ADR 0028, rôle 2)",
+    tags: ["assistants"],
+    auth: true,
+    responses: {
+      200: { description: "Réponse de l'assistant", schema: FidelityJudgement },
+      404: { description: "Génération inconnue" },
+      409: { description: "Génération sans CV reformulé" },
+      503: { description: "Assistant indisponible" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/generations/{id}/interview",
+    operationId: "preparerEntretien",
+    summary: "Coach d'entretien : questions probables, selon le niveau RH, manager ou technique (rôle 3)",
+    tags: ["assistants"],
+    auth: true,
+    body: InterviewPrepRequest,
+    responses: {
+      200: { description: "Réponse de l'assistant", schema: InterviewPrep },
+      404: { description: "Génération inconnue" },
+      409: { description: "Génération sans CV reformulé" },
+      503: { description: "Assistant indisponible" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/generations/{id}/interview/feedback",
+    operationId: "commenterReponse",
+    summary: "Coach d'entretien : retour sur une réponse (rôle 3)",
+    tags: ["assistants"],
+    auth: true,
+    body: InterviewAnswer,
+    responses: {
+      200: { description: "Réponse de l'assistant", schema: InterviewFeedback },
+      404: { description: "Génération inconnue" },
+      409: { description: "Génération sans CV reformulé" },
+      503: { description: "Assistant indisponible" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/generations/{id}/learning-plan",
+    operationId: "planProgression",
+    summary: "Plan de progression des compétences absentes (rôle 4)",
+    tags: ["assistants"],
+    auth: true,
+    responses: {
+      200: { description: "Réponse de l'assistant", schema: LearningPlan },
+      404: { description: "Génération inconnue" },
+      409: { description: "Génération sans CV reformulé" },
+      503: { description: "Assistant indisponible" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/generations/{id}/translate",
+    operationId: "traduireCv",
+    summary: "Traduction fidèle du CV en anglais ou en allemand (rôle 6)",
+    tags: ["assistants"],
+    auth: true,
+    body: TranslateRequest,
+    responses: {
+      200: { description: "Réponse de l'assistant", schema: CvTranslation },
+      404: { description: "Génération inconnue" },
+      409: { description: "Génération sans CV reformulé" },
+      503: { description: "Assistant indisponible" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/generations/{id}/ats",
+    operationId: "conseilsAts",
+    summary: "Conseillère ATS : statut et conseil pour chaque mot-clé (rôle 8)",
+    tags: ["assistants"],
+    auth: true,
+    responses: {
+      200: { description: "Réponse de l'assistant", schema: AtsAdvice },
+      404: { description: "Génération inconnue" },
+      409: { description: "Génération sans CV reformulé" },
+      503: { description: "Assistant indisponible" },
+    },
+  },
+  {
+    method: "get",
+    path: "/v1/generations/{id}/assistants",
+    operationId: "resultatsAssistants",
+    summary: "Derniers résultats des assistants pour ce CV (ADR 0029)",
+    tags: ["assistants"],
+    auth: true,
+    responses: { 200: { description: "Résultats par clé", schema: AssistantResults } },
+  },
+  {
+    method: "put",
+    path: "/v1/generations/{id}/translation/{lang}",
+    operationId: "corrigerTraduction",
+    summary: "Lignes traduites modifiées par le candidat ; mêmes chiffres et noms propres exigés",
+    tags: ["assistants"],
+    auth: true,
+    body: TranslationEdit,
+    responses: {
+      200: { description: "Traduction conservée", schema: CvTranslation },
+      400: { description: "Ligne refusée" },
+      404: { description: "Traduction inconnue" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/generations/{id}/ats/apply",
+    operationId: "appliquerConseilAts",
+    summary: "Proposition d'ajout d'un fait du profil (recopié) qui contient le mot-clé ; à valider",
+    tags: ["assistants"],
+    auth: true,
+    body: AtsApplyRequest,
+    responses: {
+      200: { description: "Proposition", schema: AtsProposal },
+      409: { description: "Aucun fait reprenable" },
+    },
+  },
+  {
+    method: "get",
+    path: "/v1/ats/overview",
+    operationId: "couvertureAts",
+    summary: "Couverture des mots-clés de chaque CV du candidat (code seul, sans IA)",
+    tags: ["assistants"],
+    auth: true,
+    responses: { 200: { description: "Couverture par CV", schema: AtsOverview } },
+  },
+  {
+    method: "post",
+    path: "/v1/learning-plan",
+    operationId: "planProgressionGlobal",
+    summary: "Plan de progression sur tous les CV : compétences les plus demandées d'abord",
+    tags: ["assistants"],
+    auth: true,
+    responses: {
+      200: { description: "Plan", schema: LearningOverview },
+      503: { description: "Assistant indisponible" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/assistants/feedback",
+    operationId: "avisAssistant",
+    summary: "Avis 👍 / 👎 anonyme sur une réponse d'assistant",
+    tags: ["assistants"],
+    auth: true,
+    body: AssistantVote,
+    responses: { 204: { description: "Enregistré" } },
+  },
+  {
+    method: "get",
+    path: "/internal/v1/generations/{id}/translation/{lang}",
+    operationId: "traductionConservee",
+    summary: "Traduction conservée d'un CV vérifié, pour l'export (jeton relayé)",
+    tags: ["interne"],
+    auth: true,
+    responses: {
+      200: { description: "Traduction", schema: CvTranslation },
+      404: { description: "Aucune traduction" },
+    },
+  },
   {
     method: "post",
     path: "/v1/generations",
@@ -177,6 +375,20 @@ export const operations: Operation[] = [
     responses: { 204: { description: "Effacé" } },
   },
 ];
+
+/** Instantané d'une génération vérifiée, tel que les assistants le lisent. */
+export function toSnapshot(row: GenerationRow): GenerationSnapshot {
+  return {
+    profile: row.profile,
+    cv: row.cv!,
+    offerTitle: row.offerTitle,
+    offerText: row.offerText,
+    analysis: row.analysis ?? { title: row.offerTitle, language: "fr", requirements: [], keywords: [] },
+  };
+}
+
+const cvLinesOf = (g: GenerationSnapshot) =>
+  cvLines(g.cv).map(({ path, line }) => ({ path, text: line.text }));
 
 export function toDto(row: GenerationRow): Generation {
   return {
@@ -387,12 +599,19 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
         "Ces corrections concernent une version précédente de votre CV. Rechargez la page avant de corriger.",
       );
     if (row.revision !== body.revision) throw conflict();
-    const corrected = applyCorrections(
-      { cv: row.cv, edited: row.edited },
-      row.profile,
-      row.offerText,
-      body.lines,
-    );
+    let corrected;
+    try {
+      corrected = applyCorrections(
+        { cv: row.cv, edited: row.edited },
+        row.profile,
+        row.offerText,
+        body.lines,
+        body.additions,
+      );
+    } catch (error) {
+      if (error instanceof AdditionError) throw new AppError("ajout_refuse", 400, error.message);
+      throw error;
+    }
     const saved = await store.saveCorrections(me(res), id, body.revision, corrected);
     if (!saved) throw conflict();
     logger.info(
@@ -400,6 +619,163 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
       "generation",
     );
     res.json(toDto(saved));
+  });
+
+  // --- Assistants du CV (ADR 0028) : l'IA explique et conseille, le code garde la main sur le vérifiable.
+
+  /** Instantané d'une génération reformulée, ou 409 : les assistants travaillent sur un CV vérifié. */
+  async function snapshot(res: Response, id: string): Promise<GenerationSnapshot> {
+    const row = await own(res, id);
+    if (row.status !== "ok" || !row.cv)
+      throw new AppError("generation_degradee", 409, "Cette génération n'a pas de CV reformulé.");
+    return toSnapshot(row);
+  }
+
+  /** Exécute un assistant ; panne, refus ou budget atteint : 503 explicite, jamais une sortie non validée. */
+  async function withAssistant<T>(role: string, run: (provider: LlmProvider) => Promise<T>): Promise<T> {
+    if (!llm)
+      throw new AppError("assistant_indisponible", 503, "L'assistant n'est pas disponible sur ce serveur.");
+    try {
+      const result = await run(llm);
+      logger.info({ event: "assistant", role }, "assistant");
+      return result;
+    } catch (error) {
+      if (!(error instanceof AssistUnavailableError)) throw error;
+      logger.warn({ event: "assistant_indisponible", role, reason: error.reason }, "assistant");
+      throw new AppError(
+        "assistant_indisponible",
+        503,
+        "L'assistant est indisponible pour le moment. Réessayez dans un instant.",
+      );
+    }
+  }
+
+  /** Exécute un assistant sur un CV et conserve son résultat sous `key` (ADR 0029, point 1). */
+  async function kept<T>(res: Response, id: string, key: string, result: T): Promise<T> {
+    await store.saveResult(me(res), id, key, result);
+    return result;
+  }
+
+  app.get("/v1/generations/:id/assistants", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    await own(res, id);
+    res.json(await store.results(me(res), id));
+  });
+
+  app.post("/v1/generations/:id/judge", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    const g = await snapshot(res, id);
+    const result = await withAssistant("juge-fidelite", (p) => judgeFidelity(p, g));
+    // Un verdict vaut pour une révision donnée du CV : corrigé ensuite, le CV doit être rejugé.
+    const { revision } = await own(res, id);
+    res.json(await kept(res, id, "juge-fidelite", { ...result, revision }));
+  });
+
+  app.post("/v1/generations/:id/interview", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    const g = await snapshot(res, id);
+    const { level } = parseInput(InterviewPrepRequest, req.body ?? {});
+    const result = await withAssistant("coach-questions", (p) => interviewPrep(p, g, level));
+    res.json(await kept(res, id, `coach-questions:${level}`, result));
+  });
+
+  app.post("/v1/generations/:id/interview/feedback", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    const g = await snapshot(res, id);
+    const input = parseInput(InterviewAnswer, req.body);
+    const result = await withAssistant("coach-retour", (p) => interviewFeedback(p, g, input));
+    // Historique des entraînements : les 30 dernières réponses, pour mesurer la progression.
+    const history = ((await store.result(me(res), id, "coach-historique")) as unknown[] | undefined) ?? [];
+    await store.saveResult(me(res), id, "coach-historique", [
+      ...history.slice(-29),
+      { question: input.question, answer: input.answer, feedback: result, at: new Date().toISOString() },
+    ]);
+    res.json(result);
+  });
+
+  app.post("/v1/generations/:id/learning-plan", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    const g = await snapshot(res, id);
+    const result = await withAssistant("plan-progression", (p) => learningPlan(p, g));
+    res.json(await kept(res, id, "plan-progression", result));
+  });
+
+  app.post("/v1/learning-plan", auth, user, async (_req, res) => {
+    const rows = await store.listVerified(me(res));
+    res.json(await withAssistant("plan-progression", (p) => learningOverview(p, rows.map(toSnapshot))));
+  });
+
+  app.post("/v1/generations/:id/translate", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    const g = await snapshot(res, id);
+    const { lang } = parseInput(TranslateRequest, req.body);
+    const result = await withAssistant("traduction", (p) => translateCv(p, g, lang));
+    res.json(await kept(res, id, `traduction:${lang}`, result));
+  });
+
+  /** Lignes traduites modifiées par le candidat : chacune garde les chiffres et noms propres de l'original. */
+  app.put("/v1/generations/:id/translation/:lang", auth, user, async (req, res) => {
+    const { id, lang } = parseInput(IdParam.extend({ lang: TranslateRequest.shape.lang }), req.params);
+    const g = await snapshot(res, id);
+    const { lines } = parseInput(TranslationEdit, req.body);
+    const stored = (await store.result(me(res), id, `traduction:${lang}`)) as CvTranslation | undefined;
+    if (!stored) throw notFound("Traduisez d'abord votre CV dans cette langue.");
+    const source = new Map(cvLinesOf(g).map((l) => [l.path, l.text]));
+    const byPath = new Map(stored.lines.map((l) => [l.path, l]));
+    const edited = new Set(stored.edited ?? []);
+    for (const line of lines) {
+      const original = source.get(line.path);
+      if (original === undefined)
+        throw new AppError("ligne_inconnue", 400, "Cette ligne n'existe pas dans le CV.");
+      const issue = translationIssue(g.profile, original, line.text);
+      if (issue) throw new AppError("traduction_refusee", 400, issue);
+      byPath.set(line.path, { path: line.path, source: original, text: line.text });
+      edited.add(line.path);
+    }
+    const order = [...source.keys()];
+    const result: CvTranslation = {
+      ...stored,
+      lines: order.flatMap((p) => byPath.get(p) ?? []),
+      rejectedPaths: order.filter((p) => !byPath.has(p)),
+      rejected: order.filter((p) => !byPath.has(p)).length,
+      edited: [...edited],
+    };
+    res.json(await kept(res, id, `traduction:${lang}`, result));
+  });
+
+  app.post("/v1/generations/:id/ats", auth, user, async (req, res) => {
+    const { id } = parseInput(IdParam, req.params);
+    const g = await snapshot(res, id);
+    const result = await withAssistant("conseils-ats", (p) => atsAdvice(p, g));
+    res.json(await kept(res, id, "conseils-ats", result));
+  });
+
+  app.post("/v1/generations/:id/ats/apply", auth, user, async (req, res) => {
+    const g = await snapshot(res, parseInput(IdParam, req.params).id);
+    const { term, entry } = parseInput(AtsApplyRequest, req.body);
+    try {
+      res.json(atsProposal(g, term, entry));
+    } catch (error) {
+      if (error instanceof AtsProposalError) throw new AppError("ajout_impossible", 409, error.message);
+      throw error;
+    }
+  });
+
+  app.get("/v1/ats/overview", auth, user, async (_req, res) => {
+    const rows = await store.listVerified(me(res));
+    res.json(
+      rows.map((row) => ({
+        generationId: row.id,
+        offerTitle: row.offerTitle,
+        ...atsCoverage(toSnapshot(row)),
+      })),
+    );
+  });
+
+  app.post("/v1/assistants/feedback", auth, user, async (req, res) => {
+    const { role, vote, providerKind } = parseInput(AssistantVote, req.body);
+    await store.vote(role, vote, providerKind);
+    res.status(204).end();
   });
 
   app.delete("/v1/generations/:id", auth, user, async (req, res) => {
@@ -413,6 +789,7 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
     res.json({
       service: "cv-generation",
       counters: await store.stats(),
+      votes: await store.voteStats(),
       ...(llm instanceof BudgetedProvider && { llm: await llm.summary() }),
     });
   });
@@ -426,6 +803,16 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
       throw new AppError("cv_non_verifie", 409, "Ce CV n'a pas passé le contrôle de fidélité.");
     }
     res.json(toDto(row));
+  });
+
+  app.get("/internal/v1/generations/:id/translation/:lang", auth, user, async (req, res) => {
+    const { id, lang } = parseInput(IdParam.extend({ lang: TranslateRequest.shape.lang }), req.params);
+    const row = await own(res, id);
+    if (row.status !== "ok" || !row.cv)
+      throw new AppError("cv_non_verifie", 409, "Ce CV n'a pas passé le contrôle de fidélité.");
+    const stored = await store.result(me(res), id, `traduction:${lang}`);
+    if (!stored) throw notFound("Ce CV n'a pas encore été traduit dans cette langue.");
+    res.json(stored);
   });
 
   // Contrôle des paragraphes d'une lettre (letters-export) contre le profil de la génération : sans

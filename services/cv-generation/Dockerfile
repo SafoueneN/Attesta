@@ -17,7 +17,8 @@ COPY packages/llm-client/package.json packages/llm-client/
 COPY packages/llm-client/dist packages/llm-client/dist
 WORKDIR /repo/services/cv-generation
 COPY services/cv-generation/package.json services/cv-generation/package-lock.json services/cv-generation/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les builds, reprises réseau : une relance réutilise les paquets déjà téléchargés.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-maxtimeout=120000
 COPY services/cv-generation/tsconfig.json services/cv-generation/tsconfig.build.json ./
 COPY services/cv-generation/src src
 RUN npm run build && npm prune --omit=dev

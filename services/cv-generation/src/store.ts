@@ -116,6 +116,66 @@ export class GenerationStore {
     return rows[0];
   }
 
+  /** CV vérifiés du candidat (les plus récents), pour les vues qui comparent plusieurs offres. */
+  async listVerified(userId: string, limit = 30): Promise<GenerationRow[]> {
+    const { rows } = await this.pool.query<GenerationRow>(
+      `SELECT ${COLUMNS} FROM generation WHERE user_id = $1 AND status = 'ok' AND cv IS NOT NULL
+       ORDER BY created_at DESC LIMIT $2`,
+      [userId, limit],
+    );
+    return rows;
+  }
+
+  // --- Assistants (ADR 0029) : dernier résultat de chaque assistant, par CV ------------------------
+
+  /** Enregistre un résultat, si la génération appartient bien à l'utilisateur. */
+  async saveResult(userId: string, id: string, key: string, payload: unknown): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO assistant_result (generation_id, key, payload)
+       SELECT id, $3, $4 FROM generation WHERE user_id = $1 AND id = $2
+       ON CONFLICT (generation_id, key) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()`,
+      [userId, id, key, json(payload)],
+    );
+  }
+
+  async result(userId: string, id: string, key: string): Promise<unknown> {
+    const { rows } = await this.pool.query<{ payload: unknown }>(
+      `SELECT r.payload FROM assistant_result r JOIN generation g ON g.id = r.generation_id
+       WHERE g.user_id = $1 AND g.id = $2 AND r.key = $3`,
+      [userId, id, key],
+    );
+    return rows[0]?.payload;
+  }
+
+  async results(userId: string, id: string) {
+    const { rows } = await this.pool.query<{ key: string; payload: unknown; updatedAt: Date }>(
+      `SELECT r.key, r.payload, r.updated_at AS "updatedAt" FROM assistant_result r
+       JOIN generation g ON g.id = r.generation_id WHERE g.user_id = $1 AND g.id = $2`,
+      [userId, id],
+    );
+    return Object.fromEntries(
+      rows.map((r) => [r.key, { payload: r.payload, updatedAt: r.updatedAt.toISOString() }]),
+    );
+  }
+
+  /** Avis anonyme : aucun identifiant ni contenu n'est enregistré. */
+  async vote(role: string, vote: 1 | -1, providerKind: "ia" | "demo"): Promise<void> {
+    await this.pool.query("INSERT INTO assistant_vote (role, vote, provider_kind) VALUES ($1, $2, $3)", [
+      role,
+      vote,
+      providerKind,
+    ]);
+  }
+
+  /** Avis des 30 derniers jours, par rôle. */
+  async voteStats() {
+    const { rows } = await this.pool.query<{ role: string; up: number; down: number }>(
+      `SELECT role, count(*) FILTER (WHERE vote = 1)::int AS up, count(*) FILTER (WHERE vote = -1)::int AS down
+       FROM assistant_vote WHERE at > now() - interval '30 days' GROUP BY role ORDER BY role`,
+    );
+    return rows;
+  }
+
   async delete(userId: string, id: string): Promise<boolean> {
     const { rowCount } = await this.pool.query("DELETE FROM generation WHERE user_id = $1 AND id = $2", [
       userId,
@@ -131,7 +191,9 @@ export class GenerationStore {
 
   async exportUser(userId: string) {
     const { rows } = await this.pool.query(
-      `SELECT offer_title, status, cv, report, removed, edited, provider_kind, model, pipeline_version, created_at
+      `SELECT offer_title, status, cv, report, removed, edited, provider_kind, model, pipeline_version, created_at,
+         (SELECT coalesce(jsonb_object_agg(r.key, r.payload), '{}') FROM assistant_result r
+          WHERE r.generation_id = generation.id) AS assistants
        FROM generation WHERE user_id = $1 ORDER BY created_at`,
       [userId],
     );
@@ -145,6 +207,7 @@ export class GenerationStore {
     );
     await this.pool.query("DELETE FROM ia_quota WHERE day < current_date - 1");
     await this.pool.query("DELETE FROM llm_usage WHERE at < now() - interval '13 months'");
+    await this.pool.query("DELETE FROM assistant_vote WHERE at < now() - interval '13 months'");
     return rowCount ?? 0;
   }
 

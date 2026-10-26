@@ -22,10 +22,22 @@ type Issue = FaithfulnessReport["lines"][number]["issues"][number];
 /** Variantes d'écriture ramenées à une forme unique (liste courte, à enrichir sur mesure). */
 const ALIASES: [RegExp, string][] = [
   [/\bnodejs\b/g, "node js"],
+  [/\bnextjs\b/g, "next js"],
+  // « React.js », « Vue.js » (« react js » une fois la ponctuation retirée) = « React », « Vue ».
+  [/\breact ?js\b/g, "react"],
+  [/\bvue ?js\b/g, "vue"],
   [/\bpostgres\b/g, "postgresql"],
   [/\bk8s\b/g, "kubernetes"],
-  [/\bjs\b(?<!node js)/g, "javascript"],
+  // « JS » seul = JavaScript ; jamais le suffixe d'un outil (« Node.js », « Next.js », « Express.js »).
+  [/(?<!\b(?:node|next|nuxt|express|three|d3|ember|backbone) )\bjs\b/g, "javascript"],
   [/\bts\b/g, "typescript"],
+  // Variantes et acronymes courants (ADR 0029) : « PowerBI » = « Power BI », « GCP » = « Google Cloud ».
+  [/\bpowerbi\b/g, "power bi"],
+  [/\bms excel\b/g, "excel"],
+  [/\bgcp\b/g, "google cloud"],
+  [/\bgolang\b/g, "go"],
+  [/\bsklearn\b/g, "scikit learn"],
+  [/\bml\b/g, "machine learning"],
 ];
 
 /** Minuscules, sans accents, ponctuation réduite à des espaces (sauf + et #). */

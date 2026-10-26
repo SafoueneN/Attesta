@@ -105,7 +105,8 @@ export async function generateTailoredCv(
       status: "ok",
       ...outcome,
       usage,
-      model: deps.provider.model,
+      // Modèle qui a rédigé, celui du fournisseur de repli le cas échéant (ADR 0047).
+      model: usage.at(-1)?.model ?? deps.provider.model,
       providerKind: deps.provider.kind,
       pipelineVersion: prompts.signature("redaction"),
     };
