@@ -24,7 +24,9 @@
     "start": "node apps/web/dist/server.js",
     "db:migrate": "node-pg-migrate up --migrations-dir db/migrations --migration-file-language sql",
     "evals": "tsc -b && vitest run evals",
-    "evals:live": "tsc -b && tsc -p evals/tsconfig.json && node evals/run-live.mjs"
+    "evals:live": "tsc -b && tsc -p evals/tsconfig.json && node evals/run-live.mjs",
+    "demo:seed": "node scripts/demo-seed.mjs",
+    "smtp:test": "node scripts/smtp-test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

@@ -97,6 +97,8 @@ jobs:
     env:
       # Les tests d'intégration échouent (et ne sont pas ignorés) si la base manque en CI.
       TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/attesta_test
+      # Services : chaque suite d'intégration crée puis supprime sa propre base jetable.
+      TEST_ADMIN_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -107,12 +109,13 @@ jobs:
             package-lock.json
             services/*/package-lock.json
             gateway/package-lock.json
-      # Monolithe seulement : un service ou la gateway s'installe dans son dossier (tester-unite.mjs).
+            frontend/package-lock.json
       # Ubuntu 24.04 restreint les espaces de noms utilisateur : sans ce réglage,
-      # la sandbox de Chromium (rendu PDF) ne démarre pas.
-      - if: ${{ !startsWith(matrix.dir, 'services/') && matrix.dir != 'gateway' }}
+      # la sandbox de Chromium (rendu PDF du monolithe et de letters-export) ne démarre pas.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # Monolithe seulement : un service, la gateway ou le frontend s'installe dans son dossier.
+      - if: ${{ !startsWith(matrix.dir, 'services/') && matrix.dir != 'gateway' && matrix.dir != 'frontend' }}
         run: |
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           npm ci
           npm run build
           DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate

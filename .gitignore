@@ -1,6 +1,9 @@
 node_modules/
 dist/
 coverage/
+# Tests de mutation (Stryker, docs/adr/0046) : rapports et bac à sable régénérés.
+reports/
+.stryker-tmp/
 .env
 .env.*
 !.env.example

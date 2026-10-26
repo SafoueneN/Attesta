@@ -31,6 +31,23 @@ x-service: &service
     NODE_ENV: development
     LOG_LEVEL: info
 
+# Fournisseur d'IA des services (docs/adr/0047) : AI_PROVIDER=claude|groq|gemini|ollama, demo par défaut.
+# Clés (GROQ_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY) dans un --env-file jamais versionné.
+# Ollama : profil `ollama` et OLLAMA_BASE_URL=http://ollama:11434 (voir le service ollama).
+x-ai-env: &ai-env
+  AI_PROVIDER: ${AI_PROVIDER:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-demo}
+  CLAUDE_TRANSPORT: ${CLAUDE_TRANSPORT:-}
+  AI_FALLBACK_PROVIDERS: ${AI_FALLBACK_PROVIDERS:-}
+  VERTEX_PROJECT_ID: ${VERTEX_PROJECT_ID:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  GROQ_API_KEY: ${GROQ_API_KEY:-}
+  GROQ_MODEL: ${GROQ_MODEL:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+
 x-env: &env
   DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
   # Poste local : mode développement (cookies sans Secure sur http://localhost,
@@ -147,6 +164,9 @@ services:
       MAIL_FROM: ${MAIL_FROM:-Attesta <ne-pas-repondre@attesta.localhost>}
       # Rôle administrateur à la connexion (docs/adr/0024).
       ADMIN_EMAILS: ${ADMIN_EMAILS:-admin@attesta.localhost}
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
+      # Mot de passe initial du compte « admin », pile locale uniquement.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-dev-uniquement}
       IP_HASH_SECRET: dev-ip-hash-secret-uniquement-en-local
       SERVICE_SECRET_JOB_WATCH: &secret-job-watch dev-secret-job-watch-uniquement-en-local-0000
       PROFILES_URL: http://profiles:4002
@@ -164,10 +184,9 @@ services:
     profiles: ["core", "full"]
     ports: ["${PROFILES_PORT:-4002}:4002"]
     environment:
-      <<: *service-env
+      <<: [*service-env, *ai-env]
       DATABASE_URL: postgres://attesta_profiles:attesta_profiles-dev-uniquement@db:5432/attesta_profiles
       AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
-      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
     depends_on:
       db-init: { condition: service_completed_successfully }
       auth: { condition: service_healthy }
@@ -178,12 +197,11 @@ services:
     profiles: ["core", "full"]
     ports: ["${CV_GENERATION_PORT:-4003}:4003"]
     environment:
-      <<: *service-env
+      <<: [*service-env, *ai-env]
       DATABASE_URL: postgres://attesta_cvgen:attesta_cvgen-dev-uniquement@db:5432/attesta_cvgen
       AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
       PROFILES_URL: http://profiles:4002
       JOBS_MATCHING_URL: http://jobs-matching:4004
-      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
       QUOTA_SECRET: dev-quota-secret-uniquement-en-local
       # Générations par utilisateur et par jour, relevées en local pour les passages de parité.
       DAILY_QUOTA: ${DAILY_QUOTA:-200}
@@ -198,12 +216,15 @@ services:
     profiles: ["core", "full"]
     ports: ["${JOBS_MATCHING_PORT:-4004}:4004"]
     environment:
-      <<: *service-env
+      <<: [*service-env, *ai-env]
       DATABASE_URL: postgres://attesta_jobs:attesta_jobs-dev-uniquement@db:5432/attesta_jobs
       AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
-      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
       EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-hash}
       TEI_URL: http://tei:80
+      # Sources d'offres sous clé (docs/adr/0031) : clés dans .env.smtp ou un autre --env-file, jamais versionnées.
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      JOOBLE_API_KEY: ${JOOBLE_API_KEY:-}
     depends_on:
       db-init: { condition: service_completed_successfully }
       auth: { condition: service_healthy }
@@ -241,12 +262,12 @@ services:
     ports: ["${LETTERS_EXPORT_PORT:-4006}:4006"]
     security_opt: ["no-new-privileges:true", "seccomp=./infra/seccomp/chromium.json"]
     environment:
-      <<: *service-env
+      <<: [*service-env, *ai-env]
       DATABASE_URL: postgres://attesta_letters:attesta_letters-dev-uniquement@db:5432/attesta_letters
+      APP_BASE_URL: http://localhost:${FRONTEND_PORT:-8080}
       AUTH_JWKS_URL: http://auth:4001/.well-known/jwks.json
       CV_GENERATION_URL: http://cv-generation:4003
       PROFILES_URL: http://profiles:4002
-      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
     depends_on:
       db-init: { condition: service_completed_successfully }
       auth: { condition: service_healthy }
@@ -312,6 +333,23 @@ services:
     volumes:
       - tei-models:/data
 
+  # Modèle local optionnel (docs/adr/0047), traitement sur le poste : admis en production.
+  #   docker compose --profile core --profile ollama up -d
+  #   docker compose exec ollama ollama pull qwen3:8b
+  #   puis OLLAMA_BASE_URL=http://ollama:11434 (et AI_PROVIDER=ollama, ou en repli).
+  ollama:
+    image: ollama/ollama:0.12.6
+    profiles: ["ollama"]
+    ports: ["${OLLAMA_PORT:-11434}:11434"]
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   db-data:
   tei-models:
+  ollama-models:

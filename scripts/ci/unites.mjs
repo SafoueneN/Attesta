@@ -33,6 +33,7 @@ for (const root of ["packages", "apps", "services"]) {
   for (const name of readdirSync(root).sort()) add(`${root}/${name}`);
 }
 add("gateway");
+add("frontend");
 units.push({ name: "evals", dir: "evals" });
 
 const since = process.argv.indexOf("--depuis");

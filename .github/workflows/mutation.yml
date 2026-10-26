@@ -1,0 +1,55 @@
+# Tests de mutation (Stryker, docs/adr/0046) : trop longs pour chaque PR, lancés chaque lundi et à la demande.
+# Une entrée par service ; rapport HTML et JSON conservés 14 jours. Les tests de propriétés (fast-check), eux,
+# tournent dans la CI ordinaire avec les autres tests.
+name: mutation
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    name: Mutation · ${{ matrix.service }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth, profiles, jobs-matching, cv-generation, letters-export, job-watch]
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: attesta_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d attesta_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/attesta_test
+      TEST_ADMIN_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
+      # Chromium du rendu PDF (letters-export) : espaces de noms utilisateur, comme dans ci.yml.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:mutation
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: mutation-${{ matrix.service }}
+          path: services/${{ matrix.service }}/reports/mutation/
+          retention-days: 14
