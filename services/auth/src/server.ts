@@ -5,6 +5,7 @@ import { createApp } from "./app.js";
 import { loadConfig, SERVICE } from "./config.js";
 import { checkDatabase, createPool, migrate } from "./db.js";
 import { loadSigner } from "./keys.js";
+import { hashPassword } from "./passwords.js";
 import { SmtpMailer } from "./mail.js";
 import { holderClients, startWorkers } from "./rgpd.js";
 import { AuthStore } from "./store.js";
@@ -27,6 +28,12 @@ if (!config.AUTH_PRIVATE_KEY)
   logger.warn({ event: "cle_ephemere" }, "clé de signature éphémère (hors production)");
 const signer = await loadSigner(config.AUTH_PRIVATE_KEY, config.AUTH_KEY_ID);
 const store = new AuthStore(pool);
+if (config.ADMIN_PASSWORD) {
+  for (const username of config.ADMIN_USERNAMES) {
+    if (await store.ensureAdmin(username, await hashPassword(config.ADMIN_PASSWORD)))
+      logger.info({ event: "admin_cree" }, "compte administrateur créé");
+  }
+}
 const clients = holderClients(config.holders);
 const stopWorkers = startWorkers({ store, signer, logger, clients }, [...clients.keys()]);
 
@@ -40,6 +47,7 @@ const app = createApp({
   clients,
   appBaseUrl: config.APP_BASE_URL,
   adminEmails: config.ADMIN_EMAILS,
+  adminUsernames: config.ADMIN_USERNAMES,
   ipHashSecret: config.IP_HASH_SECRET,
   serviceSecrets: config.serviceSecrets,
   cookies: { path: config.COOKIE_PATH, secure: config.COOKIE_SECURE },

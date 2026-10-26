@@ -44,6 +44,21 @@ export const Env = serviceEnv(4001).extend({
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean),
     ),
+  /** Identifiants qui reçoivent le rôle administrateur à la connexion (ADR 0030). */
+  ADMIN_USERNAMES: z
+    .string()
+    .default("")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  /**
+   * Mot de passe initial des comptes administrateurs : créés au démarrage s'ils n'existent pas, jamais
+   * modifiés ensuite. Secret (jamais versionné) ; sans lui, aucun compte administrateur par identifiant.
+   */
+  ADMIN_PASSWORD: z.string().min(10).optional(),
   /** Secret des empreintes d'IP (HMAC) du journal de consentement. */
   IP_HASH_SECRET: z.string().min(16).default("dev-ip-hash-secret-a-remplacer"),
   /** Chemin public du cookie de refresh, vu par le navigateur à travers la gateway. */

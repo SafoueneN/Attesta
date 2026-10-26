@@ -2,19 +2,30 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type pg from "pg";
 
 /** Version de la politique de confidentialité, enregistrée avec chaque consentement. */
-export const POLICY_VERSION = "2026-10-18";
+export const POLICY_VERSION = "2026-10-24";
 export const LOGIN_TOKEN_MS = 15 * 60 * 1000;
 export const REFRESH_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
 export const REFRESH_MAX_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const newToken = () => randomBytes(32).toString("base64url");
+
+/** Alphabet sans caractères ambigus (0/O, 1/I/L) : « K7QM-4XRT ». */
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const recoveryCode = () => {
+  const chars = [...randomBytes(8)].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+  return `${chars.slice(0, 4)}-${chars.slice(4)}`;
+};
+/** Saisie tolérante : minuscules, espaces et tirets ignorés. */
+export const normalizeCode = (code: string) => code.toUpperCase().replace(/[^A-Z0-9]/g, "");
 export const hashToken = (token: string) => createHash("sha256").update(token).digest();
 
 export type AccountRole = "candidate" | "admin";
 
 export interface User {
   id: string;
-  email: string;
+  /** Null pour un compte par identifiant (ADR 0030). */
+  email: string | null;
+  username: string | null;
   role: AccountRole;
   status: "active" | "deleting";
   createdAt: Date;
@@ -28,7 +39,7 @@ export type RotateResult =
 
 type Db = pg.Pool | pg.PoolClient;
 
-const USER_COLUMNS = `id, email, role, status, created_at AS "createdAt"`;
+const USER_COLUMNS = `id, email, username, role, status, created_at AS "createdAt"`;
 
 export class AuthStore {
   constructor(private readonly pool: pg.Pool) {}
@@ -102,6 +113,68 @@ export class AuthStore {
       if (created) await this.consent(c, user.id, "service", true, ipHash, link.policy);
       await this.audit(c, created ? "compte_cree" : "connexion", user.id);
       return { user, created };
+    });
+  }
+
+  // --- Comptes par identifiant et mot de passe (ADR 0030) -------------------------------------------
+
+  /**
+   * Crée le compte et journalise l'acceptation de la politique. `undefined` si l'identifiant est déjà pris
+   * (la contrainte d'unicité tranche, même en cas de course).
+   */
+  async createAccount(
+    username: string,
+    passwordHash: string,
+    role: AccountRole,
+    ipHash: string,
+  ): Promise<User | undefined> {
+    return this.tx(async (c) => {
+      const { rows } = await c.query<User>(
+        `INSERT INTO app_user (username, password_hash, role) VALUES ($1, $2, $3)
+         ON CONFLICT (username) DO NOTHING RETURNING ${USER_COLUMNS}`,
+        [username, passwordHash, role],
+      );
+      const user = rows[0];
+      if (!user) return undefined;
+      await this.consent(c, user.id, "service", true, ipHash);
+      await this.audit(c, "compte_cree", user.id);
+      return user;
+    });
+  }
+
+  /** Compte administrateur créé au démarrage s'il manque ; un compte existant n'est jamais modifié. */
+  async ensureAdmin(username: string, passwordHash: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `INSERT INTO app_user (username, password_hash, role) VALUES ($1, $2, 'admin')
+       ON CONFLICT (username) DO NOTHING`,
+      [username, passwordHash],
+    );
+    return Boolean(rowCount);
+  }
+
+  /** Compte et empreinte du mot de passe, pour la connexion. */
+  async credentials(username: string): Promise<{ user: User; passwordHash: string } | undefined> {
+    const { rows } = await this.pool.query<User & { passwordHash: string }>(
+      `SELECT ${USER_COLUMNS}, password_hash AS "passwordHash" FROM app_user
+       WHERE username = $1 AND password_hash IS NOT NULL`,
+      [username],
+    );
+    const row = rows[0];
+    if (!row) return undefined;
+    const { passwordHash, ...user } = row;
+    return { user, passwordHash };
+  }
+
+  /** Connexion réussie : activité, rôle (liste des administrateurs) et audit. */
+  async recordLogin(userId: string, role: AccountRole): Promise<User | undefined> {
+    return this.tx(async (c) => {
+      const { rows } = await c.query<User>(
+        `UPDATE app_user SET last_active_at = now(), role = $2 WHERE id = $1 AND status = 'active'
+         RETURNING ${USER_COLUMNS}`,
+        [userId, role],
+      );
+      if (rows[0]) await this.audit(c, "connexion", userId);
+      return rows[0];
     });
   }
 
@@ -182,6 +255,52 @@ export class AuthStore {
     return userId;
   }
 
+  // --- Codes de récupération et mot de passe (ADR 0039) --------------------------------------------
+
+  /** Remplace les codes du compte par 8 nouveaux ; renvoyés en clair, une seule fois. */
+  async newRecoveryCodes(userId: string): Promise<string[]> {
+    const codes = Array.from({ length: 8 }, recoveryCode);
+    await this.tx(async (c) => {
+      await c.query("DELETE FROM recovery_code WHERE user_id = $1", [userId]);
+      for (const code of codes)
+        await c.query("INSERT INTO recovery_code (user_id, code_hash) VALUES ($1, $2)", [
+          userId,
+          hashToken(normalizeCode(code)),
+        ]);
+      await this.audit(c, "codes_recuperation", userId);
+    });
+    return codes;
+  }
+
+  async recoveryCodesLeft(userId: string): Promise<number> {
+    const { rows } = await this.pool.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM recovery_code WHERE user_id = $1 AND used_at IS NULL",
+      [userId],
+    );
+    return rows[0]!.n;
+  }
+
+  /** Consomme un code inutilisé du compte ; faux s'il est inconnu ou déjà utilisé. */
+  async useRecoveryCode(userId: string, code: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `UPDATE recovery_code SET used_at = now()
+       WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL`,
+      [userId, hashToken(normalizeCode(code))],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  /** Nouveau mot de passe : toutes les sessions ouvertes sont révoquées. */
+  async setPassword(userId: string, passwordHash: string, reason: "reinitialisation" | "changement") {
+    await this.tx(async (c) => {
+      await c.query("UPDATE app_user SET password_hash = $2 WHERE id = $1", [userId, passwordHash]);
+      await c.query("UPDATE refresh_token SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [
+        userId,
+      ]);
+      await this.audit(c, `mot_de_passe_${reason}`, userId);
+    });
+  }
+
   // --- Consentements et audit ---------------------------------------------------------------------
 
   private async consent(
@@ -232,7 +351,7 @@ export class AuthStore {
     return {
       compte: (
         await q(
-          "SELECT email, role, email_verified_at, created_at, last_active_at FROM app_user WHERE id = $1",
+          "SELECT username, email, role, email_verified_at, created_at, last_active_at FROM app_user WHERE id = $1",
         )
       )[0],
       consentements: await q(

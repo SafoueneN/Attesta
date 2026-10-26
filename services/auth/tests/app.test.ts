@@ -396,7 +396,11 @@ describe.skipIf(!db)("service auth (intégration PostgreSQL)", () => {
 
     it("publie le JWKS sans clé privée", async () => {
       const res = await request(app()).get("/.well-known/jwks.json");
-      expect(res.body.keys[0]).toMatchObject({ kid: "cle-test", alg: "RS256", kty: "RSA" });
+      expect(res.body.keys[0]).toMatchObject({
+        kid: expect.stringMatching(/^cle-test-/),
+        alg: "RS256",
+        kty: "RSA",
+      });
       expect(res.body.keys[0]).not.toHaveProperty("d");
     });
   });

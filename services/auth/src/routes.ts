@@ -14,6 +14,7 @@ import {
 } from "@attesta/http-kit";
 import type { Logger } from "@attesta/logger";
 import {
+  AccountCreate,
   AccountDeletion,
   AuthAdminStats,
   ConsentUpdate,
@@ -22,6 +23,10 @@ import {
   LoginLinkRequest,
   LoginToken,
   Me,
+  PasswordChange,
+  PasswordLogin,
+  PasswordReset,
+  RecoveryCodes,
   ServiceTokenRequest,
   ServiceTokenResponse,
   SessionCreate,
@@ -40,6 +45,7 @@ import {
 } from "./cookies.js";
 import { ACCESS_TTL_S, GUEST_ACCESS_TTL_S, GUEST_MAX_S, SERVICE_TTL_S, type Signer } from "./keys.js";
 import { loginLinkMessage, type Mailer } from "./mail.js";
+import { decoyHash, hashPassword, verifyPassword } from "./passwords.js";
 import { exportAll } from "./rgpd.js";
 import { maskEmail, REFRESH_MAX_MS, type AuthStore, type User } from "./store.js";
 
@@ -64,11 +70,15 @@ export interface RouteDeps {
   clients: Map<string, ServiceClient>;
   appBaseUrl: string;
   adminEmails: string[];
+  /** Identifiants administrateurs (ADR 0030). */
+  adminUsernames?: string[];
   ipHashSecret: string;
   serviceSecrets: Map<string, string>;
   cookies: CookieSettings;
   /** Demandes de lien par adresse et par heure (en plus du plafond par IP de la gateway). */
   loginLinksPerHour?: number;
+  /** Échecs de mot de passe tolérés par identifiant et par quart d'heure. */
+  passwordFailuresPer15Min?: number;
 }
 
 const invalidLink = () =>
@@ -81,6 +91,64 @@ const invalidLink = () =>
 const TokenParam = z.object({ token: LoginToken });
 
 export const operations: Operation[] = [
+  {
+    method: "post",
+    path: "/v1/accounts",
+    operationId: "creerCompte",
+    summary: "Crée un compte par identifiant et mot de passe, sans e-mail, et ouvre la session (ADR 0030)",
+    tags: ["connexion"],
+    body: AccountCreate,
+    responses: {
+      201: { description: "Compte créé, session ouverte", schema: SessionResponse },
+      400: { description: "Entrée invalide" },
+      409: { description: "Identifiant déjà pris" },
+    },
+  },
+  {
+    method: "post",
+    path: "/v1/password/reset",
+    operationId: "reinitialiserMotDePasse",
+    summary: "Nouveau mot de passe avec un code de récupération à usage unique (ADR 0039)",
+    tags: ["connexion"],
+    body: PasswordReset,
+    responses: {
+      200: { description: "Mot de passe changé, session ouverte", schema: SessionResponse },
+      400: { description: "Identifiant ou code incorrect" },
+      429: { description: "Trop d'essais" },
+    },
+  },
+  {
+    method: "put",
+    path: "/v1/me/password",
+    operationId: "changerMotDePasse",
+    summary: "Change le mot de passe (l'actuel est exigé) ; les autres sessions sont révoquées",
+    tags: ["compte"],
+    auth: true,
+    body: PasswordChange,
+    responses: { 200: { description: "Session renouvelée", schema: SessionResponse } },
+  },
+  {
+    method: "post",
+    path: "/v1/me/recovery-codes",
+    operationId: "nouveauxCodesRecuperation",
+    summary: "Remplace les codes de récupération ; renvoyés en clair une seule fois",
+    tags: ["compte"],
+    auth: true,
+    responses: { 200: { description: "Codes", schema: RecoveryCodes } },
+  },
+  {
+    method: "post",
+    path: "/v1/session/password",
+    operationId: "connexionMotDePasse",
+    summary: "Ouvre la session par identifiant et mot de passe",
+    tags: ["session"],
+    body: PasswordLogin,
+    responses: {
+      200: { description: "Session ouverte", schema: SessionResponse },
+      401: { description: "Identifiant ou mot de passe incorrect" },
+      429: { description: "Trop d'essais" },
+    },
+  },
   {
     method: "post",
     path: "/v1/login-links",
@@ -247,17 +315,135 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
   };
   app.use("/v1", noStore);
 
-  const userSession = async (res: Response, user: User, refreshToken?: string) => {
+  const userSession = async (
+    res: Response,
+    user: User,
+    refreshToken?: string,
+    extra: { recoveryCodes?: string[] } = {},
+  ) => {
     if (refreshToken) setCookie(res, cookies, REFRESH_COOKIE, refreshToken, REFRESH_MAX_MS);
     const accessToken = await signer.accessToken(user.id, user.role, ACCESS_TTL_S);
     res.json({
       accessToken,
       expiresIn: ACCESS_TTL_S,
-      user: { id: user.id, role: user.role, email: user.email },
+      user: {
+        id: user.id,
+        role: user.role,
+        ...(user.email ? { email: user.email } : {}),
+        ...(user.username ? { username: user.username } : {}),
+      },
+      ...extra,
     });
   };
 
-  // --- Connexion par lien magique ---------------------------------------------------------------
+  // --- Comptes par identifiant et mot de passe (ADR 0030) ---------------------------------------
+
+  const roleOf = (username: string) =>
+    (deps.adminUsernames ?? []).includes(username) ? "admin" : "candidate";
+
+  app.post("/v1/accounts", async (req, res) => {
+    const { username, password } = parseInput(AccountCreate, req.body);
+    // Identifiants administrateurs réservés : ces comptes sont créés au démarrage (ADMIN_PASSWORD).
+    const reserved = roleOf(username) === "admin";
+    const user = reserved
+      ? undefined
+      : await store.createAccount(username, await hashPassword(password), "candidate", ipHash(req));
+    if (!user) {
+      throw new AppError("identifiant_pris", 409, "Cet identifiant est déjà pris. Choisissez-en un autre.", [
+        { champ: "username", message: "Identifiant déjà pris." },
+      ]);
+    }
+    logger.info({ event: "compte_cree", methode: "mot_de_passe" }, "connexion");
+    clearCookie(res, cookies, GUEST_COOKIE);
+    res.status(201);
+    // Codes de récupération (ADR 0039) : seul moyen de retrouver un compte sans e-mail.
+    const recoveryCodes = await store.newRecoveryCodes(user.id);
+    await userSession(res, user, await store.issueRefreshToken(user.id), { recoveryCodes });
+  });
+
+  // --- Mot de passe oublié et codes de récupération (ADR 0039) -------------------------------------
+
+  app.post("/v1/password/reset", async (req, res) => {
+    const { username, code, password } = parseInput(PasswordReset, req.body);
+    const key = failureKey(username);
+    if (recentFailures(key).length >= failureLimit) {
+      throw new AppError(
+        "trop_de_demandes",
+        429,
+        "Trop d'essais pour cet identifiant. Réessayez dans 15 minutes.",
+      );
+    }
+    const found = await store.credentials(username);
+    const ok = found ? await store.useRecoveryCode(found.user.id, code) : false;
+    if (!found || !ok) {
+      failures.set(key, [...recentFailures(key), Date.now()]);
+      throw new AppError("code_invalide", 400, "Identifiant ou code de récupération incorrect.");
+    }
+    failures.delete(key);
+    await store.setPassword(found.user.id, await hashPassword(password), "reinitialisation");
+    const user = await store.recordLogin(found.user.id, roleOf(username));
+    if (!user) throw unauthorized("Votre compte est indisponible.");
+    logger.info({ event: "mot_de_passe_reinitialise" }, "connexion");
+    clearCookie(res, cookies, GUEST_COOKIE);
+    await userSession(res, user, await store.issueRefreshToken(user.id));
+  });
+
+  app.put("/v1/me/password", auth, requireAccount(), async (req, res) => {
+    const { current, password } = parseInput(PasswordChange, req.body);
+    const user = await currentUser(res);
+    const found = user.username ? await store.credentials(user.username) : undefined;
+    if (!found) throw new AppError("sans_mot_de_passe", 409, "Ce compte se connecte par lien e-mail.");
+    if (!(await verifyPassword(current, found.passwordHash))) {
+      throw new AppError("mot_de_passe_incorrect", 400, "Mot de passe actuel incorrect.", [
+        { champ: "current", message: "Mot de passe actuel incorrect." },
+      ]);
+    }
+    await store.setPassword(user.id, await hashPassword(password), "changement");
+    logger.info({ event: "mot_de_passe_change" }, "compte");
+    // Les autres sessions sont révoquées ; celle-ci reçoit un nouveau refresh token.
+    await userSession(res, user, await store.issueRefreshToken(user.id));
+  });
+
+  app.post("/v1/me/recovery-codes", auth, requireAccount(), async (_req, res) => {
+    const user = await currentUser(res);
+    if (!user.username)
+      throw new AppError("sans_mot_de_passe", 409, "Ce compte se connecte par lien e-mail.");
+    res.json({ codes: await store.newRecoveryCodes(user.id) });
+  });
+
+  // Échecs par identifiant (empreinte, jamais l'identifiant en clair), en plus du plafond par IP de la gateway.
+  const failures = new Map<string, number[]>();
+  const failureLimit = deps.passwordFailuresPer15Min ?? 10;
+  const failureKey = (u: string) => createHash("sha256").update(u).digest("base64url");
+  const recentFailures = (key: string) =>
+    (failures.get(key) ?? []).filter((t) => Date.now() - t < 15 * 60 * 1000);
+
+  app.post("/v1/session/password", async (req, res) => {
+    const { username, password } = parseInput(PasswordLogin, req.body);
+    const key = failureKey(username);
+    if (recentFailures(key).length >= failureLimit) {
+      throw new AppError(
+        "trop_de_demandes",
+        429,
+        "Trop d'essais pour cet identifiant. Réessayez dans 15 minutes.",
+      );
+    }
+    const found = await store.credentials(username);
+    // Identifiant inconnu : même calcul qu'un vrai échec, pour ne pas révéler quels comptes existent.
+    const ok = await verifyPassword(password, found?.passwordHash ?? (await decoyHash()));
+    const user = found && ok ? await store.recordLogin(found.user.id, roleOf(username)) : undefined;
+    if (!user) {
+      failures.set(key, [...recentFailures(key), Date.now()]);
+      if (failures.size > 10_000) failures.delete(failures.keys().next().value!);
+      throw unauthorized("Identifiant ou mot de passe incorrect.");
+    }
+    failures.delete(key);
+    logger.info({ event: "connexion", methode: "mot_de_passe" }, "connexion");
+    clearCookie(res, cookies, GUEST_COOKIE);
+    await userSession(res, user, await store.issueRefreshToken(user.id));
+  });
+
+  // --- Connexion par lien magique (anciens comptes) ---------------------------------------------------------------
 
   const perEmail = new Map<string, number[]>();
   const limit = deps.loginLinksPerHour ?? 5;
@@ -369,6 +555,8 @@ export function registerRoutes(app: Express, deps: RouteDeps): void {
     res.json({
       id: user.id,
       email: user.email,
+      username: user.username,
+      recoveryCodesLeft: user.username ? await store.recoveryCodesLeft(user.id) : null,
       role: user.role,
       createdAt: user.createdAt.toISOString(),
       consents: consents.map((c) => ({ ...c, at: c.at.toISOString() })),

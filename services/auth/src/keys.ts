@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createVerifier, TOKEN_ISSUER, USER_AUDIENCE, type TokenVerifier } from "@attesta/http-kit";
 import {
+  calculateJwkThumbprint,
   createLocalJWKSet,
   exportJWK,
   generateKeyPair,
@@ -35,10 +36,14 @@ export interface Signer {
 /**
  * Clé de signature RS256. En production, `AUTH_PRIVATE_KEY` est obligatoire ; ailleurs, une clé éphémère
  * est générée au démarrage (les jetons deviennent invalides au redémarrage, ce qui est acceptable en local).
+ * Son `kid` reçoit l'empreinte de la clé (RFC 7638) : une nouvelle clé a un nouveau `kid`, ce qui fait
+ * recharger le JWKS aux autres services ; avec un `kid` fixe, ils garderaient l'ancienne clé en cache et
+ * refuseraient tous les jetons jusqu'à leur propre redémarrage.
  */
-export async function loadSigner(pem: string | undefined, kid: string): Promise<Signer> {
+export async function loadSigner(pem: string | undefined, configuredKid: string): Promise<Signer> {
   let privateKey: CryptoKey;
   let publicJwk: JWK;
+  let kid = configuredKid;
   if (pem) {
     privateKey = await importPKCS8(pem.replace(/\\n/g, "\n"), "RS256", { extractable: true });
     // Seuls kty, n et e sont repris plus bas : la partie privée n'est jamais publiée.
@@ -47,6 +52,7 @@ export async function loadSigner(pem: string | undefined, kid: string): Promise<
     const pair = await generateKeyPair("RS256", { extractable: true });
     privateKey = pair.privateKey;
     publicJwk = await exportJWK(pair.publicKey);
+    kid = `${configuredKid}-${(await calculateJwkThumbprint(publicJwk)).slice(0, 12)}`;
   }
   const jwk: JWK = { kty: publicJwk.kty, n: publicJwk.n, e: publicJwk.e, kid, alg: "RS256", use: "sig" };
   const keySet = createLocalJWKSet({ keys: [jwk] });

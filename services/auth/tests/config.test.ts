@@ -57,6 +57,13 @@ describe("clés de signature", () => {
     expect(await signer.verifier.verify(token)).toMatchObject({ sub: "u-1", role: "admin" });
   });
 
+  it("donne un kid propre à chaque clé éphémère : les services rechargent le JWKS après un redémarrage", async () => {
+    const [first, second] = await Promise.all([loadSigner(undefined, "k"), loadSigner(undefined, "k")]);
+    const kidOf = (signer: typeof first) => signer.jwks().keys[0]?.kid;
+    expect(kidOf(first)).toMatch(/^k-[\w-]{12}$/);
+    expect(kidOf(first)).not.toBe(kidOf(second));
+  });
+
   it("refuse un cookie d'invité forgé ou pris pour un jeton d'accès", async () => {
     const signer = await loadSigner(undefined, "k");
     expect(await signer.readGuestCookie("a.b.c")).toBeUndefined();
