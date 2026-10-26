@@ -8,6 +8,12 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json package-lock.json ./
+# Tous les paquets de tsconfig.json : `tsc -b` les compile, leurs dépendances doivent être installées.
+COPY packages/logger/package.json packages/logger/
+COPY packages/config/package.json packages/config/
+COPY packages/http-kit/package.json packages/http-kit/
+COPY packages/shared-schemas/package.json packages/shared-schemas/
+COPY packages/llm-client/package.json packages/llm-client/
 COPY packages/schema/package.json packages/schema/
 COPY packages/shared/package.json packages/shared/
 COPY packages/render/package.json packages/render/
