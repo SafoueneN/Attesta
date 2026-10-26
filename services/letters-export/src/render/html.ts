@@ -6,7 +6,8 @@ import ejs from "ejs";
 import { CV_LABELS } from "./labels.js";
 import type { CvView } from "./view.js";
 
-export const CV_VARIANTS = ["ats", "design"] as const;
+/** Modèles du CV (ADR 0041) : une seule colonne, ordre de lecture = ordre du DOM, lisibles par les ATS. */
+export const CV_VARIANTS = ["ats", "design", "classique", "moderne", "compact"] as const;
 export type CvVariant = (typeof CV_VARIANTS)[number];
 
 const templatesDir = fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -16,6 +17,9 @@ const template = ejs.compile(readTemplate("cv.ejs"));
 const css: Record<CvVariant, string> = {
   ats: readTemplate("base.css") + readTemplate("ats.css"),
   design: readTemplate("base.css") + readTemplate("design.css"),
+  classique: readTemplate("base.css") + readTemplate("classique.css"),
+  moderne: readTemplate("base.css") + readTemplate("moderne.css"),
+  compact: readTemplate("base.css") + readTemplate("compact.css"),
 };
 
 /** Dossier d'un paquet installé (ses `exports` n'exposent pas les fichiers de police). */

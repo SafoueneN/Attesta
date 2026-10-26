@@ -5,3 +5,5 @@ export * from "./letter.js";
 export * from "./pdf.js";
 export * from "./report.js";
 export * from "./view.js";
+export * from "./norms.js";
+export * from "./docx.js";

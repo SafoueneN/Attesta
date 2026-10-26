@@ -58,6 +58,785 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/applications/check":
+    post:
+      operationId: "controlerTexteCandidature"
+      summary: "Texte modifié par le candidat, recontrôlé paragraphe par paragraphe (ADR 0029)"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                text:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 4000
+              required:
+                - "generationId"
+                - "text"
+      responses:
+        "200":
+          description: "Paragraphes et leur statut"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  paragraphs:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        text:
+                          type: "string"
+                        sources:
+                          type: "array"
+                          items:
+                            type: "string"
+                        sourceLabels:
+                          type: "array"
+                          items:
+                            type: "string"
+                        status:
+                          type: "string"
+                          enum:
+                            - "supported"
+                            - "unsupported"
+                            - "formule"
+                      required:
+                        - "text"
+                        - "sources"
+                        - "sourceLabels"
+                        - "status"
+                      additionalProperties: false
+                required:
+                  - "paragraphs"
+                additionalProperties: false
+  "/v1/applications/history/{id}":
+    get:
+      operationId: "historiqueCandidature"
+      summary: "Textes de candidature déjà rédigés pour ce CV (comptes)"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Historique"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    generationId:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    kind:
+                      type: "string"
+                      enum:
+                        - "formulaire"
+                        - "linkedin"
+                        - "relance"
+                        - "remerciement"
+                    question:
+                      type:
+                        - "string"
+                        - "null"
+                    text:
+                      type: "string"
+                    createdAt:
+                      type: "string"
+                  required:
+                    - "id"
+                    - "generationId"
+                    - "kind"
+                    - "question"
+                    - "text"
+                    - "createdAt"
+                  additionalProperties: false
+    delete:
+      operationId: "supprimerTexteCandidature"
+      summary: "Supprime un texte de l'historique"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Supprimé"
+  "/v1/applications/tracking":
+    get:
+      operationId: "suiviCandidatures"
+      summary: "Suivi des candidatures, avec la date de relance conseillée (comptes)"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Suivi"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    status:
+                      type: "string"
+                      enum:
+                        - "a_envoyer"
+                        - "envoyee"
+                        - "relancee"
+                        - "entretien"
+                        - "refus"
+                        - "offre"
+                    sentAt:
+                      anyOf:
+                        -
+                          type: "string"
+                          format: "date"
+                          pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        -
+                          type: "null"
+                    note:
+                      anyOf:
+                        -
+                          type: "string"
+                          maxLength: 500
+                        -
+                          type: "null"
+                    generationId:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    offerTitle:
+                      type: "string"
+                    followUpOn:
+                      type:
+                        - "string"
+                        - "null"
+                    updatedAt:
+                      type: "string"
+                  required:
+                    - "status"
+                    - "sentAt"
+                    - "note"
+                    - "generationId"
+                    - "offerTitle"
+                    - "followUpOn"
+                    - "updatedAt"
+                  additionalProperties: false
+  "/v1/applications/tracking/{id}":
+    put:
+      operationId: "suivreCandidature"
+      summary: "Met à jour le suivi de la candidature d'un CV (comptes)"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                status:
+                  type: "string"
+                  enum:
+                    - "a_envoyer"
+                    - "envoyee"
+                    - "relancee"
+                    - "entretien"
+                    - "refus"
+                    - "offre"
+                sentAt:
+                  anyOf:
+                    -
+                      type: "string"
+                      format: "date"
+                      pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    -
+                      type: "null"
+                note:
+                  anyOf:
+                    -
+                      type: "string"
+                      maxLength: 500
+                    -
+                      type: "null"
+              required:
+                - "status"
+                - "sentAt"
+                - "note"
+      responses:
+        "200":
+          description: "Suivi"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  status:
+                    type: "string"
+                    enum:
+                      - "a_envoyer"
+                      - "envoyee"
+                      - "relancee"
+                      - "entretien"
+                      - "refus"
+                      - "offre"
+                  sentAt:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "date"
+                        pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      -
+                        type: "null"
+                  note:
+                    anyOf:
+                      -
+                        type: "string"
+                        maxLength: 500
+                      -
+                        type: "null"
+                  generationId:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  offerTitle:
+                    type: "string"
+                  followUpOn:
+                    type:
+                      - "string"
+                      - "null"
+                  updatedAt:
+                    type: "string"
+                required:
+                  - "status"
+                  - "sentAt"
+                  - "note"
+                  - "generationId"
+                  - "offerTitle"
+                  - "followUpOn"
+                  - "updatedAt"
+                additionalProperties: false
+  "/v1/letters/{id}/translate":
+    post:
+      operationId: "traduireLettre"
+      summary: "Lettre traduite en anglais ou en allemand ; paragraphe écarté si ses chiffres changent"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                lang:
+                  type: "string"
+                  enum:
+                    - "en"
+                    - "de"
+              required:
+                - "lang"
+      responses:
+        "200":
+          description: "Lettre traduite"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  lang:
+                    type: "string"
+                    enum:
+                      - "en"
+                      - "de"
+                  greeting:
+                    type: "string"
+                  paragraphs:
+                    type: "array"
+                    items:
+                      type: "string"
+                  closing:
+                    type: "string"
+                  rejected:
+                    type: "integer"
+                    minimum: 0
+                    maximum: 9007199254740991
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                required:
+                  - "lang"
+                  - "greeting"
+                  - "paragraphs"
+                  - "closing"
+                  - "rejected"
+                  - "providerKind"
+                additionalProperties: false
+        "503":
+          description: "Assistant indisponible"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/assistants/feedback":
+    post:
+      operationId: "avisAssistantLettres"
+      summary: "Avis 👍 / 👎 anonyme sur une réponse d'assistant (ADR 0029)"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                role:
+                  type: "string"
+                  pattern: "^[a-z-]{2,40}$"
+                vote:
+                  anyOf:
+                    -
+                      type: "number"
+                      const: 1
+                    -
+                      type: "number"
+                      const: -1
+                providerKind:
+                  type: "string"
+                  enum:
+                    - "ia"
+                    - "demo"
+              required:
+                - "role"
+                - "vote"
+                - "providerKind"
+      responses:
+        "204":
+          description: "Enregistré"
+  "/v1/applications/answer":
+    post:
+      operationId: "repondreFormulaire"
+      summary: "Réponse à une question de formulaire, contrôlée contre le CV vérifié (ADR 0028, rôle 7)"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                question:
+                  type: "string"
+                  minLength: 5
+                  maxLength: 500
+                tone:
+                  default: "sobre"
+                  type: "string"
+                  enum:
+                    - "sobre"
+                    - "chaleureux"
+                    - "dynamique"
+                length:
+                  default: "moyen"
+                  type: "string"
+                  enum:
+                    - "court"
+                    - "moyen"
+                    - "long"
+              required:
+                - "generationId"
+                - "question"
+      responses:
+        "200":
+          description: "Texte contrôlé"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "uuid"
+                        pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      -
+                        type: "null"
+                  text:
+                    type: "string"
+                  paragraphs:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        text:
+                          type: "string"
+                        sources:
+                          type: "array"
+                          items:
+                            type: "string"
+                        sourceLabels:
+                          type: "array"
+                          items:
+                            type: "string"
+                        status:
+                          type: "string"
+                          enum:
+                            - "supported"
+                            - "unsupported"
+                            - "formule"
+                      required:
+                        - "text"
+                        - "sources"
+                        - "sourceLabels"
+                        - "status"
+                      additionalProperties: false
+                  removed:
+                    type: "integer"
+                    minimum: 0
+                    maximum: 9007199254740991
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                required:
+                  - "id"
+                  - "text"
+                  - "paragraphs"
+                  - "removed"
+                  - "providerKind"
+                additionalProperties: false
+        "409":
+          description: "CV non vérifié"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+        "503":
+          description: "Assistant indisponible"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/applications/message":
+    post:
+      operationId: "messageRecruteur"
+      summary: "Message au recruteur (LinkedIn, relance, remerciement), contrôlé contre le CV vérifié"
+      tags:
+        - "assistants"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                kind:
+                  type: "string"
+                  enum:
+                    - "linkedin"
+                    - "relance"
+                    - "remerciement"
+                tone:
+                  default: "sobre"
+                  type: "string"
+                  enum:
+                    - "sobre"
+                    - "chaleureux"
+                    - "dynamique"
+              required:
+                - "generationId"
+                - "kind"
+      responses:
+        "200":
+          description: "Texte contrôlé"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "uuid"
+                        pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      -
+                        type: "null"
+                  text:
+                    type: "string"
+                  paragraphs:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        text:
+                          type: "string"
+                        sources:
+                          type: "array"
+                          items:
+                            type: "string"
+                        sourceLabels:
+                          type: "array"
+                          items:
+                            type: "string"
+                        status:
+                          type: "string"
+                          enum:
+                            - "supported"
+                            - "unsupported"
+                            - "formule"
+                      required:
+                        - "text"
+                        - "sources"
+                        - "sourceLabels"
+                        - "status"
+                      additionalProperties: false
+                  removed:
+                    type: "integer"
+                    minimum: 0
+                    maximum: 9007199254740991
+                  providerKind:
+                    type: "string"
+                    enum:
+                      - "ia"
+                      - "demo"
+                required:
+                  - "id"
+                  - "text"
+                  - "paragraphs"
+                  - "removed"
+                  - "providerKind"
+                additionalProperties: false
+        "409":
+          description: "CV non vérifié"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+        "503":
+          description: "Assistant indisponible"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
   "/v1/letters":
     post:
       operationId: "redigerLettre"
@@ -626,6 +1405,32 @@ paths:
                   enum:
                     - "ats"
                     - "design"
+                    - "classique"
+                    - "moderne"
+                    - "compact"
+                evidenceIds:
+                  default: []
+                  maxItems: 20
+                  type: "array"
+                  items:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                lang:
+                  default: "fr"
+                  type: "string"
+                  enum:
+                    - "fr"
+                    - "en"
+                    - "de"
+                norms:
+                  default: "FR"
+                  type: "string"
+                  enum:
+                    - "DE"
+                    - "FR"
+                    - "CA"
+                    - "TN"
       responses:
         "200":
           description: "Document PDF (application/pdf)"
@@ -701,6 +1506,272 @@ paths:
                   - "title"
                   - "status"
                 additionalProperties: false
+  "/v1/shares":
+    post:
+      operationId: "partagerCv"
+      summary: "Crée un lien secret vers un instantané du CV (90 jours, révocable, non indexé ; ADR 0042)"
+      tags:
+        - "partage"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                variant:
+                  default: "ats"
+                  type: "string"
+                  enum:
+                    - "ats"
+                    - "design"
+                    - "classique"
+                    - "moderne"
+                    - "compact"
+                norms:
+                  default: "FR"
+                  type: "string"
+                  enum:
+                    - "DE"
+                    - "FR"
+                    - "CA"
+                    - "TN"
+                lang:
+                  default: "fr"
+                  type: "string"
+                  enum:
+                    - "fr"
+                    - "en"
+                    - "de"
+                consent:
+                  type: "boolean"
+                  const: true
+              required:
+                - "generationId"
+                - "consent"
+      responses:
+        "201":
+          description: "Lien créé"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  generationId:
+                    anyOf:
+                      -
+                        type: "string"
+                        format: "uuid"
+                        pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      -
+                        type: "null"
+                  offerTitle:
+                    type: "string"
+                  url:
+                    type: "string"
+                  views:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  lastViewedAt:
+                    type:
+                      - "string"
+                      - "null"
+                  createdAt:
+                    type: "string"
+                  expiresAt:
+                    type: "string"
+                required:
+                  - "id"
+                  - "generationId"
+                  - "offerTitle"
+                  - "views"
+                  - "lastViewedAt"
+                  - "createdAt"
+                  - "expiresAt"
+                additionalProperties: false
+    get:
+      operationId: "mesPartages"
+      summary: "Liens de partage actifs, avec le nombre de consultations"
+      tags:
+        - "partage"
+      security:
+        -
+          bearer: []
+      responses:
+        "200":
+          description: "Partages"
+          content:
+            "application/json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                      format: "uuid"
+                      pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    generationId:
+                      anyOf:
+                        -
+                          type: "string"
+                          format: "uuid"
+                          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        -
+                          type: "null"
+                    offerTitle:
+                      type: "string"
+                    url:
+                      type: "string"
+                    views:
+                      type: "integer"
+                      minimum: -9007199254740991
+                      maximum: 9007199254740991
+                    lastViewedAt:
+                      type:
+                        - "string"
+                        - "null"
+                    createdAt:
+                      type: "string"
+                    expiresAt:
+                      type: "string"
+                  required:
+                    - "id"
+                    - "generationId"
+                    - "offerTitle"
+                    - "views"
+                    - "lastViewedAt"
+                    - "createdAt"
+                    - "expiresAt"
+                  additionalProperties: false
+  "/v1/shares/{id}":
+    delete:
+      operationId: "revoquerPartage"
+      summary: "Révoque un lien de partage"
+      tags:
+        - "partage"
+      security:
+        -
+          bearer: []
+      responses:
+        "204":
+          description: "Révoqué"
+  "/v1/public/cv/{token}":
+    get:
+      operationId: "cvPartage"
+      summary: "CV partagé, public par le lien (non indexé)"
+      tags:
+        - "partage"
+      responses:
+        "200":
+          description: "Document HTML"
+        "404":
+          description: "Lien invalide ou expiré"
+          content:
+            "application/problem+json":
+              schema:
+                $schema: "https://json-schema.org/draft/2020-12/schema"
+                type: "object"
+                properties:
+                  type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  status:
+                    type: "integer"
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  errors:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        champ:
+                          type: "string"
+                        message:
+                          type: "string"
+                      required:
+                        - "champ"
+                        - "message"
+                      additionalProperties: false
+                  requestId:
+                    type: "string"
+                required:
+                  - "type"
+                  - "title"
+                  - "status"
+                additionalProperties: false
+  "/v1/exports/cv/docx":
+    post:
+      operationId: "exporterCvWord"
+      summary: "CV au format Word (.docx), même contenu et mêmes usages du pays que le PDF (ADR 0037)"
+      tags:
+        - "export"
+      security:
+        -
+          bearer: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              type: "object"
+              properties:
+                generationId:
+                  type: "string"
+                  format: "uuid"
+                  pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                variant:
+                  default: "ats"
+                  type: "string"
+                  enum:
+                    - "ats"
+                    - "design"
+                    - "classique"
+                    - "moderne"
+                    - "compact"
+                evidenceIds:
+                  default: []
+                  maxItems: 20
+                  type: "array"
+                  items:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                lang:
+                  default: "fr"
+                  type: "string"
+                  enum:
+                    - "fr"
+                    - "en"
+                    - "de"
+                norms:
+                  default: "FR"
+                  type: "string"
+                  enum:
+                    - "DE"
+                    - "FR"
+                    - "CA"
+                    - "TN"
+      responses:
+        "200":
+          description: "Document Word"
   "/v1/exports/cv/preview":
     post:
       operationId: "apercuCv"
@@ -728,6 +1799,32 @@ paths:
                   enum:
                     - "ats"
                     - "design"
+                    - "classique"
+                    - "moderne"
+                    - "compact"
+                evidenceIds:
+                  default: []
+                  maxItems: 20
+                  type: "array"
+                  items:
+                    type: "string"
+                    format: "uuid"
+                    pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                lang:
+                  default: "fr"
+                  type: "string"
+                  enum:
+                    - "fr"
+                    - "en"
+                    - "de"
+                norms:
+                  default: "FR"
+                  type: "string"
+                  enum:
+                    - "DE"
+                    - "FR"
+                    - "CA"
+                    - "TN"
       responses:
         "200":
           description: "Document HTML"
@@ -798,6 +1895,26 @@ paths:
                       - "budgetEur"
                       - "byStep"
                     additionalProperties: false
+                  votes:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        role:
+                          type: "string"
+                        up:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        down:
+                          type: "integer"
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                      required:
+                        - "role"
+                        - "up"
+                        - "down"
+                      additionalProperties: false
                 required:
                   - "service"
                   - "counters"

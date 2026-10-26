@@ -78,3 +78,35 @@ h2,
 h3 {
   break-after: avoid;
 }
+
+/* Usages du pays (ADR 0036) : photo d'identité à droite de l'en-tête, informations personnelles,
+   signature du Lebenslauf. */
+.cv-header--photo {
+  position: relative;
+  min-height: 40mm;
+  padding-right: 36mm;
+}
+.cv-photo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30mm;
+  height: 38mm;
+  object-fit: cover;
+  border-radius: 2mm;
+}
+.cv-personal {
+  margin-top: 1mm;
+  color: #444;
+}
+.cv-signature {
+  margin-top: 10mm;
+  break-inside: avoid;
+}
+.cv-signature-name {
+  margin-top: 8mm;
+  padding-top: 1mm;
+  width: 60mm;
+  border-top: 0.4pt solid #888;
+  font-weight: 600;
+}

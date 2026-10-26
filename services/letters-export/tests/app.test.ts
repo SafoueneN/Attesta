@@ -98,6 +98,18 @@ function fakeUpstreams(
         ? undefined
         : { version: 1, createdAt: "", schemaVersion: "1.0.0", profile };
     },
+    async translation() {
+      return undefined;
+    },
+    async evidence() {
+      return [];
+    },
+    async photo() {
+      return undefined;
+    },
+    async evidenceFile() {
+      return undefined;
+    },
   };
 }
 

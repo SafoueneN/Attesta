@@ -1,0 +1,47 @@
+/* Variante moderne : bandeau de couleur en tête, titres de rubrique en couleur ; une seule colonne (ATS). */
+.cv--moderne .cv-header {
+  background: #14532d;
+  color: #fff;
+  padding: 7mm 8mm;
+  border-radius: 3mm;
+}
+.cv--moderne .cv-header--photo {
+  padding-right: 44mm;
+}
+.cv--moderne .cv-photo {
+  top: 5mm;
+  right: 8mm;
+  border: 1mm solid #fff;
+}
+/* Au PDF, le bandeau va d'un bord à l'autre de la page (marges de @page compensées). */
+@media print {
+  .cv--moderne .cv-header {
+    margin: -16mm -16mm 0;
+    padding: 12mm 16mm 7mm;
+    border-radius: 0;
+  }
+  .cv--moderne .cv-header--photo {
+    padding-right: 52mm;
+  }
+  .cv--moderne .cv-photo {
+    top: 10mm;
+    right: 16mm;
+  }
+}
+.cv--moderne .cv-headline {
+  color: #bbf7d0;
+}
+.cv--moderne .cv-personal {
+  color: #dcfce7;
+}
+.cv--moderne h2 {
+  color: #14532d;
+  border-bottom: 2px solid #86efac;
+}
+.cv--moderne h3 {
+  color: #14532d;
+}
+.cv--moderne .cv-period {
+  color: #166534;
+  font-weight: 600;
+}

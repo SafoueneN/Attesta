@@ -7,13 +7,19 @@
 <style<% if (styleNonce) { %> nonce="<%= styleNonce %>"<% } %>><%- css %></style>
 </head>
 <body class="cv cv--<%= variant %>">
-<header class="cv-header">
+<header class="cv-header<% if (view.photo) { %> cv-header--photo<% } %>">
+<% if (view.photo) { -%>
+  <img class="cv-photo" src="<%= view.photo %>" alt="">
+<% } -%>
   <h1><%= view.name %></h1>
 <% if (view.headline) { -%>
   <p class="cv-headline" data-source="<%= view.headlineSource %>"><%= view.headline %></p>
 <% } -%>
 <% if (view.contact.length) { -%>
   <p class="cv-contact"><%= view.contact.join(" · ") %></p>
+<% } -%>
+<% if (view.personal.length) { -%>
+  <p class="cv-personal"><%= view.personal.join(" · ") %></p>
 <% } -%>
 </header>
 <main>
@@ -54,5 +60,11 @@
   </section>
 <% }) -%>
 </main>
+<% if (view.signature) { -%>
+<footer class="cv-signature">
+  <p><%= view.signature %></p>
+  <p class="cv-signature-name"><%= view.name %></p>
+</footer>
+<% } -%>
 </body>
 </html>

@@ -1,17 +1,16 @@
 # Service `letters-export` : Lettres et export PDF
 
-Lettres de motivation générées à partir du profil et de l'offre (fonction nouvelle), rendu PDF unique de tous les documents (CV, lettres, rapports), aperçu HTML.
+Lettres de motivation (**fonction nouvelle**) rédigées à partir des seules lignes vérifiées du CV ciblé, en trois tons ; chaque paragraphe est soumis au contrôle de fidélité de `cv-generation` et retiré s'il n'est pas prouvé. Seul service à embarquer Chromium : rendu PDF du CV (ciblé et vérifié, ou non adapté), des lettres et des rapports de veille, file bornée (503 au-delà), aperçu HTML identique au PDF. Aucun PDF n'est stocké.
 
-| Élément      | Valeur                                                                                                     |
-| ------------ | ---------------------------------------------------------------------------------------------------------- |
-| Port         | 4006 (débogueur : 9236)                                                                                    |
-| Base et rôle | `attesta_letters` (aucun accès à la base d'un autre service)                                               |
-| Contrat      | [openapi.yaml](openapi.yaml), généré par `npm run openapi`                                                 |
-| Décisions    | [0018](../../docs/adr/0018-rendu-pdf-centralise.md), [0023](../../docs/adr/0023-autonomie-des-services.md) |
-| Responsable  | voir [CODEOWNERS](../../.github/CODEOWNERS)                                                                |
-
-> **État** : socle autonome en place (configuration validée, journaux, `/health`, `/ready`, erreurs au
-> format commun, Dockerfile). Le code métier est extrait du monolithe en Phase M4, sans réécriture.
+| Élément      | Valeur                                                                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Port         | 4006 (débogueur : 9236)                                                                                                                               |
+| Base et rôle | `attesta_letters` (aucun accès à la base d'un autre service)                                                                                          |
+| Contrat      | [openapi.yaml](openapi.yaml), généré depuis les schémas Zod : `npm run openapi`                                                                       |
+| IA           | `lettre` (prompt `prompts/lettre/v1.md`), budget de 5 € par mois ; en démonstration, lettre composée des lignes vérifiées recopiées.                  |
+| Appelle      | `cv-generation` (CV vérifié et contrôle des paragraphes) et `profiles`, avec le jeton de l'utilisateur relayé.                                        |
+| Décisions    | [0018](../../docs/adr/0018-rendu-pdf-centralise.md), [0016](../../docs/adr/0016-llm-client.md), [0026](../../docs/adr/0026-ajustements-extraction.md) |
+| Responsable  | voir [CODEOWNERS](../../.github/CODEOWNERS)                                                                                                           |
 
 ## Démarrer seul
 
@@ -25,69 +24,80 @@ docker compose up -d db db-init
 cd services/letters-export
 cp .env.example .env
 npm ci
-npm run dev            # http://localhost:4006/health, rechargement à chaud
+npm run dev            # http://localhost:4006/health, migrations jouées au démarrage
 ```
 
-Aucune installation à la racine n'est nécessaire : les paquets partagés (`packages/logger`,
-`packages/config`, `packages/http-kit`) sont copiés depuis leur version compilée
-([ADR 0025](../../docs/adr/0025-paquets-partages-compiles.md)).
+Aucune installation à la racine n'est nécessaire : les paquets partagés sont copiés depuis leur version
+compilée ([ADR 0025](../../docs/adr/0025-paquets-partages-compiles.md)). Les jetons sont vérifiés par le
+JWKS d'`auth` (`AUTH_JWKS_URL`) : démarrez `auth` aussi, ou toute la pile avec `docker compose --profile full up`.
 
 ## Commandes
 
-| Commande                | Effet                                                   |
-| ----------------------- | ------------------------------------------------------- |
-| `npm run dev`           | serveur avec rechargement à chaud, lit `.env`           |
-| `npm test`              | tests Vitest (sans base : dépendances simulées)         |
-| `npm run test:coverage` | tests et couverture (seuil : 80 % des lignes de `src/`) |
-| `npm run typecheck`     | TypeScript strict, sources et tests                     |
-| `npm run build`         | compilation dans `dist/`                                |
-| `npm start`             | exécute `dist/server.js` (lit `.env` s'il existe)       |
-| `npm run openapi`       | régénère `openapi.yaml` après un changement de route    |
-
-Avec Docker : `docker compose up letters-export` depuis la racine, ou
-`docker build -f services/letters-export/Dockerfile -t attesta/letters-export .`.
+| Commande                | Effet                                                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `npm run dev`           | serveur avec rechargement à chaud, lit `.env`                                                            |
+| `npm test`              | tests Vitest ; ceux d'intégration créent puis suppriment une base PostgreSQL jetable (ignorés sans base) |
+| `npm run test:coverage` | tests et couverture (seuil : 80 % des lignes de `src/`)                                                  |
+| `npm run typecheck`     | TypeScript strict, sources et tests                                                                      |
+| `npm run build`         | compilation dans `dist/`                                                                                 |
+| `npm run migrate`       | migrations seules (`migrations/*.sql`)                                                                   |
+| `npm run openapi`       | régénère `openapi.yaml` après un changement de route                                                     |
 
 ## Endpoints
 
-| Méthode | Chemin    | Rôle                                       |
-| ------- | --------- | ------------------------------------------ |
-| GET     | `/health` | vivacité : le processus répond             |
-| GET     | `/ready`  | disponibilité : la base répond (503 sinon) |
+Les routes `/v1/…` sont publiques à travers la gateway sous `/api/letters` ; les routes `/internal/…` ne sont
+jamais routées par la gateway (réseau interne seulement). 🔒 : jeton exigé.
 
-Les routes métier sont ajoutées dans `src/routes.ts` (liste `operations` pour l'OpenAPI).
+| Méthode | Chemin                              | Rôle                                                                                      |
+| ------- | ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| GET     | `/health`                           | vivacité : le processus répond                                                            |
+| GET     | `/ready`                            | disponibilité : la base répond (503 sinon)                                                |
+| POST    | `/v1/letters` 🔒                    | Rédige une lettre de motivation à partir d'un CV vérifié ; chaque paragraphe est contrôlé |
+| GET     | `/v1/letters` 🔒                    | Lettres de l'utilisateur                                                                  |
+| GET     | `/v1/letters/{id}` 🔒               | Une lettre et le contrôle de chaque paragraphe                                            |
+| PUT     | `/v1/letters/{id}` 🔒               | Modifie la lettre ; les paragraphes sont recontrôlés, les écarts signalés                 |
+| DELETE  | `/v1/letters/{id}` 🔒               | Supprime une lettre                                                                       |
+| POST    | `/v1/letters/{id}/pdf` 🔒           | PDF de la lettre, produit à la demande et jamais stocké                                   |
+| POST    | `/v1/exports/cv` 🔒                 | PDF du CV : ciblé (génération vérifiée) ou non adapté (profil enregistré)                 |
+| POST    | `/v1/exports/cv/preview` 🔒         | HTML exact du PDF, pour l'aperçu (sans script, sans ressource externe)                    |
+| GET     | `/v1/admin/stats` 🔒                | Compteurs et consommation du LLM, sans donnée personnelle                                 |
+| POST    | `/internal/v1/reports/offers` 🔒    | PDF du rapport des offres de la veille (jeton de service reports:render)                  |
+| POST    | `/internal/v1/reports/gaps` 🔒      | PDF du rapport des points à améliorer (jeton de service reports:render)                   |
+| GET     | `/internal/v1/users/{id}/export` 🔒 | Données du service pour l'export RGPD (users:export)                                      |
+| DELETE  | `/internal/v1/users/{id}` 🔒        | Efface les lettres d'un utilisateur, idempotent (users:delete)                            |
+
+## Données personnelles (ADR 0019)
+
+| Donnée                                            | Finalité    | Conservation                                      |
+| ------------------------------------------------- | ----------- | ------------------------------------------------- |
+| Lettres (texte, sources, contrôle par paragraphe) | candidature | jusqu'à la suppression du compte ; invités : 24 h |
+| Consommation du LLM                               | budget      | 13 mois, sans contenu                             |
+
+Aucun journal ne contient d'e-mail, de nom, de texte de CV, d'offre ou de prompt (masquage par `packages/logger`).
+L'export (`/internal/v1/users/{id}/export`) et l'effacement idempotent (`DELETE /internal/v1/users/{id}`)
+sont appelés par `auth` avec un jeton de service.
 
 ## Variables d'environnement
 
-| Variable       | Obligatoire | Défaut        | Rôle                                           |
-| -------------- | ----------- | ------------- | ---------------------------------------------- |
-| `DATABASE_URL` | oui         |               | base `attesta_letters` avec le rôle du service |
-| `PORT`         | non         | 4006          | port d'écoute                                  |
-| `NODE_ENV`     | non         | `development` | `development`, `test` ou `production`          |
-| `LOG_LEVEL`    | non         | `info`        | niveau des journaux JSON                       |
-| `TRUST_PROXY`  | non         | `0`           | proxys de confiance devant le service          |
+Toutes sont validées au démarrage ; une variable invalide arrête le service avec son nom (jamais sa valeur).
+Modèle : [.env.example](.env.example).
 
-Une variable invalide arrête le service au démarrage, avec la liste des variables en cause (jamais leur
-valeur).
-
-## Structure
-
-```
-src/
-  server.ts      point d'entrée : configuration, journaux, base, écoute, arrêt propre
-  app.ts         application Express (sans écoute), testée avec supertest
-  config.ts      variables d'environnement (Zod)
-  db.ts          pool PostgreSQL de la base du service
-  routes.ts      routes métier et leur description OpenAPI
-  openapi.ts     contrat généré
-tests/           Vitest : application, configuration, contrat
-scripts/         régénération de openapi.yaml
-Dockerfile       image non-root, HEALTHCHECK sur /ready
-```
-
-## Code existant à extraire (sans réécriture)
-
-`packages/render` (gabarits, Puppeteer, profil seccomp)
-
-## Dépendances
-
-cv-generation (CV vérifié), profiles, LLM
+- `NODE_ENV`
+- `PORT`
+- `LOG_LEVEL`
+- `TRUST_PROXY`
+- `DATABASE_URL`
+- `MIGRATE_ON_START`
+- `AUTH_JWKS_URL`
+- `CV_GENERATION_URL`
+- `PROFILES_URL`
+- `LLM_PROVIDER`
+- `LLM_MODEL`
+- `LLM_TIMEOUT_MS`
+- `VERTEX_PROJECT_ID`
+- `VERTEX_REGION`
+- `LLM_MONTHLY_BUDGET_EUR`
+- `PUPPETEER_EXECUTABLE_PATH`
+- `PDF_MAX_CONCURRENCY`
+- `PDF_TIMEOUT_MS`
+- `PDF_NO_SANDBOX`

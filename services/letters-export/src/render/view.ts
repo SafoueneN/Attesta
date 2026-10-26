@@ -37,6 +37,10 @@ export interface CvView {
   headlineSource?: string;
   contact: string[];
   sections: CvSectionView[];
+  /** Usages du pays (ADR 0036) : photo en data URL, informations personnelles, signature du Lebenslauf. */
+  photo?: string;
+  personal: string[];
+  signature?: string;
 }
 
 const join = (parts: (string | undefined)[], sep: string) => parts.filter(Boolean).join(sep);
@@ -135,6 +139,7 @@ export function viewFromProfile(profile: Profile, lang: CvLang = "fr"): CvView {
       ...basics.profiles.map((p) => p.url),
     ].filter((c): c is string => Boolean(c)),
     sections: sections.filter((s) => s.entries.length > 0 || s.items.length > 0),
+    personal: [],
   };
 }
 

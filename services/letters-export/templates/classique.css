@@ -1,0 +1,36 @@
+/* Variante classique : empattements, en-tête centré, filets fins (usage français et allemand traditionnel). */
+body.cv--classique {
+  font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+  font-size: 10.5pt;
+}
+.cv--classique .cv-header {
+  text-align: center;
+  padding-bottom: 3mm;
+  border-bottom: 0.6pt solid #1a1a1a;
+}
+.cv--classique .cv-header--photo {
+  text-align: left;
+}
+.cv--classique h1 {
+  font-size: 22pt;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cv--classique h2 {
+  font-size: 11pt;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-align: center;
+  border-bottom: none;
+}
+.cv--classique h2::after {
+  content: "";
+  display: block;
+  width: 18mm;
+  margin: 1.5mm auto 0;
+  border-bottom: 0.6pt solid #1a1a1a;
+}
+.cv--classique .cv-subtitle {
+  font-style: italic;
+}

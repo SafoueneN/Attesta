@@ -1,10 +1,11 @@
 import { ConfigError } from "@attesta/config";
 import { createJwksVerifier, startServer, USER_AUDIENCE } from "@attesta/http-kit";
-import { BudgetedProvider, createLlmProvider, pgUsageStore } from "@attesta/llm-client";
+import { BudgetedProvider, createAiProvider, pgUsageStore } from "@attesta/llm-client";
 import { createLogger } from "@attesta/logger";
 import { createApp } from "./app.js";
 import { loadConfig, SERVICE } from "./config.js";
 import { checkDatabase, createPool, migrate } from "./db.js";
+import { applicationDemoHandlers } from "./applications.js";
 import { demoHandlers } from "./letters.js";
 import { PuppeteerPdfRenderer } from "./render/index.js";
 import { LetterStore } from "./store.js";
@@ -24,15 +25,11 @@ const pool = createPool(config.DATABASE_URL);
 pool.on("error", (err) => logger.error({ err, event: "pg_erreur" }, "connexion PostgreSQL perdue"));
 
 const store = new LetterStore(pool);
-const provider = createLlmProvider(
-  {
-    provider: config.LLM_PROVIDER,
-    model: config.LLM_MODEL,
-    timeoutMs: config.LLM_TIMEOUT_MS,
-    vertexProjectId: config.VERTEX_PROJECT_ID,
-    vertexRegion: config.VERTEX_REGION,
-  },
-  demoHandlers,
+const provider = createAiProvider(
+  config,
+  config.NODE_ENV,
+  { ...demoHandlers, ...applicationDemoHandlers },
+  (event) => logger.warn({ event: "llm_repli", ...event }, "llm"),
 );
 const llm =
   provider &&
@@ -65,6 +62,7 @@ const app = createApp({
   renderer,
   verifier: createJwksVerifier(config.AUTH_JWKS_URL, { audience: [USER_AUDIENCE, SERVICE] }),
   llm,
+  appBaseUrl: config.APP_BASE_URL,
 });
 await startServer({
   app,

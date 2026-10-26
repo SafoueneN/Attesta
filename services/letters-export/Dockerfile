@@ -19,14 +19,17 @@ COPY packages/llm-client/package.json packages/llm-client/
 COPY packages/llm-client/dist packages/llm-client/dist
 WORKDIR /repo/services/letters-export
 COPY services/letters-export/package.json services/letters-export/package-lock.json services/letters-export/.npmrc ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les builds, reprises réseau : une relance réutilise les paquets déjà téléchargés.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-maxtimeout=120000
 COPY services/letters-export/tsconfig.json services/letters-export/tsconfig.build.json ./
 COPY services/letters-export/src src
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
 # Chromium et polices du système ; npm et npx retirés (inutiles à l'exécution, signalés par Trivy).
-RUN apt-get update \
+# Reprises apt : Chromium pèse une centaine de Mo, un réseau instable ne doit pas faire échouer le build.
+RUN echo 'Acquire::Retries "8";' > /etc/apt/apt.conf.d/80-reprises \
+  && apt-get update \
   && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends chromium fonts-liberation ca-certificates \
   && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx

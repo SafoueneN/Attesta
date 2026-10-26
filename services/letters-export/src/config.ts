@@ -1,4 +1,5 @@
 import { databaseUrl, envBool, loadEnv, serviceEnv } from "@attesta/config";
+import { aiConfigProblems, aiEnv } from "@attesta/llm-client";
 import { z } from "zod";
 
 export const SERVICE = "letters-export";
@@ -10,12 +11,10 @@ export const Env = serviceEnv(4006).extend({
   AUTH_JWKS_URL: z.url().default("http://localhost:4001/.well-known/jwks.json"),
   CV_GENERATION_URL: z.url().default("http://localhost:4003"),
   PROFILES_URL: z.url().default("http://localhost:4002"),
-  /** demo : lettre composée des lignes vérifiées, sans reformulation ; anthropic ou vertex : Claude. */
-  LLM_PROVIDER: z.enum(["demo", "anthropic", "vertex", "none"]).default("demo"),
-  LLM_MODEL: z.string().default("claude-opus-5-5"),
-  LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).default(90_000),
-  VERTEX_PROJECT_ID: z.string().optional(),
-  VERTEX_REGION: z.string().default("eu"),
+  /** Adresse publique du frontend, pour les liens de CV en ligne (ADR 0042). */
+  APP_BASE_URL: z.url({ protocol: /^https?$/ }).default("http://localhost:8080"),
+  /** demo : lettre composée des lignes vérifiées, sans reformulation ; claude, groq, gemini, ollama : modèle réel (ADR 0047). */
+  ...aiEnv,
   /** Part du budget mensuel de 20 € (ADR 0016, point 6). */
   LLM_MONTHLY_BUDGET_EUR: z.coerce.number().min(0).default(5),
   /** Chromium du système (image Docker) ; absent : celui téléchargé par Puppeteer (poste local). */
@@ -31,10 +30,7 @@ export type Config = z.infer<typeof Env>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const config = loadEnv(Env, env);
-  if (config.NODE_ENV === "production" && config.LLM_PROVIDER === "demo") {
-    throw new Error(
-      "Configuration invalide :\n- LLM_PROVIDER : le mode démonstration est interdit en production",
-    );
-  }
+  const problems = aiConfigProblems(config, config.NODE_ENV);
+  if (problems.length) throw new Error(`Configuration invalide :\n- ${problems.join("\n- ")}`);
   return config;
 }
