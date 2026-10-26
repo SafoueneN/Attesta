@@ -1,0 +1,185 @@
+erDiagram
+  app_user ||--o{ refresh_token : "possède"
+  app_user ||--o{ recovery_code : "possède"
+  app_user ||--o{ consent_log : "consent"
+  app_user {
+    uuid id PK
+    text username UK
+    text email UK
+    text password_hash
+    text role
+    text status
+    timestamptz last_active_at
+  }
+  refresh_token {
+    uuid id PK
+    uuid family_id
+    uuid user_id FK
+    bytea token_hash UK
+    timestamptz expires_at
+    timestamptz used_at
+    timestamptz revoked_at
+  }
+  recovery_code {
+    uuid user_id PK
+    bytea code_hash PK
+    timestamptz used_at
+  }
+  consent_log {
+    bigint id PK
+    uuid user_id FK
+    text purpose
+    boolean granted
+    text policy_version
+  }
+  outbox {
+    bigint id PK
+    uuid user_id
+    text target
+    text action
+    int attempts
+    timestamptz done_at
+  }
+  audit_event {
+    bigint id PK
+    text type
+    uuid user_id
+    jsonb detail
+  }
+  profile_version {
+    uuid id PK
+    text user_id
+    int version
+    jsonb data
+    text schema_version
+  }
+  profile_evidence {
+    uuid id PK
+    text user_id
+    text target
+    text kind
+    bytea content
+  }
+  profile_photo {
+    text user_id PK
+    text mime_type
+    bytea content
+  }
+  generation ||--o{ assistant_result : "garde"
+  generation {
+    uuid id PK
+    text user_id
+    uuid offer_id
+    jsonb profile
+    jsonb cv
+    jsonb report
+    jsonb removed
+    text status
+    numeric cost_usd
+  }
+  assistant_result {
+    uuid generation_id PK
+    text key PK
+    jsonb payload
+  }
+  ia_quota {
+    text subject PK
+    date day
+    int count
+  }
+  job_posting ||--o| job_embedding : "vectorisée"
+  user_offer {
+    uuid id PK
+    text user_id
+    text raw_text
+    uuid posting_id
+    jsonb analysis
+  }
+  job_posting {
+    uuid id PK
+    text source
+    text external_id
+    text title
+    text country
+    tsvector tsv
+    bytea fingerprint UK
+  }
+  job_embedding {
+    uuid posting_id PK
+    vector embedding
+  }
+  job_source_run {
+    bigint id PK
+    text source
+    int inserted
+  }
+  watch_subscription ||--o{ match_result : "reçoit"
+  watch_subscription ||--o{ email_delivery : "envoie"
+  watch_subscription {
+    uuid id PK
+    uuid user_id UK
+    text_array occupations
+    text country
+    int radius_km
+    text status
+    text recipient_email
+  }
+  match_result {
+    bigint id PK
+    uuid subscription_id FK
+    uuid posting_id
+    int rank
+    float rrf_score
+  }
+  email_delivery {
+    uuid id PK
+    uuid subscription_id FK
+    date run_date
+    text status
+  }
+  reminder {
+    uuid id PK
+    uuid user_id
+    text kind
+    date send_on
+  }
+  watch_run {
+    uuid id PK
+    date run_date
+    text trigger
+  }
+  cover_letter {
+    uuid id PK
+    text user_id
+    uuid generation_id
+    text tone
+    jsonb paragraphs
+  }
+  application_tracking {
+    text user_id PK
+    uuid generation_id PK
+    text status
+    date sent_at
+  }
+  application_text {
+    uuid id PK
+    uuid generation_id
+    text kind
+  }
+  cv_share {
+    uuid id PK
+    bytea token_hash UK
+    uuid generation_id
+    text html
+    int views
+    timestamptz expires_at
+  }
+  app_user ||..o{ profile_version : "user_id logique"
+  app_user ||..o{ generation : "user_id logique"
+  user_offer ||..o{ generation : "offer_id logique"
+  job_posting ||..o{ user_offer : "posting_id logique"
+  generation ||..o{ cover_letter : "generation_id logique"
+  generation ||..o| application_tracking : "generation_id logique"
+  generation ||..o{ cv_share : "generation_id logique"
+  app_user ||..o| watch_subscription : "user_id logique"
+  job_posting ||..o{ match_result : "posting_id logique"

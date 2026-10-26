@@ -1,0 +1,30 @@
+%% Figure : Membre 1 — appel d'un modèle par le client LLM commun (budget, repli, validation)
+sequenceDiagram
+  autonumber
+  participant S as Service (ex. cv-generation)
+  participant B as BudgetedProvider
+  participant U as table llm_usage
+  participant F as FallbackProvider
+  participant C as Claude (Vertex AI UE)
+  participant O as Fournisseur suivant (ex. Ollama)
+  S->>B: generate(step, system, data, schema)
+  B->>U: monthCostUsd()
+  alt budget du mois atteint ou débit dépassé
+    B-->>S: LlmBudgetExceededError
+  else
+    B->>F: generate()
+    F->>C: messages.parse(model, system en cache, sortie Zod)
+    alt quota 429 ou délai dépassé
+      F->>F: journal llm_repli (modèles, motif)
+      F->>O: même requête, schéma JSON puis revalidation Zod
+      O-->>F: données + usage
+    else refus, sortie hors schéma, autre panne
+      C-->>F: erreur typée (pas de bascule)
+    else succès
+      C-->>F: données typées + usage
+    end
+    F-->>B: résultat ou erreur
+    B->>U: record(étape, modèle, jetons, coût, latence)
+    B-->>S: résultat ou erreur
+  end
+  S->>S: mode dégradé ou 503 explicite si erreur

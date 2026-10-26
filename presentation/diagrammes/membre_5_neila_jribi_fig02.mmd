@@ -1,0 +1,22 @@
+%% Figure : Membre 5 — séquence d'export du CV en PDF
+sequenceDiagram
+  autonumber
+  actor U as Candidat
+  participant G as gateway
+  participant L as letters-export
+  participant C as cv-generation
+  participant P as profiles
+  participant B as Chromium (Puppeteer)
+  U->>G: POST /api/letters/v1/exports/cv (modèle, langue, usages, justificatifs)
+  G->>G: plafond d'exports par heure
+  G->>L: relais
+  L->>C: GET /internal/v1/generations/:id (jeton relayé)
+  C-->>L: CV vérifié (sinon 409)
+  L->>P: profil, photo, justificatifs (internes)
+  L->>L: vue + usages du pays, rendu EJS en HTML
+  L->>B: sémaphore, newPage, setContent, document.fonts.ready
+  B-->>L: PDF A4 balisé (délai max PDF_TIMEOUT_MS)
+  opt justificatifs choisis
+    L->>L: withAnnex : fusion pdf-lib
+  end
+  L-->>U: cv-nom.pdf

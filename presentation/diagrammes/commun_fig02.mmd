@@ -1,0 +1,30 @@
+%% Figure : Commun — conteneurs, profils, ports et volumes de compose.yaml
+flowchart LR
+  subgraph NET["Réseau par défaut du projet compose (DNS = nom du service)"]
+    subgraph INFRA["Sans profil (toujours démarrés)"]
+      DB[("db<br/>pgvector 0.8.0-pg16<br/>127.0.0.1:5433")]
+      INIT["db-init<br/>bases + rôles"]
+      MP["mailpit v1.27<br/>:8025"]
+    end
+    subgraph CORE["Profils core et full"]
+      FE["frontend :8080"] --> GW["gateway :4000"]
+      GW --> AU["auth :4001"] & PR["profiles :4002"] & CV["cv-generation :4003"] & JM["jobs-matching :4004"] & LE["letters-export :4006"]
+      MIG["migrate (monolithe)"]
+      WEB["web (monolithe) :3080"]
+    end
+    subgraph FULL["Profil full"]
+      JW["job-watch :4005"]
+    end
+    subgraph OPT["Profils à la demande"]
+      VE["veille (monolithe)"]
+      TEI["tei BGE-M3"]
+      OL["ollama 0.12.6 :11434"]
+    end
+  end
+  INIT --> DB
+  AU & PR & CV & JM & LE & JW & MIG & WEB --> DB
+  GW --> JW
+  DB --- V1[["volume db-data"]]
+  TEI --- V2[["volume tei-models"]]
+  OL --- V3[["volume ollama-models"]]
+  PR & CV & JM & LE -.-> OL

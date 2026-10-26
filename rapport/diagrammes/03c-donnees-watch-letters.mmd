@@ -1,0 +1,89 @@
+erDiagram
+  watch_subscription ||--o{ match_result : "reçoit"
+  watch_subscription ||--o{ email_delivery : "envoie"
+  watch_subscription {
+    uuid id PK
+    uuid user_id UK
+    text_array occupations "1 à 5"
+    text country "DE, FR, CA, TN"
+    text city
+    int radius_km "5 à 200"
+    text working_time
+    text status "en_attente, active..."
+    bytea confirm_token_hash UK
+    text unsubscribe_token UK
+    text recipient_email
+  }
+  match_result {
+    bigint id PK
+    uuid subscription_id FK
+    uuid posting_id
+    date run_date
+    int rank
+    float rrf_score
+    float similarity
+    float coverage
+    jsonb missing_skills
+  }
+  email_delivery {
+    uuid id PK
+    uuid subscription_id FK
+    date run_date "1 envoi par jour"
+    int offers
+    text status
+  }
+  watch_consent {
+    bigint id PK
+    uuid user_id
+    boolean granted
+    text policy_version
+  }
+  email_event {
+    bigint id PK
+    text event "plainte, rebond..."
+  }
+  watch_run {
+    uuid id PK
+    date run_date
+    text trigger "planifiee ou manuelle"
+    jsonb summary
+  }
+  reminder {
+    uuid id PK
+    uuid user_id
+    text kind "progression ou relance"
+    date send_on
+    text title
+    timestamptz sent_at
+  }
+  cover_letter {
+    uuid id PK
+    text user_id
+    uuid generation_id
+    text tone "sobre, chaleureux, dynamique"
+    jsonb paragraphs "texte, sources, contrôle"
+    int removed
+  }
+  application_text {
+    uuid id PK
+    text user_id
+    uuid generation_id
+    text kind "formulaire, linkedin..."
+    text text
+  }
+  application_tracking {
+    text user_id PK
+    uuid generation_id PK
+    text offer_title
+    text status "a_envoyer ... offre"
+    date sent_at
+  }
+  cv_share {
+    uuid id PK
+    text user_id
+    bytea token_hash UK
+    uuid generation_id
+    text html "instantané"
+    int views
+    timestamptz expires_at "90 j"
+  }

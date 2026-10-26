@@ -1,0 +1,27 @@
+sequenceDiagram
+  autonumber
+  participant T as Minuteur (DAILY_RUN_HOUR)
+  participant W as job-watch
+  participant A as auth
+  participant P as profiles
+  participant J as jobs-matching
+  participant L as letters-export
+  participant M as SMTP (Mailpit ou Brevo)
+  T->>W: runDaily(date, planifiee) sous verrou
+  W->>J: POST /internal/v1/ingestion (matching:run)
+  loop pour chaque abonnement actif
+    W->>W: déjà envoyé aujourd'hui ? sinon on continue
+    W->>A: GET /internal/v1/users/:id/contact (users:contact)
+    W->>P: GET /internal/v1/users/:id/profile (profiles:read)
+    W->>J: POST /internal/v1/matching (profil anonymisé, offres déjà envoyées exclues)
+    J->>J: plein texte + vecteurs, fusion RRF, reclassement
+    J-->>W: offres classées + compétences manquantes
+    W->>W: saveMatches, calcul des écarts de compétences
+    par rapports PDF (reports:render)
+      W->>L: POST /internal/v1/reports/offers
+      W->>L: POST /internal/v1/reports/gaps
+    end
+    W->>W: claimDelivery (un envoi par jour au plus)
+    W->>M: e-mail + 2 PDF + lien de désabonnement en un clic
+    W->>W: completeDelivery(messageId)
+  end

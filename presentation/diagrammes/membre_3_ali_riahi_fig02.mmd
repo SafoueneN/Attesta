@@ -1,0 +1,27 @@
+%% Figure : Membre 3 — séquence de génération d'un CV ciblé
+sequenceDiagram
+  autonumber
+  actor U as Candidat
+  participant G as gateway
+  participant C as cv-generation
+  participant P as profiles
+  participant J as jobs-matching
+  participant L as llm-client (Claude)
+  U->>G: POST /api/cv/v1/generations (Accept text/event-stream)
+  G->>G: plafond de générations par heure
+  G->>C: relais en flux
+  C->>P: GET /internal/v1/profiles/me (jeton relayé)
+  C->>J: GET /internal/v1/offers/:id (jeton relayé)
+  C->>C: quota.reserve (un appel à la fois, quota du jour)
+  C-->>U: data progress analyse terminée
+  loop au plus 3 essais
+    C-->>U: data progress rédaction
+    C->>L: generate redaction (offre, faits, parcours)
+    L-->>C: DraftOutput avec sources par ligne
+    C->>C: assemble + TailoredCv.safeParse
+  end
+  C->>C: checkFaithfulness : retire les lignes non prouvées
+  C-->>U: data progress contrôle (lignes prouvées / contrôlées)
+  C->>C: store.create(status ok ou degraded)
+  C-->>U: data done generationId
+  C->>C: quota.release

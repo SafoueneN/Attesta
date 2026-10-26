@@ -1,0 +1,50 @@
+%% Figure : Membre 3 — modèle de données du service cv-generation
+classDiagram
+  class generation {
+    +uuid id
+    +text user_id
+    +uuid offer_id
+    +text offer_title
+    +jsonb analysis
+    +integer profile_version
+    +jsonb profile
+    +text status
+    +jsonb cv
+    +jsonb report
+    +jsonb removed
+    +jsonb edited
+    +integer revision
+    +text provider_kind
+    +text model
+    +numeric cost_usd
+  }
+  class assistant_result {
+    +uuid generation_id
+    +text key
+    +jsonb payload
+    +timestamptz updated_at
+  }
+  class ia_quota {
+    +text subject
+    +date day
+    +integer count
+    +timestamptz running_until
+  }
+  class llm_usage {
+    +bigint id
+    +text step
+    +text model
+    +integer input_tokens
+    +integer output_tokens
+    +numeric cost_usd
+  }
+  class TailoredCv {
+    +CvLine headline
+    +CvLine[] summary
+    +Entry[] work
+    +Entry[] projects
+    +string[] skills
+    +string[] missingKeywords
+  }
+  generation "1" --> "*" assistant_result : ON DELETE CASCADE
+  generation "1" *-- "0..1" TailoredCv : cv jsonb

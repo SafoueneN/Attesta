@@ -1,0 +1,10 @@
+flowchart LR
+  C["cv-generation"] -->|"profil, offre<br/>(jeton relayé)"| P["profiles"]
+  C -->|"offre analysée"| J["jobs-matching"]
+  L["letters-export"] -->|"CV vérifié, contrôle"| C
+  L -->|"profil, photo, justificatifs"| P
+  W["job-watch"] -->|"users:contact"| A["auth"]
+  W -->|"profiles:read"| P
+  W -->|"matching:run"| J
+  W -->|"reports:render"| L
+  A -.->|"users:export, users:delete<br/>(outbox RGPD)"| P & C & J & W & L

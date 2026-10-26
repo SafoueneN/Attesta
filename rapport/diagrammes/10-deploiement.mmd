@@ -1,0 +1,41 @@
+flowchart TB
+  subgraph Poste["Poste de développement ou de soutenance : Docker Compose (compose.yaml)"]
+    direction TB
+    subgraph Exposes["Entrées"]
+      FE["frontend<br/>nginx, image non-root<br/>:8080 (FRONTEND_PORT)"]
+      GW["gateway :4000"]
+      MP["mailpit v1.27<br/>:8025 (interface)"]
+    end
+    subgraph Reseau["Services : réseau compose (ports 4001 à 4006 publiés en local)"]
+      AU["auth :4001"]
+      PR["profiles :4002"]
+      CG["cv-generation :4003"]
+      JM["jobs-matching :4004"]
+      JW["job-watch :4005<br/>(profil full)"]
+      LE["letters-export :4006<br/>Chromium + seccomp"]
+      TEI["tei BGE-M3<br/>(profil tei, facultatif)"]
+    end
+    subgraph Base["pgvector/pgvector:0.8.0-pg16"]
+      DB[("db :5432<br/>127.0.0.1:5433<br/>7 bases, 7 rôles cloisonnés<br/>(dont attesta_web, monolithe hérité)<br/>volume db-data")]
+      INIT["db-init<br/>infra/postgres/init.sql"]
+    end
+  end
+  FE --> GW --> AU & PR & CG & JM & JW & LE
+  AU & PR & CG & JM & JW & LE --> DB
+  INIT -.-> DB
+  AU & JW --> MP
+  JM -.-> TEI
+  subgraph GCP["Cible écrite mais gelée (ADR 0021) : Google Cloud europe-west9"]
+    CR["Cloud Run<br/>(révisions, paliers 10/50/100 %)"]
+    SQL[("Cloud SQL")]
+    SM["Secret Manager"]
+    AR["Artifact Registry"]
+    VX["Vertex AI (Claude, UE)"]
+  end
+  CR --> SQL & SM & VX
+  AR --> CR
+  subgraph CI["GitHub Actions"]
+    CIW["ci.yml : lint, types, tests en matrice,<br/>gitleaks, Trivy, E2E"]
+    CDW["cd.yml et rollback.yml (gelés)"]
+  end
+  CDW -.->|non activé| AR

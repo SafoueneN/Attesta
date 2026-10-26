@@ -1,0 +1,26 @@
+%% Figure : Membre 6 — classement sémantique déclenché par la veille
+sequenceDiagram
+  autonumber
+  participant W as job-watch
+  participant J as jobs-matching
+  participant T as TEI BGE-M3
+  participant DB as PostgreSQL + pgvector
+  participant L as llm-client (Claude)
+  W->>J: POST /internal/v1/matching (profil, critères, exclusions)
+  J->>J: matchingProfile : anonymisation
+  J->>T: embed(texte du profil)
+  T-->>J: vecteur 1024 normalisé
+  par rappel
+    J->>DB: lexicalCandidates (websearch_to_tsquery FR DE EN)
+  and
+    J->>DB: vectorCandidates (cosinus >= seuil, HNSW)
+  end
+  J->>J: reciprocalRankFusion k=60, 20 offres max
+  J->>L: rerank-offres (profil, offres o1..o20), budget 0,20 USD
+  alt réponse valide
+    L-->>J: pertinence 0-100 + compétences manquantes
+    J->>J: groundMissingSkills, pertinence >= 20, 10 offres
+  else panne, refus ou budget
+    J->>J: mode dégradé : ordre de la fusion conservé
+  end
+  J-->>W: offres classées, degraded, compétences du profil

@@ -1,0 +1,48 @@
+%% Figure : Membre 5 — modèle de données du service letters-export
+classDiagram
+  class cover_letter {
+    +uuid id
+    +text user_id
+    +uuid generation_id
+    +text offer_title
+    +text company
+    +text tone
+    +text greeting
+    +text closing
+    +jsonb paragraphs
+    +integer removed
+    +text provider_kind
+  }
+  class LetterParagraph {
+    +string text
+    +string[] sources
+    +string status
+    +Issue[] issues
+  }
+  class application_tracking {
+    +text user_id
+    +uuid generation_id
+    +text offer_title
+    +text status
+    +date sent_at
+    +text note
+  }
+  class application_text {
+    +uuid id
+    +uuid generation_id
+    +text kind
+    +text question
+    +text text
+  }
+  class cv_share {
+    +uuid id
+    +bytea token_hash
+    +uuid generation_id
+    +text html
+    +integer views
+    +timestamptz expires_at
+  }
+  cover_letter "1" *-- "1..8" LetterParagraph : paragraphs jsonb
+  cover_letter "*" ..> "1" generation : generation_id (autre service)
+  application_tracking "*" ..> "1" generation : generation_id
+  cv_share "*" ..> "0..1" generation : generation_id

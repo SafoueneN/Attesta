@@ -1,0 +1,18 @@
+%% Figure : Membre 2 — intervieweuse de profil (questions puis propositions de faits)
+sequenceDiagram
+  autonumber
+  actor U as Candidat
+  participant P as profiles
+  participant L as llm-client
+  U->>P: POST /v1/profiles/me/interview (sujet facultatif)
+  P->>P: dernière version du profil, éléments triés par richesse
+  P->>L: assist entretien-profil, données balisées parcours
+  L-->>P: questions (schéma Zod)
+  P->>P: garde les questions qui visent un élément existant, 8 max
+  P-->>U: questions
+  U->>P: POST /v1/profiles/me/interview/answer (target, question, réponse)
+  P->>L: assist faits-reponse
+  L-->>P: propositions + relance
+  P->>P: écarte toute proposition dont un chiffre n'est pas dans la réponse
+  P-->>U: 4 propositions max, dropped, relance sans chiffre
+  U->>P: le candidat ajoute lui-même les faits validés (PUT /v1/profiles/me)

@@ -1,0 +1,37 @@
+flowchart LR
+  V(["Visiteur"])
+  I(["Invité"])
+  C(["Candidat"])
+  AD(["Administrateur"])
+  RE(["Recruteur"])
+  SYS(["Planificateur"])
+  subgraph Attesta["Système Attesta"]
+    UC1(["Consulter les pages publiques"])
+    UC2(["Créer un compte, se connecter"])
+    UC3(["Récupérer son compte par code"])
+    UC4(["Saisir ou importer son profil"])
+    UC5(["Ajouter une offre"])
+    UC6(["Générer un CV ciblé"])
+    UC7(["Relire et corriger les lignes"])
+    UC8(["Exporter en PDF ou Word"])
+    UC9(["Utiliser les assistants IA"])
+    UC10(["Rédiger une lettre"])
+    UC11(["Suivre ses candidatures"])
+    UC12(["Gérer justificatifs et photo"])
+    UC13(["S'abonner à la veille"])
+    UC14(["Partager un CV en ligne"])
+    UC15(["Exporter ou supprimer ses données"])
+    UC16(["Consulter un CV partagé"])
+    UC17(["Superviser services et IA"])
+    UC18(["Lancer veille et catalogue"])
+    UC19(["Envoyer la veille quotidienne"])
+  end
+  V --> UC1 & UC2
+  V -.->|démarre une session| I
+  I --> UC4 & UC5 & UC6 & UC8
+  C --> UC3 & UC4 & UC5 & UC6 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15
+  AD --> UC17 & UC18
+  AD -.->|hérite de| C
+  RE --> UC16
+  SYS --> UC19
+  UC6 -.->|inclut| UC7

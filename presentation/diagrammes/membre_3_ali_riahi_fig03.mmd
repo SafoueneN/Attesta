@@ -1,0 +1,14 @@
+%% Figure : Membre 3 — juge de fidélité d'un CV généré
+sequenceDiagram
+  autonumber
+  actor U as Candidat
+  participant C as cv-generation
+  participant L as llm-client
+  U->>C: POST /v1/generations/:id/judge
+  C->>C: snapshot : CV vérifié (sinon 409)
+  C->>L: assist juge-fidelite, lignes + sources, effort high
+  L-->>C: verdicts fidele, nuance ou infidele + suggestion
+  C->>C: garde les verdicts sur des lignes existantes
+  C->>C: suggestion gardée seulement si checkLine ne trouve aucun écart
+  C->>C: saveResult dans assistant_result
+  C-->>U: verdicts + providerKind

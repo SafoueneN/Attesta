@@ -1,0 +1,16 @@
+%% Figure : Membre 4 — explication de correspondance
+sequenceDiagram
+  autonumber
+  actor U as Candidat
+  participant J as jobs-matching
+  participant L as llm-client
+  U->>J: POST /v1/postings/:id/explain (profil)
+  J->>J: offre collectée (404 si absente)
+  J->>L: assist explication-correspondance (annonce, compétences du candidat)
+  L-->>J: required (skill, must ou nice) + summary
+  J->>J: retire lieux et employeur, 20 compétences max
+  loop chaque compétence demandée
+    J->>J: preuve cherchée dans réalisations, compétences, formations, certificats
+  end
+  J->>J: score = points obtenus / points possibles (must = 2, nice = 1)
+  J-->>U: score, matched avec preuve, missing, missingMust, summary

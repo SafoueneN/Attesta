@@ -1,0 +1,50 @@
+%% Figure : Membre 1 — modèle de données du service auth
+classDiagram
+  class app_user {
+    +uuid id
+    +text email
+    +text username
+    +text password_hash
+    +text role
+    +text status
+    +timestamptz email_verified_at
+    +timestamptz created_at
+    +timestamptz last_active_at
+  }
+  class refresh_token {
+    +uuid id
+    +uuid family_id
+    +bytea token_hash
+    +timestamptz expires_at
+    +timestamptz family_expires_at
+    +timestamptz used_at
+    +timestamptz revoked_at
+  }
+  class recovery_code {
+    +bytea code_hash
+    +timestamptz created_at
+    +timestamptz used_at
+  }
+  class consent_log {
+    +bigint id
+    +text purpose
+    +boolean granted
+    +text policy_version
+    +text ip_hash
+  }
+  class login_token {
+    +bytea token_hash
+    +text email
+    +timestamptz expires_at
+  }
+  class outbox {
+    +bigint id
+    +uuid user_id
+    +text target
+    +text action
+    +integer attempts
+  }
+  app_user "1" --> "*" refresh_token : ON DELETE CASCADE
+  app_user "1" --> "*" recovery_code : ON DELETE CASCADE
+  app_user "1" --> "*" consent_log : ON DELETE CASCADE
+  app_user "1" ..> "*" outbox : suppression distribuée

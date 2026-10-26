@@ -1,0 +1,48 @@
+%% Figure : Membre 4 — modèle de données du service jobs-matching
+classDiagram
+  class user_offer {
+    +uuid id
+    +text user_id
+    +text raw_text
+    +text source_url
+    +uuid posting_id
+    +jsonb analysis
+    +text provider_kind
+    +text prompt_version
+  }
+  class job_posting {
+    +uuid id
+    +text source
+    +text external_id
+    +text title
+    +text company
+    +text city
+    +text country
+    +text lang
+    +date posted_at
+    +text url
+    +text body
+    +integer salary_min_eur
+    +bytea fingerprint
+    +tsvector tsv
+  }
+  class job_embedding {
+    +uuid posting_id
+    +vector_1024 embedding
+    +text model
+  }
+  class job_source_run {
+    +bigint id
+    +text source
+    +date run_date
+    +integer requests
+    +integer inserted
+    +integer duplicates
+    +integer errors
+  }
+  class esco_cache {
+    +text query
+    +jsonb result
+  }
+  user_offer "*" ..> "0..1" job_posting : posting_id
+  job_posting "1" --> "0..1" job_embedding : ON DELETE CASCADE

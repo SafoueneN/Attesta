@@ -1,0 +1,31 @@
+sequenceDiagram
+  autonumber
+  actor U as Candidat
+  participant F as frontend (React)
+  participant G as gateway
+  participant A as auth
+  participant DB as attesta_auth
+  U->>F: identifiant + mot de passe
+  F->>G: POST /api/auth/v1/session/password
+  G->>G: quota par IP (route publique en liste blanche)
+  G->>A: POST /v1/session/password
+  A->>A: plafond d'échecs par identifiant
+  A->>DB: lire l'empreinte scrypt
+  A->>A: verifyPassword (leurre si identifiant inconnu)
+  alt identifiants valides
+    A->>DB: recordLogin + issueRefreshToken (empreinte stockée)
+    A-->>F: 200 { accessToken JWT RS256 15 min } + cookie HttpOnly refresh
+    F->>F: jeton gardé en mémoire seulement
+  else échec
+    A-->>F: 401 « Identifiant ou mot de passe incorrect. »
+  end
+  Note over F,A: À l'expiration du jeton d'accès
+  F->>G: POST /api/auth/v1/session/refresh (cookie + X-Attesta-Csrf: 1)
+  G->>A: relais
+  A->>DB: rotateRefreshToken
+  alt jeton valide
+    A-->>F: nouveau JWT + nouveau cookie
+  else jeton déjà utilisé (vol présumé)
+    A->>DB: révoquer toute la famille
+    A-->>F: 401, reconnexion exigée
+  end

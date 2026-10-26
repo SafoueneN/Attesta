@@ -1,0 +1,42 @@
+%% Figure : Membre 2 — modèle de données du service profiles
+classDiagram
+  class profile_version {
+    +uuid id
+    +text user_id
+    +integer version
+    +jsonb data
+    +text schema_version
+    +timestamptz created_at
+  }
+  class Profile {
+    +Basics basics
+    +Work[] work
+    +Education[] education
+    +Skill[] skills
+    +Language[] languages
+    +Project[] projects
+    +Certificate[] certificates
+  }
+  class profile_evidence {
+    +uuid id
+    +text user_id
+    +text target
+    +text kind
+    +text label
+    +text mime_type
+    +integer size_bytes
+    +bytea iv
+    +bytea tag
+    +bytea content
+  }
+  class profile_photo {
+    +text user_id
+    +text mime_type
+    +integer size_bytes
+    +bytea iv
+    +bytea tag
+    +bytea content
+  }
+  profile_version "1" *-- "1" Profile : data jsonb
+  profile_version "1..*" -- "0..*" profile_evidence : même user_id, target = /work/i ...
+  profile_version "1..*" -- "0..1" profile_photo : même user_id

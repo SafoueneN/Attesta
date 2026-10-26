@@ -1,0 +1,55 @@
+%% Figure : Membre 6 — modèle de données du service job-watch
+classDiagram
+  class watch_subscription {
+    +uuid id
+    +uuid user_id
+    +text[] occupations
+    +text country
+    +text city
+    +integer radius_km
+    +text working_time
+    +text status
+    +text unsubscribe_token
+    +text recipient_email
+  }
+  class match_result {
+    +bigint id
+    +uuid posting_id
+    +date run_date
+    +integer rank
+    +double rrf_score
+    +double similarity
+    +integer rerank_score
+    +jsonb missing_skills
+  }
+  class email_delivery {
+    +uuid id
+    +date run_date
+    +integer offers
+    +text provider_message_id
+    +text status
+  }
+  class watch_consent {
+    +bigint id
+    +uuid user_id
+    +boolean granted
+    +text reason
+  }
+  class reminder {
+    +uuid id
+    +uuid user_id
+    +text kind
+    +date send_on
+    +text title
+    +timestamptz sent_at
+  }
+  class watch_run {
+    +uuid id
+    +date run_date
+    +text trigger
+    +jsonb summary
+  }
+  watch_subscription "1" --> "*" match_result : ON DELETE CASCADE
+  watch_subscription "1" --> "*" email_delivery : ON DELETE CASCADE, unique par jour
+  watch_subscription "1" .. "*" watch_consent : user_id
+  watch_subscription "1" .. "*" reminder : user_id

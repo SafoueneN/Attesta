@@ -1,0 +1,80 @@
+erDiagram
+  generation ||--o{ assistant_result : "garde"
+  generation {
+    uuid id PK
+    text user_id
+    uuid offer_id
+    text offer_title
+    jsonb analysis
+    int profile_version
+    jsonb profile "instantané"
+    text status "ok ou degraded"
+    jsonb cv "TailoredCv"
+    jsonb report "FaithfulnessReport"
+    jsonb removed "lignes écartées"
+    jsonb edited
+    int revision
+    text provider_kind "ia ou demo"
+    numeric cost_usd
+  }
+  assistant_result {
+    uuid generation_id PK
+    text key PK "rôle ou rôle:variante"
+    jsonb payload
+  }
+  ia_quota {
+    text subject PK "HMAC"
+    date day
+    int count
+    timestamptz running_until
+  }
+  user_offer {
+    uuid id PK
+    text user_id
+    text raw_text "50 à 20 000 car."
+    uuid posting_id
+    jsonb analysis "OfferAnalysis"
+    text prompt_version
+  }
+  job_posting ||--o| job_embedding : "vectorisée"
+  job_posting {
+    uuid id PK
+    text source
+    text external_id
+    text title
+    text company
+    text city
+    text country
+    text lang
+    date posted_at "purge à 60 j"
+    int salary_min_eur
+    bytea fingerprint UK
+    tsvector tsv "généré selon la langue"
+  }
+  job_embedding {
+    uuid posting_id PK
+    vector embedding "1024, HNSW"
+    text model
+  }
+  job_source_run {
+    bigint id PK
+    text source
+    date run_date
+    int fetched
+    int inserted
+    int errors
+  }
+  esco_cache {
+    text query PK
+    jsonb result
+  }
+  llm_usage {
+    bigint id PK
+    text step
+    text model
+    int input_tokens
+    int output_tokens
+    numeric cost_usd
+  }
+  user_offer ||..o{ generation : "offer_id logique"
+  job_posting ||..o{ user_offer : "posting_id logique"
