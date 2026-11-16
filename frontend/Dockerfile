@@ -14,6 +14,10 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --fetch-ret
 COPY frontend/tsconfig.json frontend/vite.config.ts frontend/index.html ./
 COPY frontend/public public
 COPY frontend/src src
+# Adresse de contact des mentions légales et de la politique de confidentialité : obligatoire, aucune image
+# publique sans elle (docs/adr/0048).
+ARG VITE_CONTACT_EMAIL
+RUN test -n "$VITE_CONTACT_EMAIL" || { echo "VITE_CONTACT_EMAIL requis (adresse de contact des pages légales)"; exit 1; }
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime

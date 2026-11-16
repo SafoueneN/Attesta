@@ -39,6 +39,10 @@ export function RecoveryCodesView({
         vous permettra d'en choisir un nouveau. Chaque code ne sert qu'une fois. Ils ne seront plus affichés :
         gardez-les en lieu sûr (gestionnaire de mots de passe, fichier, papier).
       </p>
+      <p className="text-sm font-semibold">
+        Sans votre mot de passe ni l'un de ces codes, votre compte et ses données ne pourront pas être
+        récupérés, même par l'équipe d'Attesta.
+      </p>
       <ol className="grid grid-cols-2 gap-2 font-mono text-base sm:grid-cols-4">
         {codes.map((c) => (
           <li key={c} className="rounded-xl bg-surface-sunken px-3 py-2 text-center tracking-wider">
@@ -69,7 +73,10 @@ export function RecoveryCodesView({
           checked={saved}
           onChange={(e) => setSaved(e.target.checked)}
         />
-        <span>J'ai mis mes codes en lieu sûr.</span>
+        <span>
+          J'ai mis mes codes en lieu sûr et je comprends qu'ils sont mon seul recours si j'oublie mon mot de
+          passe.
+        </span>
       </label>
       <Button disabled={!saved} onClick={onDone}>
         Continuer

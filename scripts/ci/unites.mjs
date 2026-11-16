@@ -1,10 +1,10 @@
 // Unités testées séparément en CI, une entrée de matrice chacune (docs/adr/0021) : paquets partagés,
-// applications, services, gateway, puis l'évaluation de fidélité. Un service entre dans la matrice dès
+// services, gateway et frontend. L'évaluation de fidélité fait partie des tests de cv-generation. Un service entre dans la matrice dès
 // qu'il a un package.json. Sortie : JSON sur une ligne, pour `fromJSON` dans GitHub Actions.
 //
 // Avec `--depuis <ref>` (PR), seules les unités touchées sont retenues (matrice par chemins) :
 // - un fichier dans le dossier d'une unité retient cette unité ;
-// - un paquet modifié retient aussi ses consommateurs possibles : applications, services, gateway, evals ;
+// - un paquet modifié retient aussi ses consommateurs possibles : services, gateway, frontend ;
 // - un fichier hors de toute unité (configuration racine, CI, compose) retient toutes les unités.
 // Usage : node scripts/ci/unites.mjs [--depuis origin/main]
 import { execFileSync } from "node:child_process";
@@ -28,13 +28,12 @@ function add(dir) {
   if (tested) units.push({ name: pkg.name.replace(/^@attesta\//, ""), dir });
 }
 
-for (const root of ["packages", "apps", "services"]) {
+for (const root of ["packages", "services"]) {
   if (!existsSync(root)) continue;
   for (const name of readdirSync(root).sort()) add(`${root}/${name}`);
 }
 add("gateway");
 add("frontend");
-units.push({ name: "evals", dir: "evals" });
 
 const since = process.argv.indexOf("--depuis");
 if (since === -1) {

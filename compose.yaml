@@ -1,25 +1,14 @@
-# Environnement local, cible officielle de la soutenance (docs/adr/0021).
-#   docker compose --profile core up --build   parcours principal, puis http://localhost:3080
-#   docker compose --profile full up --build   tout, y compris la veille
+# Environnement local (docs/adr/0021) : frontend, gateway et six services (docs/adr/0011, 0048).
+#   docker compose --profile core up --build   parcours principal, puis http://localhost:8080
+#   docker compose --profile full up --build   tout, y compris la veille (job-watch)
 # Sans profil, seule l'infrastructure démarre (PostgreSQL, initialisation des bases, Mailpit).
-# Port hôte modifiable : ATTESTA_PORT=9000 docker compose --profile core up.
-# E-mails envoyés (connexion, confirmation, rapports) : Mailpit, http://localhost:8025.
-# Veille quotidienne, à la demande : `docker compose run --rm veille`.
+# Port hôte modifiable : FRONTEND_PORT=9000 docker compose --profile core up.
+# E-mails envoyés (rapports de veille, rappels) : Mailpit, http://localhost:8025.
+# Veille quotidienne : lancée depuis l'administration, ou DAILY_RUN_ENABLED=true (job-watch).
 # Avec les vrais vecteurs BGE-M3 (2 Go à télécharger au premier lancement) :
-#   docker compose --profile tei up -d tei
-#   EMBEDDINGS_PROVIDER=tei docker compose run --rm veille
-#
-# Migration en cours (docs/adr/0011) : le profil `core` sert encore le monolithe (web, migrate).
-# Chaque service entre dans `core` ou `full` au moment de son extraction.
+#   docker compose --profile tei up -d tei, puis EMBEDDINGS_PROVIDER=tei
 
-x-durci: &durci
-  read_only: true
-  tmpfs: ["/tmp"]
-  cap_drop: [ALL]
-  # Sandbox de Chromium active grâce à un profil seccomp dédié (docs/adr/0009).
-  security_opt: ["no-new-privileges:true", "seccomp=./infra/seccomp/chromium.json"]
-
-# Services extraits : même durcissement, sans Chromium (seul letters-export rendra des PDF).
+# Durcissement commun des services, sans Chromium (seul letters-export rend des PDF, avec son profil seccomp).
 x-service: &service
   init: true
   read_only: true
@@ -31,8 +20,8 @@ x-service: &service
     NODE_ENV: development
     LOG_LEVEL: info
 
-# Fournisseur d'IA des services (docs/adr/0047) : AI_PROVIDER=claude|groq|gemini|ollama, demo par défaut.
-# Clés (GROQ_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY) dans un --env-file jamais versionné.
+# Fournisseur d'IA des services (docs/adr/0047) : AI_PROVIDER=claude|groq|cerebras|mistral|openrouter|gemini|ollama, demo par défaut.
+# Clés (GROQ_, CEREBRAS_, MISTRAL_, OPENROUTER_, GEMINI_, ANTHROPIC_API_KEY) dans un --env-file jamais versionné.
 # Ollama : profil `ollama` et OLLAMA_BASE_URL=http://ollama:11434 (voir le service ollama).
 x-ai-env: &ai-env
   AI_PROVIDER: ${AI_PROVIDER:-}
@@ -43,24 +32,16 @@ x-ai-env: &ai-env
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   GROQ_API_KEY: ${GROQ_API_KEY:-}
   GROQ_MODEL: ${GROQ_MODEL:-}
+  CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
+  CEREBRAS_MODEL: ${CEREBRAS_MODEL:-}
+  MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+  MISTRAL_MODEL: ${MISTRAL_MODEL:-}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
   GEMINI_MODEL: ${GEMINI_MODEL:-}
   OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
   OLLAMA_MODEL: ${OLLAMA_MODEL:-}
-
-x-env: &env
-  DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
-  # Poste local : mode développement (cookies sans Secure sur http://localhost,
-  # fournisseur de démonstration autorisé). L'image est la même qu'en production.
-  NODE_ENV: development
-  LOG_LEVEL: info
-  # demo : génération et rerank sans IA. Pour Claude sur Vertex AI (UE), voir docs/runbook.md.
-  LLM_PROVIDER: demo
-  # Mailpit par défaut. Pour un vrai envoi (Gmail, Mailjet…) : fichier .env.smtp (jamais commité),
-  # puis `docker compose --env-file .env.smtp --profile core up -d` (docs/runbook.md).
-  SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
-  MAIL_FROM: ${MAIL_FROM:-Attesta <ne-pas-repondre@attesta.localhost>}
-  APP_BASE_URL: http://localhost:${ATTESTA_PORT:-3080}
 
 services:
   # --- Infrastructure (toujours démarrée) ---------------------------------------------------
@@ -117,7 +98,12 @@ services:
 
   # Interface React servie par nginx non-root, qui relaie /api vers la gateway (docs/adr/0022).
   frontend:
-    build: { context: ., dockerfile: frontend/Dockerfile }
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      # Adresse de contact des pages légales ; en local, une adresse de développement.
+      args:
+        VITE_CONTACT_EMAIL: ${CONTACT_EMAIL:-contact@attesta.localhost}
     profiles: ["core", "full"]
     ports: ["${FRONTEND_PORT:-8080}:8080"]
     read_only: true
@@ -271,59 +257,6 @@ services:
     depends_on:
       db-init: { condition: service_completed_successfully }
       auth: { condition: service_healthy }
-
-  # --- Monolithe, en cours d'extraction (profil core) ---------------------------------------
-
-  migrate:
-    build: { context: ., dockerfile: infra/Dockerfile }
-    profiles: ["core", "full"]
-    command:
-      [
-        "node",
-        "node_modules/node-pg-migrate/bin/node-pg-migrate.js",
-        "up",
-        "--migrations-dir",
-        "db/migrations",
-        "--migration-file-language",
-        "sql",
-      ]
-    environment:
-      DATABASE_URL: postgres://attesta:attesta-dev-uniquement@db:5432/attesta
-    depends_on:
-      db: { condition: service_healthy }
-
-  web:
-    build: { context: ., dockerfile: infra/Dockerfile }
-    profiles: ["core", "full"]
-    init: true
-    ports: ["${ATTESTA_PORT:-3080}:3000"]
-    environment:
-      <<: *env
-      SESSION_STORE: postgres
-      # Secret de développement : en préprod et en prod, il est injecté par l'hébergeur.
-      SESSION_SECRET: dev-secret-a-remplacer-hors-poste-local-0000
-    <<: *durci
-    depends_on:
-      migrate: { condition: service_completed_successfully }
-      db-init: { condition: service_completed_successfully }
-      mailpit: { condition: service_started }
-    restart: unless-stopped
-
-  # Exécution quotidienne de la veille (en production : Cloud Run Job planifié).
-  veille:
-    build: { context: ., dockerfile: infra/Dockerfile }
-    # À la demande seulement : un `up` ne doit ni interroger les sources ni envoyer d'e-mails.
-    profiles: ["veille"]
-    init: true
-    command: ["node", "apps/worker/dist/main.js"]
-    environment:
-      <<: *env
-      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-hash}
-      TEI_URL: http://tei:80
-    <<: *durci
-    depends_on:
-      migrate: { condition: service_completed_successfully }
-      mailpit: { condition: service_started }
 
   # BGE-M3 servi par Text Embeddings Inference (CPU), décision Q15.
   tei:

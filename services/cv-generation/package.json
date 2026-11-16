@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "openapi": "tsx scripts/openapi.ts",
     "eval:juge": "tsx scripts/eval-juge.ts",
+    "eval:live": "tsx --env-file-if-exists=.env scripts/eval-live.ts",
     "test:mutation": "stryker run"
   },
   "dependencies": {

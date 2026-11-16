@@ -208,19 +208,16 @@ Prérequis : **Docker** et **Node.js 22** (`nvm use 22.18.0`).
 ```bash
 npm install
 
-# Pile complète : bases, Mailpit, 6 services, gateway, frontend
-FRONTEND_PORT=8081 docker compose --profile full up -d --build --wait \
-  db db-init mailpit auth profiles cv-generation jobs-matching job-watch letters-export gateway frontend
+# Pile complète : bases, Mailpit, 6 services, gateway, frontend (port modifiable : FRONTEND_PORT=8081)
+docker compose --profile full up -d --build --wait
 
 # Données de démonstration (5 candidats et un administrateur)
-DEMO_API=http://localhost:8081 npm run demo:seed
+npm run demo:seed
 ```
-
-> On nomme les services : l'image de l'ancien monolithe (`web`, profil `core`/`full`) ne se construit plus.
 
 | Adresse               | Contenu                                                              |
 | --------------------- | -------------------------------------------------------------------- |
-| http://localhost:8081 | Application                                                          |
+| http://localhost:8080 | Application                                                          |
 | http://localhost:8025 | Mailpit : tous les e-mails envoyés en local (aucun ne sort du poste) |
 | http://localhost:4000 | Gateway (API)                                                        |
 
@@ -279,7 +276,7 @@ npm run openapi        # régénère openapi.yaml après un changement de contra
 npx tsc -b packages/shared-schemas     # puis `npm ci` dans chaque unité qui les consomme
 
 # Reconstruire un seul service de la pile
-FRONTEND_PORT=8081 docker compose --profile full up -d --build --no-deps --wait cv-generation
+docker compose --profile full up -d --build --no-deps --wait cv-generation
 ```
 
 À la racine : `npm run lint` (ESLint et Prettier) et `npm run format`. Conventions : interface, erreurs,
@@ -292,7 +289,10 @@ avec l'extension `.js` ; règles détaillées dans [CLAUDE.md](CLAUDE.md).
 | ----------------------------------- | --------------------------------------------------------------------- |
 | `npm test` (par service)            | Unitaires et intégration (Vitest, Supertest, base PostgreSQL jetable) |
 | `npm run eval:juge` (cv-generation) | Précision et rappel du juge de fidélité sur un jeu de référence       |
-| `npx playwright test e2e/parite`    | Parcours complets dans le navigateur, accessibilité (axe-core)        |
+| `npm test` (cv-generation)          | Dont l'évaluation de fidélité en rejeu : chaque invention est retirée |
+| `npm run eval:live` (cv-generation) | Taux d'invention brut du vrai modèle (**payant**)                     |
+| `npm run test:parite` (pile lancée) | Parcours complets dans le navigateur, accessibilité (axe-core)        |
+| `npm run smoke -- <url>`            | Test de fumée d'une pile déployée                                     |
 | `npm run lint`, `npm run typecheck` | Style, formatage, typage strict                                       |
 
 Plan détaillé : [docs/plan-de-tests.md](docs/plan-de-tests.md).
@@ -301,13 +301,13 @@ Plan détaillé : [docs/plan-de-tests.md](docs/plan-de-tests.md).
 
 GitHub Actions ([`.github/workflows`](.github/workflows)) :
 
-- **CI** (`ci.yml`, chaque PR et push sur `main`) : lint, typage, migrations montée/descente/remontée,
-  `npm audit` ; tests en matrice (seules les unités touchées sur une PR) ; gitleaks ; commits
-  conventionnels ; E2E et accessibilité ; pile en conteneurs, cloisonnement des bases, scan Trivy, aucune
-  donnée personnelle dans les journaux ; Terraform validé.
-- **CD** (`cd.yml`, `rollback.yml`) : image construite une seule fois, préproduction sur Cloud Run, puis
-  production par paliers (10, 50, 100 %) après approbation, retour arrière. **Gelé** tant que Google Cloud
-  n'est pas configuré (`GCP_WIF_PROVIDER`).
+- **CI** (`ci.yml`, chaque PR et push sur `main`) : lint, typage, `npm audit` ; tests en matrice (seules
+  les unités touchées sur une PR), évaluation de fidélité comprise ; gitleaks ; commits conventionnels ; pile
+  compose, cloisonnement des bases, scan Trivy de chaque image, test de fumée, parité de bout en bout et
+  accessibilité, aucune donnée personnelle dans les journaux ; Terraform validé.
+- **CD** : à réécrire pour les microservices
+  ([ADR 0048](docs/adr/0048-retrait-du-monolithe-et-ouverture-publique.md)) ; `rollback.yml` et Terraform
+  sont conservés, gelés.
 
 ## Sécurité et RGPD
 
@@ -331,12 +331,11 @@ gateway/             Point d'entrée de l'API
 frontend/            Application React (pages, Studio IA, guide, nginx)
 packages/            shared-schemas, llm-client, http-kit, logger, config (sans logique métier)
 extension/           Extension de navigateur « Cibler cette offre »
-e2e/                 Tests Playwright (parité, accessibilité)
+e2e/                 Tests Playwright de bout en bout (parcours, recette, accessibilité)
 scripts/             Données de démonstration, test SMTP, référentiel des villes, CI
 infra/               Postgres (bases et rôles), seccomp Chromium, Terraform, scripts de déploiement
 docs/                ADR, architecture, plan de tests, runbook, conformité, backlog
-apps/, db/           Ancien monolithe v0.4 (gelé, en cours de retrait)
-compose.yaml         Pile locale (profils core, full, veille, tei)
+compose.yaml         Pile locale (profils core, full, tei, ollama)
 ```
 
 ## Décisions d'architecture (ADR)
@@ -353,20 +352,20 @@ Index complet : [docs/adr/README.md](docs/adr/README.md). Les plus récentes (st
 
 ## État et limites
 
-- **Tests en retard** sur les dernières fonctionnalités : passe de tests prévue (tests E2E encore basés sur
-  la connexion par lien, contrats modifiés, nouvelles fonctionnalités non couvertes).
-- **CI en partie tournée vers l'ancien monolithe** (image `web`, parité sur le port 3080) : à passer aux
-  microservices. **Déploiement Google Cloud gelé.**
-- **Clé Claude** : `compose.yaml` transmet `LLM_PROVIDER` mais pas encore `ANTHROPIC_API_KEY` aux services ;
-  à ajouter pour utiliser l'IA réelle en local.
+- **Déploiement continu à réécrire** pour les microservices ; Terraform gelé. Le monolithe v0.4 est retiré
+  (tag `v0.4-monolithe`, [ADR 0048](docs/adr/0048-retrait-du-monolithe-et-ouverture-publique.md)).
+- **Clés d'IA** : à placer dans `.env` (voir [.env.example](.env.example)) ; sans clé, mode démonstration.
 - **Interface en français seulement** (anglais et allemand prévus).
 - **Tunisie** : couverture limitée aux flux RSS et à quelques employeurs ; la clé Jooble l'élargit.
 - **Extension** : icône et publication sur les boutiques à prévoir. **Tarifs** : formules à décider.
-- Monolithe `apps/` et `db/` gelé (`v0.4-monolithe`), à retirer.
 
 ## Licence et données tierces
 
-[MIT](LICENSE). Données tierces : villes GeoNames (CC BY 4.0), classification ESCO (Commission européenne),
+[MIT](LICENSE). Pages légales de l'application : mentions légales, conditions d'utilisation et politique de
+confidentialité (`/mentions-legales`, `/conditions`, `/confidentialite`) ; l'adresse de contact est fournie
+au build (`CONTACT_EMAIL`).
+
+Données tierces : villes GeoNames (CC BY 4.0), classification ESCO (Commission européenne),
 offres de la Bundesagentur für Arbeit, d'Arbeitnow, des sites carrière des employeurs et des flux RSS de
 Tanitjobs et Tunisie Travail (chaque offre renvoie à sa source) ; polices Source Sans 3 (SIL Open Font
 License).

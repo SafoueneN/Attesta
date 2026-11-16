@@ -116,6 +116,30 @@ describe("OpenAiCompatibleProvider (Groq, Ollama)", () => {
     expect((network as Error).message).toContain("groq");
   });
 
+  it("traite le refus de schéma de Groq (400 json_validate_failed) comme une sortie non conforme", async () => {
+    const rejected = new OpenAI.BadRequestError(
+      400,
+      { code: "json_validate_failed", failed_generation: "Léa Martin" },
+      "Failed to validate JSON",
+      new Headers(),
+    );
+    const error = await throwing(rejected)
+      .provider.generate(request)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(LlmSchemaError);
+    expect((error as Error).message).not.toContain("Léa");
+    // Une autre erreur 400 reste une indisponibilité.
+    await expect(
+      throwing(
+        new OpenAI.BadRequestError(400, { code: "autre" }, "invalide", new Headers()),
+      ).provider.generate(request),
+    ).rejects.toBeInstanceOf(LlmUnavailableError);
+  });
+
+  it("signale indisponible une réponse qui n'est pas une complétion, sans planter", async () => {
+    await expect(returning("OK").provider.generate(request)).rejects.toMatchObject({ reason: "autre" });
+  });
+
   it("laisse passer l'annulation par l'appelant", async () => {
     await expect(throwing(new OpenAI.APIUserAbortError()).provider.generate(request)).rejects.toBeInstanceOf(
       OpenAI.APIUserAbortError,

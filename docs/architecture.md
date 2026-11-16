@@ -2,8 +2,9 @@
 
 Statut : architecture **cible** en 6 microservices ([ADR 0011](adr/0011-microservices-extraction.md)),
 mise à jour le 2026-10-18 (frontend React : [ADR 0022](adr/0022-frontend-react.md) ; rôles :
-[ADR 0024](adr/0024-roles.md) ; autonomie des services : [ADR 0023](adr/0023-autonomie-des-services.md)). L'état de départ est le monolithe modulaire gelé par le
-tag `v0.4-monolithe` (`git show v0.4-monolithe:docs/architecture.md`). Décisions : [adr/](adr/README.md).
+[ADR 0024](adr/0024-roles.md) ; autonomie des services : [ADR 0023](adr/0023-autonomie-des-services.md)). L'état de départ est le monolithe modulaire, retiré le
+2026-10-30 ([ADR 0048](adr/0048-retrait-du-monolithe-et-ouverture-publique.md)) et conservé par le tag
+`v0.4-monolithe` (`git show v0.4-monolithe:docs/architecture.md`). Décisions : [adr/](adr/README.md).
 
 ## Vue d'ensemble (cible)
 
@@ -38,7 +39,6 @@ docker, jamais par la gateway ([ADR 0012](adr/0012-communication-entre-services.
 | Service          | Port | Base               | Responsabilité                                                       | Appelle                             |
 | ---------------- | ---- | ------------------ | -------------------------------------------------------------------- | ----------------------------------- |
 | `frontend`       | 8080 | aucune             | Écrans React, état serveur React Query, routes protégées par rôle    | gateway uniquement                  |
-| `apps/web`       | 3080 | `attesta_web`      | Monolithe EJS, référence de la parité jusqu'à son retrait en M5      | (sa propre base)                    |
 | `gateway`        | 4000 | aucune             | Routage `/api/<service>`, JWT, débit, en-têtes, corrélation          | tous les services                   |
 | `auth`           | 4001 | `attesta_auth`     | Lien magique, JWT RS256, refresh, JWKS, invités, rôles, RGPD         | tous (outbox RGPD), SMTP            |
 | `profiles`       | 4002 | `attesta_profiles` | Profil versionné (CRUD), import de CV PDF avec extraction LLM        | LLM                                 |
@@ -94,14 +94,13 @@ sequenceDiagram
 
 ## État de la migration
 
-| Composant       | État au 2026-10-18                                     | Phase prévue |
-| --------------- | ------------------------------------------------------ | ------------ |
-| Monolithe       | en service (`apps/web`, `apps/worker`, `packages/*`)   | retiré en 4  |
-| frontend        | ADR 0022 accepté, pas encore de code                   | 5            |
-| gateway, auth   | ADR acceptés, pas encore de code                       | 2            |
-| profiles        | ADR acceptés, pas encore de code                       | 3 (gabarit)  |
-| autres services | ADR acceptés, pas encore de code                       | 4            |
-| Suite de parité | `e2e/` (Playwright), à tenir verte à chaque extraction | 1            |
+| Composant       | État au 2026-10-30                                             |
+| --------------- | -------------------------------------------------------------- |
+| Monolithe       | retiré (ADR 0048), tag `v0.4-monolithe`                        |
+| frontend        | en service                                                     |
+| gateway, auth   | en service                                                     |
+| six services    | en service                                                     |
+| Suite de parité | `e2e/frontend` (Playwright) sur la pile compose, à tenir verte |
 
 ## Modèle de données hérité (v0.4), réparti par service
 

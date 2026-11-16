@@ -14,7 +14,6 @@ body:
       label: Composant concerné
       options:
         [
-          web,
           gateway,
           auth,
           profiles,

@@ -10,3 +10,9 @@ test-results/
 # Générés par npm run openapi (docs/adr/0023), vérifiés par le test openapi de chaque service
 services/*/openapi.yaml
 gateway/openapi.yaml
+
+# Artefacts générés (rapports de tests, preuves, référentiel des villes) : conservés tels que produits.
+docs/rapport-tests/artifacts/
+docs/rapport-tests/donnees/
+docs/rapport-tests/preuves/
+services/jobs-matching/data/villes.json

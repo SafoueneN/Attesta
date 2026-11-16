@@ -326,6 +326,17 @@ type Recognition = {
       }) => void)
     | null;
   onend: (() => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+};
+
+/** Erreurs de la Web Speech API, en clair ; la réponse reste possible au clavier. */
+const DICTATION_ERRORS: Record<string, string> = {
+  "not-allowed": "Micro refusé : autorisez-le pour ce site (icône à gauche de l'adresse), puis réessayez.",
+  "service-not-allowed":
+    "Micro refusé : autorisez-le pour ce site (icône à gauche de l'adresse), puis réessayez.",
+  "audio-capture": "Aucun micro détecté : branchez-en un ou répondez au clavier.",
+  "no-speech": "Aucune parole détectée : rapprochez-vous du micro et réessayez.",
+  network: "Dictée indisponible : le navigateur n'a pas pu joindre son service de reconnaissance vocale.",
 };
 
 /**
@@ -341,6 +352,7 @@ export function useDictation(onText: (text: string) => void) {
   const [listening, setListening] = useState(false);
   const startedAt = useRef<number | null>(null);
   const [seconds, setSeconds] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const ref = useRef<Recognition | null>(null);
   const callback = useRef(onText);
   callback.current = onText;
@@ -361,28 +373,52 @@ export function useDictation(onText: (text: string) => void) {
       if (t) setSeconds((s) => s + (Date.now() - t) / 1000);
       startedAt.current = null;
     };
+    // `aborted` : arrêt demandé par la page, pas une erreur à montrer.
+    r.onerror = (e) => {
+      if (e.error !== "aborted")
+        setError(DICTATION_ERRORS[e.error] ?? "Dictée interrompue : répondez au clavier.");
+    };
     ref.current = r;
-    r.start();
+    setError(null);
+    try {
+      r.start();
+    } catch {
+      setError("Dictée impossible à démarrer : répondez au clavier.");
+      return;
+    }
     setListening(true);
     startedAt.current = Date.now();
   };
   const stop = () => ref.current?.stop();
-  return { supported: Boolean(Ctor), listening, start, stop, seconds, reset: () => setSeconds(0) };
+  return { supported: Boolean(Ctor), listening, start, stop, seconds, error, reset: () => setSeconds(0) };
+}
+
+/** Message d'échec de la dictée, annoncé aux lecteurs d'écran. */
+export function DictationError({ dictation }: { dictation: ReturnType<typeof useDictation> }) {
+  if (!dictation.error) return null;
+  return (
+    <p role="alert" className="text-sm text-removed">
+      {dictation.error}
+    </p>
+  );
 }
 
 export function DictateButton({ dictation }: { dictation: ReturnType<typeof useDictation> }) {
   if (!dictation.supported) return null;
   return (
-    <Button
-      variant="ghost"
-      aria-pressed={dictation.listening}
-      onClick={() => (dictation.listening ? dictation.stop() : dictation.start())}
-    >
-      <span aria-hidden="true" className={dictation.listening ? "live-dot" : ""}>
-        🎙
-      </span>
-      {dictation.listening ? "Arrêter la dictée" : "Dicter ma réponse"}
-    </Button>
+    <>
+      <Button
+        variant="ghost"
+        aria-pressed={dictation.listening}
+        onClick={() => (dictation.listening ? dictation.stop() : dictation.start())}
+      >
+        <span aria-hidden="true" className={dictation.listening ? "live-dot" : ""}>
+          🎙
+        </span>
+        {dictation.listening ? "Arrêter la dictée" : "Dicter ma réponse"}
+      </Button>
+      <DictationError dictation={dictation} />
+    </>
   );
 }
 

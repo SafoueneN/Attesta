@@ -44,7 +44,9 @@ describe("connexion", () => {
     const summary = await screen.findByRole("alert");
     expect(summary).toHaveFocus();
     expect(summary).toHaveTextContent("Les deux mots de passe ne sont pas identiques.");
-    expect(summary).toHaveTextContent("Acceptez la politique de confidentialité");
+    expect(summary).toHaveTextContent(
+      "Acceptez les conditions d'utilisation et la politique de confidentialité",
+    );
     expect(screen.getByLabelText("Identifiant")).toHaveAttribute("aria-invalid", "true");
   });
 

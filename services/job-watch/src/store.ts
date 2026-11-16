@@ -3,7 +3,7 @@ import type { MatchedPosting, WatchCriteria } from "@attesta/shared-schemas";
 import type pg from "pg";
 
 /** Version de la politique de confidentialité, enregistrée avec chaque consentement de veille. */
-export const POLICY_VERSION = "2026-10-24";
+export const POLICY_VERSION = "2026-10-30";
 export const CONFIRM_TOKEN_MS = 48 * 60 * 60 * 1000;
 
 const newToken = () => randomBytes(32).toString("base64url");

@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type pg from "pg";
 
 /** Version de la politique de confidentialité, enregistrée avec chaque consentement. */
-export const POLICY_VERSION = "2026-10-24";
+export const POLICY_VERSION = "2026-10-30";
 export const LOGIN_TOKEN_MS = 15 * 60 * 1000;
 export const REFRESH_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
 export const REFRESH_MAX_MS = 30 * 24 * 60 * 60 * 1000;

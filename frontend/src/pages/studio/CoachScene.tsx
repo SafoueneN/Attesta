@@ -12,7 +12,14 @@ import {
   Stopwatch,
   type HistoryEntry,
 } from "../assistants/GenerationAssistants";
-import { AiBadge, Thinking, useAssistantResults, useDictation, VoteButtons } from "../assistants/shared";
+import {
+  AiBadge,
+  DictationError,
+  Thinking,
+  useAssistantResults,
+  useDictation,
+  VoteButtons,
+} from "../assistants/shared";
 import { SceneHeader, useStudio } from "./Studio";
 
 /*
@@ -182,6 +189,7 @@ function Stage({
           <label htmlFor={`reponse-${index}`} className="label">
             Votre réponse {dictation.supported ? "(au micro ou au clavier)" : ""}
           </label>
+          <DictationError dictation={dictation} />
           <textarea
             id={`reponse-${index}`}
             className="input min-h-36 text-base"

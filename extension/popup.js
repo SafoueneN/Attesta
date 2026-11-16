@@ -33,7 +33,10 @@ bouton.addEventListener("click", async () => {
   etat.textContent = "Lecture de l'annonce…";
   try {
     const [onglet] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: onglet.id }, func: lireAnnonce });
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: onglet.id },
+      func: lireAnnonce,
+    });
     const texte = String(result ?? "").slice(0, 20000);
     if (texte.length < 100) throw new Error("trop court");
     const fragment = new URLSearchParams({ annonce: texte, source: onglet.url ?? "" });
