@@ -1,4 +1,4 @@
-# ADR 0047 : Fournisseurs LLM multiples (Claude, Groq, Gemini, Ollama) et repli automatique
+# ADR 0047 : Fournisseurs LLM multiples (Claude, Groq, Cerebras, Mistral, OpenRouter, Gemini, Ollama) et repli automatique
 
 - Statut : **proposé** le 2026-10-26, à valider par le chef de projet
 - Décideurs : équipe (IA), chef de projet (validation)
@@ -16,7 +16,7 @@ l'application.
 1. **Interface inchangée** : `LlmProvider.generate(request) → { data, usage }`. `assist()`, `BudgetedProvider`
    et les services ne changent pas.
 2. **Nouveaux fournisseurs** :
-   - Groq et Ollama par `OpenAiCompatibleProvider`, avec le SDK `openai` et une `baseURL` propre à chacun.
+   - Groq, Cerebras, Mistral, OpenRouter et Ollama par `OpenAiCompatibleProvider`, avec le SDK `openai` et une `baseURL` propre à chacun.
      Justification : Groq et Ollama exposent l'API Chat Completions d'OpenAI, ce qui évite d'écrire deux
      clients.
    - Gemini par `GeminiProvider`, avec `@google/genai`. Justification : c'est le SDK officiel de Google pour
@@ -30,17 +30,17 @@ l'application.
 4. **Repli** (`FallbackProvider`) : sur quota atteint (429) ou délai dépassé, et seulement dans ces cas, la
    même requête passe au fournisseur suivant. Un refus, une sortie non conforme ou une annulation ne
    déclenchent pas de bascule.
-   - Ordre par défaut, circulaire à partir du fournisseur choisi : claude, groq, gemini, ollama, en ne gardant
+   - Ordre par défaut, circulaire à partir du fournisseur choisi : claude, groq, cerebras, mistral, openrouter, gemini, ollama, en ne gardant
      que les fournisseurs configurés.
    - `AI_FALLBACK_PROVIDERS` fixe une liste explicite ; `none` désactive le repli.
    - Les fournisseurs suivis d'un repli n'ont pas de relance SDK, pour basculer sans attendre.
    - Chaque bascule est journalisée (`llm_repli` : modèles et motif, jamais de contenu).
 5. **Données dans l'UE (décision Q5)** : en production, seuls Claude sur Vertex AI (UE) et Ollama sont
-   admis, comme fournisseur choisi comme en repli. Groq, Gemini (API directe) et l'API Anthropic directe sont
+   admis, comme fournisseur choisi comme en repli. Groq, Cerebras, Mistral, OpenRouter, Gemini (API directe) et l'API Anthropic directe sont
    refusés au démarrage s'ils sont demandés, et retirés de l'ordre par défaut. Hors production, l'ordre par
-   défaut peut envoyer les données (fictives) chez Groq ou Gemini : c'est accepté.
+   défaut peut envoyer les données (fictives) chez Groq, Cerebras, Mistral, OpenRouter ou Gemini : c'est accepté. Mistral héberge dans l'UE : son admission en production demande une décision à part (amendement de cet ADR), avec un contrat de sous-traitance.
 6. **Coût** : tarifs Groq et Gemini ajoutés à `pricing.ts`. Ce sont des estimations relevées auprès
-   d'agrégateurs, à vérifier sur les pages officielles. Ollama compte un coût nul. Un modèle inconnu est
+   d'agrégateurs, à vérifier sur les pages officielles. Ollama et les modèles OpenRouter « :free » comptent un coût nul. Un modèle inconnu est
    compté au tarif Opus, par prudence. `usage.model` dit quel modèle a répondu, et le CV enregistre ce modèle.
 
 ## Options considérées

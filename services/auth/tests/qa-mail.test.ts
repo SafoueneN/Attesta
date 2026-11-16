@@ -17,14 +17,18 @@ async function closedPort() {
 
 describe("SmtpMailer : échec d'envoi (campagne QA)", () => {
   it("transforme un serveur injoignable en « envoi impossible (code) », sans adresse ni cause chaînée", async () => {
-    const mailer = new SmtpMailer(`smtp://127.0.0.1:${await closedPort()}`, "Attesta <test@attesta.localhost>");
-    const error = await mailer
-      .send(loginLinkMessage("lea.martin@example.org", "http://localhost/lien"))
-      .catch((e: unknown) => e as Error);
+    const mailer = new SmtpMailer(
+      `smtp://127.0.0.1:${await closedPort()}`,
+      "Attesta <test@attesta.localhost>",
+    );
+    const error = await mailer.send(loginLinkMessage("lea.martin@example.org", "http://localhost/lien")).then(
+      () => undefined,
+      (e: unknown) => e as Error,
+    );
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/^envoi impossible \([A-Z]+( \d{3})?\)$/);
-    expect(error.message).not.toContain("lea.martin");
-    expect(error.cause).toBeUndefined();
+    expect(error?.message).toMatch(/^envoi impossible \([A-Z]+( \d{3})?\)$/);
+    expect(error?.message).not.toContain("lea.martin");
+    expect(error?.cause).toBeUndefined();
   }, 15_000);
 });
 

@@ -16,40 +16,75 @@ function inline(s) {
   const codes = [];
   s = s.replace(/`([^`]+)`/g, (_, c) => `\u0000${codes.push(esc(c)) - 1}\u0000`);
   s = esc(s);
-  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, a, u) =>
-    `<img alt="${a}" src="${pathToFileURL(resolve(docDir, u)).href}">`);
+  s = s.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    (_, a, u) => `<img alt="${a}" src="${pathToFileURL(resolve(docDir, u)).href}">`,
+  );
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t) => `<span class="lien">${t}</span>`);
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   s = s.replace(/(^|[\s(])\*([^*]+)\*/g, "$1<em>$2</em>");
+  // Caractère NUL : marqueur des blocs de code mis de côté avant l'échappement, jamais présent dans le texte.
+  // eslint-disable-next-line no-control-regex
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[i]}</code>`);
 }
-const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+const cells = (l) =>
+  l
+    .trim()
+    .replace(/^\||\|$/g, "")
+    .split("|")
+    .map((c) => c.trim());
 
 const lines = readFileSync(src, "utf8").split(/\r?\n/);
 let html = "";
-for (let i = 0; i < lines.length; ) {
+for (let i = 0; i < lines.length;) {
   const l = lines[i];
-  if (!l.trim()) { i++; continue; }
+  if (!l.trim()) {
+    i++;
+    continue;
+  }
   const h = l.match(/^(#{1,6})\s+(.*)$/);
-  if (h) { html += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`; i++; continue; }
+  if (h) {
+    html += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;
+    i++;
+    continue;
+  }
   if (l.startsWith("|")) {
     const rows = [];
     while (i < lines.length && lines[i].startsWith("|")) rows.push(lines[i++]);
     const align = cells(rows[1]).map((c) => (c.endsWith(":") ? "right" : "left"));
-    html += "<table><thead><tr>" + cells(rows[0]).map((c, k) => `<th style="text-align:${align[k]}">${inline(c)}</th>`).join("") + "</tr></thead><tbody>";
-    for (const r of rows.slice(2)) html += "<tr>" + cells(r).map((c, k) => `<td style="text-align:${align[k]}">${inline(c)}</td>`).join("") + "</tr>";
-    html += "</tbody></table>"; continue;
+    html +=
+      "<table><thead><tr>" +
+      cells(rows[0])
+        .map((c, k) => `<th style="text-align:${align[k]}">${inline(c)}</th>`)
+        .join("") +
+      "</tr></thead><tbody>";
+    for (const r of rows.slice(2))
+      html +=
+        "<tr>" +
+        cells(r)
+          .map((c, k) => `<td style="text-align:${align[k]}">${inline(c)}</td>`)
+          .join("") +
+        "</tr>";
+    html += "</tbody></table>";
+    continue;
   }
   if (/^\s*(-|\d+\.)\s/.test(l)) {
     const ordered = /^\s*\d+\./.test(l);
     html += ordered ? "<ol>" : "<ul>";
-    while (i < lines.length && /^\s*(-|\d+\.)\s/.test(lines[i])) html += `<li>${inline(lines[i++].replace(/^\s*(-|\d+\.)\s+/, ""))}</li>`;
-    html += ordered ? "</ol>" : "</ul>"; continue;
+    while (i < lines.length && /^\s*(-|\d+\.)\s/.test(lines[i]))
+      html += `<li>${inline(lines[i++].replace(/^\s*(-|\d+\.)\s+/, ""))}</li>`;
+    html += ordered ? "</ol>" : "</ul>";
+    continue;
   }
   const para = [];
-  while (i < lines.length && lines[i].trim() && !/^(#|\||\s*(-|\d+\.)\s)/.test(lines[i])) para.push(lines[i++]);
+  while (i < lines.length && lines[i].trim() && !/^(#|\||\s*(-|\d+\.)\s)/.test(lines[i]))
+    para.push(lines[i++]);
   const p = inline(para.join(" "));
-  html += p.startsWith("<img") ? `<figure>${p}</figure>` : /^<em>.*<\/em>$/.test(p) ? `<p class="legende">${p}</p>` : `<p>${p}</p>`;
+  html += p.startsWith("<img")
+    ? `<figure>${p}</figure>`
+    : /^<em>.*<\/em>$/.test(p)
+      ? `<p class="legende">${p}</p>`
+      : `<p>${p}</p>`;
 }
 
 const page = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport de campagne de tests — Attesta</title><style>
@@ -77,9 +112,12 @@ try {
     await p.screenshot({ path: process.env.SHOT, fullPage: true });
   }
   await p.pdf({
-    path: out, format: "A4", printBackground: true,
+    path: out,
+    format: "A4",
+    printBackground: true,
     margin: { top: "18mm", bottom: "18mm", left: "16mm", right: "16mm" },
-    displayHeaderFooter: true, headerTemplate: "<span></span>",
+    displayHeaderFooter: true,
+    headerTemplate: "<span></span>",
     footerTemplate: `<div style="font-size:8px;color:#777;width:100%;padding:0 16mm;display:flex;justify-content:space-between"><span>Attesta — Rapport de campagne de tests — 26/10/2026</span><span>Page <span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
   });
   console.log(out);

@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-/** Frontières entre paquets (ADR 0001) : schema et shared ne dépendent de rien d'interne. */
+/** Frontières entre paquets (ADR 0025) : un paquet n'importe que ceux qui lui sont permis. */
 const noInternalImports = (allowed) => ({
   "no-restricted-imports": [
     "error",
@@ -10,7 +10,7 @@ const noInternalImports = (allowed) => ({
       patterns: [
         {
           group: ["@attesta/*", ...allowed.map((name) => `!@attesta/${name}`)],
-          message: "Import interdit par les frontières de paquets (docs/adr/0001).",
+          message: "Import interdit par les frontières de paquets (docs/adr/0025).",
         },
       ],
     },
@@ -27,6 +27,11 @@ export default tseslint.config(
       "**/.stryker-tmp/**",
       "playwright-report/**",
       "test-results/**",
+      // Supports de soutenance, hors du dépôt public (.gitignore).
+      "rapport/**",
+      "presentation/**",
+      "presentation-immersive/**",
+      "marketing/**",
     ],
   },
   js.configs.recommended,
@@ -36,15 +41,17 @@ export default tseslint.config(
     // Les gestionnaires d'erreurs Express exigent 4 paramètres, même inutilisés.
     rules: { "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }] },
   },
-  { files: ["apps/web/public/**/*.js"], languageOptions: { globals: { ...globals.browser } } },
+  // Extension de navigateur (ADR 0044) : page de l'extension, API `chrome`.
+  {
+    files: ["extension/**/*.js"],
+    languageOptions: { globals: { ...globals.browser, ...globals.webextensions } },
+  },
   // Frontend (ADR 0022) : code navigateur ; il n'importe que les contrats partagés, jamais un service.
   {
     files: ["frontend/**/*.{js,ts,tsx}"],
     languageOptions: { globals: { ...globals.browser } },
     rules: noInternalImports(["shared-schemas"]),
   },
-  { files: ["packages/schema/src/**", "packages/shared/src/**"], rules: noInternalImports([]) },
-  { files: ["packages/render/src/**"], rules: noInternalImports(["schema"]) },
   // Paquets du socle des services (docs/adr/0023) : aucune logique métier, aucun import de service.
   { files: ["packages/logger/src/**", "packages/config/src/**"], rules: noInternalImports([]) },
   { files: ["packages/http-kit/src/**"], rules: noInternalImports(["logger"]) },

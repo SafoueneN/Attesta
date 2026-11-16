@@ -1,24 +1,23 @@
 import { expect, test } from "@playwright/test";
-import { linkFromMail } from "../support.js";
 import {
   expectAccessible,
   fillOffer,
   fillParcours,
   fillProfile,
   generate,
-  login,
-  mailpit,
+  signIn,
+  signUp,
   uniqueEmail,
 } from "./support.js";
 
-test.describe("comptes, lettres, veille et RGPD (pile complète avec Mailpit)", () => {
-  test.skip(!mailpit, "MAILPIT_URL absent : pile compose requise");
+test.describe("comptes, lettres, veille et RGPD (pile compose)", () => {
+  test.skip(!process.env.E2E_BASE_URL, "pile compose requise (E2E_BASE_URL)");
 
   test("lettre de motivation contrôlée, export des données puis suppression du compte", async ({ page }) => {
     // Connexion, génération, lettre, deux PDF, export et suppression : parcours long.
     test.setTimeout(90_000);
     const email = uniqueEmail("lettre");
-    await login(page, email);
+    const username = await signUp(page);
     await expectAccessible(page);
 
     await page.goto("/cv/etape/1");
@@ -54,7 +53,7 @@ test.describe("comptes, lettres, veille et RGPD (pile complète avec Mailpit)", 
     const data = JSON.parse(
       await (await import("node:fs/promises")).readFile((await archive.path())!, "utf8"),
     );
-    expect(data.auth.compte.email).toBe(email);
+    expect(data.auth.compte.username).toBe(username);
     expect(Object.keys(data)).toEqual(
       expect.arrayContaining(["profiles", "cv-generation", "letters-export", "jobs-matching"]),
     );
@@ -67,12 +66,14 @@ test.describe("comptes, lettres, veille et RGPD (pile complète avec Mailpit)", 
     await expect(page.getByRole("link", { name: "Se connecter" })).toBeVisible();
   });
 
-  test("veille emploi : adresse de réception choisie, double opt-in, puis arrêt", async ({ page }) => {
+  test("veille emploi : adresse de réception choisie, active dès l'enregistrement, puis arrêt", async ({
+    page,
+  }) => {
     test.skip(!process.env.E2E_FULL, "profil compose full requis (job-watch)");
     const email = uniqueEmail("veille");
-    // Adresse de réception différente de celle du compte : c'est elle qui reçoit la confirmation.
+    // Adresse de réception différente de celle du profil : c'est elle qui reçoit les rapports (ADR 0030).
     const recipient = uniqueEmail("reception");
-    await login(page, email);
+    await signUp(page);
     await page.goto("/cv/etape/1");
     await fillProfile(page, email);
     await fillParcours(page);
@@ -80,34 +81,28 @@ test.describe("comptes, lettres, veille et RGPD (pile complète avec Mailpit)", 
     await expect(page.getByText(/Profil enregistré \(version \d+\)/)).toBeVisible();
 
     await page.goto("/veille");
-    const address = page.getByLabel("Adresse de réception des offres");
+    const address = page.getByLabel("Adresse de réception des rapports");
     await expect(address).toHaveValue(email);
     await page.getByLabel("Métiers recherchés").fill("Backend-Entwickler");
     await page.getByLabel("Ville").fill("Berlin");
     await address.fill(recipient);
     await page.getByLabel(/J'accepte de recevoir la veille/).check();
     await page.getByRole("button", { name: "Créer ma veille" }).click();
-    await expect(page.getByText("En attente de confirmation")).toBeVisible();
+    await expect(page.getByText(/Votre veille est active : les rapports seront envoyés/)).toBeVisible();
     await expect(page.getByText(`Adresse de réception : ${recipient}`)).toBeVisible();
-    await expectAccessible(page);
-
-    await page.goto(await linkFromMail(recipient, "/veille/confirmer"));
-    await page.getByRole("button", { name: "Confirmer ma veille" }).click();
-    await expect(page.getByText("Votre veille emploi est active.")).toBeVisible();
-    await page.goto("/veille");
     await expect(page.getByText("Active", { exact: true })).toBeVisible();
+    await expectAccessible(page);
     await page.getByRole("button", { name: "Arrêter la veille" }).click();
     await expect(page.getByText("Arrêtée", { exact: true })).toBeVisible();
   });
 
   test("administration : réservée à l'administrateur, sans donnée personnelle", async ({ page }) => {
-    const candidate = uniqueEmail("candidat");
-    await login(page, candidate);
+    const candidate = await signUp(page);
     await page.goto("/admin");
     await expect(page.getByRole("heading", { level: 1, name: "Accès refusé" })).toBeVisible();
 
     await page.getByRole("button", { name: "Se déconnecter" }).click();
-    await login(page, process.env.E2E_ADMIN_EMAIL ?? "admin@attesta.localhost");
+    await signIn(page, "admin", process.env.E2E_ADMIN_PASSWORD ?? "admin-dev-uniquement");
     await page.getByRole("link", { name: "Administration" }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Santé des services" })).toBeVisible();
     await expect(

@@ -3,6 +3,7 @@ import { estimateCostUsd } from "./pricing.js";
 import {
   LlmRefusalError,
   LlmSchemaError,
+  LlmUnavailableError,
   llmUnavailable,
   type LlmProvider,
   type LlmRequest,
@@ -57,6 +58,11 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       );
     } catch (error) {
       if (error instanceof OpenAI.APIUserAbortError) throw error;
+      // Groq vérifie lui-même la sortie contre le schéma et répond 400 si elle n'y est pas conforme :
+      // c'est une sortie non conforme (relance), pas une panne. `failed_generation` n'est pas recopié.
+      if (error instanceof OpenAI.APIError && error.status === 400 && error.code === "json_validate_failed") {
+        throw new LlmSchemaError("Sortie non conforme au schéma (vérifiée par le fournisseur)");
+      }
       if (error instanceof OpenAI.APIError) {
         throw llmUnavailable(
           this.options.name,
@@ -67,6 +73,16 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       throw error;
     }
 
+    // Réponse qui n'est pas une complétion (service fermé ou mandataire qui répond « OK ») : indisponible.
+    if (!Array.isArray(response?.choices)) {
+      throw new LlmUnavailableError(
+        `Appel LLM en échec (${this.options.name}, réponse inattendue)`,
+        undefined,
+        {
+          reason: "autre",
+        },
+      );
+    }
     const inputTokens = response.usage?.prompt_tokens ?? 0;
     const outputTokens = response.usage?.completion_tokens ?? 0;
     const usage = {

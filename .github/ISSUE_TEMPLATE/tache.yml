@@ -9,7 +9,6 @@ body:
       label: Composant
       options:
         [
-          web,
           gateway,
           auth,
           profiles,

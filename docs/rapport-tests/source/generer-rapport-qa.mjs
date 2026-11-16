@@ -64,11 +64,19 @@ const E2E = [
 
 // ---------- Graphiques SVG ----------
 function barsCouverture() {
-  const W = 760, rowH = 46, top = 34, left = 120, w = 260, gap = 330;
+  const W = 760,
+    rowH = 46,
+    top = 34,
+    left = 120,
+    w = 260,
+    gap = 330;
   const rows = SERVICES.map((s) => ({ n: s[0], l: s[7], b: s[5] }));
   const H = top + rows.length * rowH + 30;
   let g = "";
-  for (const [k, title, key] of [[0, "Lignes", "l"], [1, "Branches", "b"]]) {
+  for (const [k, title, key] of [
+    [0, "Lignes", "l"],
+    [1, "Branches", "b"],
+  ]) {
     const x0 = left + k * gap;
     g += `<text x="${x0}" y="16" class="t">${title}</text>`;
     for (const t of [0, 20, 40, 60, 80, 100]) {
@@ -90,7 +98,11 @@ function barsCouverture() {
 }
 
 function barsMutation() {
-  const W = 760, rowH = 34, top = 10, left = 190, w = 430;
+  const W = 760,
+    rowH = 34,
+    top = 10,
+    left = 190,
+    w = 430;
   const H = top + MUTATION.length * rowH + 30;
   let g = "";
   for (const t of [0, 20, 40, 60, 80, 100]) {
@@ -100,7 +112,9 @@ function barsMutation() {
   g += `<line x1="${left + w * 0.8}" y1="${top - 4}" x2="${left + w * 0.8}" y2="${H - 26}" class="seuil"/>`;
   MUTATION.forEach(([n, k, s, to, tot], i) => {
     const y = top + i * rowH;
-    const kw = (w * k) / tot, sw = (w * s) / tot, tw = (w * to) / tot;
+    const kw = (w * k) / tot,
+      sw = (w * s) / tot,
+      tw = (w * to) / tot;
     g += `<text x="${left - 10}" y="${y + 17}" class="lab">${n}</text>`;
     g += `<rect x="${left}" y="${y + 5}" width="${kw}" height="18" fill="#2f7bd8"/>`;
     if (s) g += `<rect x="${left + kw}" y="${y + 5}" width="${sw}" height="18" fill="#d9822b"/>`;
@@ -113,72 +127,400 @@ function barsMutation() {
 
 // ---------- Cas de test (boîte noire) ----------
 const CT = [
-  ["CT-01", "US01", "erreur", "Créer un compte → valider le formulaire vide", "Résumé d'erreurs accessible, dont « Acceptez la politique de confidentialité »", ok(`(${c("US01")}, E2E)`)],
-  ["CT-02", "US01", "nominal", "Créer un compte : identifiant, mot de passe ×2, politique acceptée", "« Votre compte est créé », 8 codes de récupération, « Continuer » inactif tant que les codes ne sont pas confirmés", ok(`(${c("US01")}, E2E + axe-core)`)],
-  ["CT-03", "US02", "erreur", "Connexion de amina.diallo avec un mauvais mot de passe", "« Identifiant ou mot de passe incorrect. » (même message que pour un compte inconnu)", ok(`(${c("US02")}, E2E)`)],
-  ["CT-04", "US02", "nominal", "Connexion avec le bon mot de passe", "Page « Mon compte »", ok(`(${c("US02")}, E2E + axe-core)`)],
-  ["CT-05", "US03", "nominal", "Nouveau compte → étape 1 → importer un CV PDF exporté par Attesta", "« Profil pré-rempli à partir de votre CV (lecture automatique, sans IA) », champ « Nom et prénom » rempli", ok(`(${c("US03")}, E2E)`)],
-  ["CT-06", "US03", "erreur", "Importer un PDF corrompu, un PDF scanné sans texte, un fichier de plus de 5 Mo", "Refus avec message, service toujours disponible", ok(`(${c("extraction.test.ts")}, profiles)`)],
-  ["CT-07", "US04", "nominal", "Catalogue d'offres → filtre « Tunisie »", "Offres filtrées, bouton « Cibler cette offre »", ok(`(${c("US04")}, E2E + axe-core)`)],
-  ["CT-08", "US05", "nominal", "Coller une annonce (Scrum, Jira, Kubernetes) → Générer", "CV généré, jauge « Fidélité », mots-clés absents du profil signalés, jamais ajoutés", ok(`(${c("US05")}, E2E)`)],
-  ["CT-09", "US05", "limite", "Le modèle propose des lignes sans source dans le profil", "Lignes retirées avant affichage, avec leur raison", ok(`(${c("faithfulness.test.ts")}, ${c("pipeline.test.ts")})`)],
-  ["CT-10", "US05", "erreur", "Offre trop courte", "Refus avec message en français", ok(`(${c("app.test.ts")}, jobs-matching)`)],
-  ["CT-11", "US06", "nominal", "Modèle « Moderne », pays « Allemagne », relecture cochée → PDF puis Word", "Fichiers commençant par %PDF- et PK (docx)", ok(`(${c("US06")}, E2E)`)],
-  ["CT-12", "US06", "erreur", "Rendu PDF qui dépasse le délai ; CV non vérifié", "Rendu interrompu, réponse 503 ; export refusé", ok(`(${c("render-pdf-ats.test.ts")}, ${c("app.test.ts")}, letters-export)`)],
-  ["CT-13", "US07", "nominal", "Relecture + consentement → « Créer un lien de partage » → ouvrir le lien dans une autre session", "CV visible par le visiteur dans un cadre « CV partagé »", ok(`(${c("US07")}, E2E)`)],
-  ["CT-14", "US08", "nominal", "Depuis un CV → « Rédiger la lettre de motivation »", "Page « Lettre pour … », accessible", ok(`(${c("US08")}, E2E + axe-core)`)],
-  ["CT-15", "US08", "erreur", "Demander une lettre pour un CV non vérifié", "Refus", ok(`(${c("app.test.ts")}, letters-export)`)],
-  ["CT-16", "US09", "erreur", "Veille → « Mettre à jour » sans cocher le consentement", "« Cochez la case pour accepter de recevoir la veille »", ok(`(${c("US09")}, E2E)`)],
-  ["CT-17", "US09", "nominal", "Cocher le consentement → « Mettre à jour »", "« Votre veille est active… »", ok(`(${c("US09")}, E2E + axe-core)`)],
-  ["CT-18", "US10", "nominal", "Ouvrir « Mes candidatures »", "Liste avec un sélecteur « Étape » par candidature", ok(`(${c("US10")}, E2E)`)],
-  ["CT-19", "US11", "nominal", "Depuis un CV → « Ouvrir le Studio IA »", "Juge de fidélité affiché, bouton « Rejuger »", ok(`(${c("US11")}, E2E)`)],
+  [
+    "CT-01",
+    "US01",
+    "erreur",
+    "Créer un compte → valider le formulaire vide",
+    "Résumé d'erreurs accessible, dont « Acceptez la politique de confidentialité »",
+    ok(`(${c("US01")}, E2E)`),
+  ],
+  [
+    "CT-02",
+    "US01",
+    "nominal",
+    "Créer un compte : identifiant, mot de passe ×2, politique acceptée",
+    "« Votre compte est créé », 8 codes de récupération, « Continuer » inactif tant que les codes ne sont pas confirmés",
+    ok(`(${c("US01")}, E2E + axe-core)`),
+  ],
+  [
+    "CT-03",
+    "US02",
+    "erreur",
+    "Connexion de amina.diallo avec un mauvais mot de passe",
+    "« Identifiant ou mot de passe incorrect. » (même message que pour un compte inconnu)",
+    ok(`(${c("US02")}, E2E)`),
+  ],
+  [
+    "CT-04",
+    "US02",
+    "nominal",
+    "Connexion avec le bon mot de passe",
+    "Page « Mon compte »",
+    ok(`(${c("US02")}, E2E + axe-core)`),
+  ],
+  [
+    "CT-05",
+    "US03",
+    "nominal",
+    "Nouveau compte → étape 1 → importer un CV PDF exporté par Attesta",
+    "« Profil pré-rempli à partir de votre CV (lecture automatique, sans IA) », champ « Nom et prénom » rempli",
+    ok(`(${c("US03")}, E2E)`),
+  ],
+  [
+    "CT-06",
+    "US03",
+    "erreur",
+    "Importer un PDF corrompu, un PDF scanné sans texte, un fichier de plus de 5 Mo",
+    "Refus avec message, service toujours disponible",
+    ok(`(${c("extraction.test.ts")}, profiles)`),
+  ],
+  [
+    "CT-07",
+    "US04",
+    "nominal",
+    "Catalogue d'offres → filtre « Tunisie »",
+    "Offres filtrées, bouton « Cibler cette offre »",
+    ok(`(${c("US04")}, E2E + axe-core)`),
+  ],
+  [
+    "CT-08",
+    "US05",
+    "nominal",
+    "Coller une annonce (Scrum, Jira, Kubernetes) → Générer",
+    "CV généré, jauge « Fidélité », mots-clés absents du profil signalés, jamais ajoutés",
+    ok(`(${c("US05")}, E2E)`),
+  ],
+  [
+    "CT-09",
+    "US05",
+    "limite",
+    "Le modèle propose des lignes sans source dans le profil",
+    "Lignes retirées avant affichage, avec leur raison",
+    ok(`(${c("faithfulness.test.ts")}, ${c("pipeline.test.ts")})`),
+  ],
+  [
+    "CT-10",
+    "US05",
+    "erreur",
+    "Offre trop courte",
+    "Refus avec message en français",
+    ok(`(${c("app.test.ts")}, jobs-matching)`),
+  ],
+  [
+    "CT-11",
+    "US06",
+    "nominal",
+    "Modèle « Moderne », pays « Allemagne », relecture cochée → PDF puis Word",
+    "Fichiers commençant par %PDF- et PK (docx)",
+    ok(`(${c("US06")}, E2E)`),
+  ],
+  [
+    "CT-12",
+    "US06",
+    "erreur",
+    "Rendu PDF qui dépasse le délai ; CV non vérifié",
+    "Rendu interrompu, réponse 503 ; export refusé",
+    ok(`(${c("render-pdf-ats.test.ts")}, ${c("app.test.ts")}, letters-export)`),
+  ],
+  [
+    "CT-13",
+    "US07",
+    "nominal",
+    "Relecture + consentement → « Créer un lien de partage » → ouvrir le lien dans une autre session",
+    "CV visible par le visiteur dans un cadre « CV partagé »",
+    ok(`(${c("US07")}, E2E)`),
+  ],
+  [
+    "CT-14",
+    "US08",
+    "nominal",
+    "Depuis un CV → « Rédiger la lettre de motivation »",
+    "Page « Lettre pour … », accessible",
+    ok(`(${c("US08")}, E2E + axe-core)`),
+  ],
+  [
+    "CT-15",
+    "US08",
+    "erreur",
+    "Demander une lettre pour un CV non vérifié",
+    "Refus",
+    ok(`(${c("app.test.ts")}, letters-export)`),
+  ],
+  [
+    "CT-16",
+    "US09",
+    "erreur",
+    "Veille → « Mettre à jour » sans cocher le consentement",
+    "« Cochez la case pour accepter de recevoir la veille »",
+    ok(`(${c("US09")}, E2E)`),
+  ],
+  [
+    "CT-17",
+    "US09",
+    "nominal",
+    "Cocher le consentement → « Mettre à jour »",
+    "« Votre veille est active… »",
+    ok(`(${c("US09")}, E2E + axe-core)`),
+  ],
+  [
+    "CT-18",
+    "US10",
+    "nominal",
+    "Ouvrir « Mes candidatures »",
+    "Liste avec un sélecteur « Étape » par candidature",
+    ok(`(${c("US10")}, E2E)`),
+  ],
+  [
+    "CT-19",
+    "US11",
+    "nominal",
+    "Depuis un CV → « Ouvrir le Studio IA »",
+    "Juge de fidélité affiché, bouton « Rejuger »",
+    ok(`(${c("US11")}, E2E)`),
+  ],
   ["CT-20", "US12", "erreur", "Candidat connecté → /admin", "« Accès refusé »", ok(`(${c("US12")}, E2E)`)],
-  ["CT-21", "US12", "nominal", "Administrateur → /admin", "Tableau de bord sans identifiant de candidat", ok(`(${c("US12")}, E2E)`)],
-  ["CT-22", "US13", "nominal", "Mon compte → « Supprimer mon compte » → confirmer", "Boîte de confirmation, puis retour à l'état déconnecté", ok(`(${c("US13")}, E2E)`)],
-  ["CT-23", "US13", "erreur", "Export RGPD alors qu'un service ne répond pas", "Export incomplet refusé", ok(`(${c("app.test.ts")}, auth)`)],
-  ["CT-24", "US01", "erreur", "Requête modifiant l'état sans en-tête anti-CSRF ; lien de connexion déjà utilisé ; code de récupération inventé", "Refus dans les trois cas", ok(`(${c("app.test.ts")}, ${c("accounts.test.ts")}, auth)`)],
-  ["CT-25", "US02", "nominal", "Monolithe (port 3080) : saisir une adresse e-mail → « Recevoir mon lien de connexion »", "« Lien envoyé », e-mail reçu dans Mailpit", ko(`A-01 : page « Une erreur est survenue » (${c("e2e/parite/compte.spec.ts")}, reproduit 2/2)`)],
+  [
+    "CT-21",
+    "US12",
+    "nominal",
+    "Administrateur → /admin",
+    "Tableau de bord sans identifiant de candidat",
+    ok(`(${c("US12")}, E2E)`),
+  ],
+  [
+    "CT-22",
+    "US13",
+    "nominal",
+    "Mon compte → « Supprimer mon compte » → confirmer",
+    "Boîte de confirmation, puis retour à l'état déconnecté",
+    ok(`(${c("US13")}, E2E)`),
+  ],
+  [
+    "CT-23",
+    "US13",
+    "erreur",
+    "Export RGPD alors qu'un service ne répond pas",
+    "Export incomplet refusé",
+    ok(`(${c("app.test.ts")}, auth)`),
+  ],
+  [
+    "CT-24",
+    "US01",
+    "erreur",
+    "Requête modifiant l'état sans en-tête anti-CSRF ; lien de connexion déjà utilisé ; code de récupération inventé",
+    "Refus dans les trois cas",
+    ok(`(${c("app.test.ts")}, ${c("accounts.test.ts")}, auth)`),
+  ],
+  [
+    "CT-25",
+    "US02",
+    "nominal",
+    "Monolithe (port 3080) : saisir une adresse e-mail → « Recevoir mon lien de connexion »",
+    "« Lien envoyé », e-mail reçu dans Mailpit",
+    ko(`A-01 : page « Une erreur est survenue » (${c("e2e/parite/compte.spec.ts")}, reproduit 2/2)`),
+  ],
 ];
 
 const CAPTURES = [
-  ["US01-1-creation-erreurs.png", "CT-01 — Formulaire de création vide", "Résumé d'erreurs affiché, dont l'acceptation de la politique de confidentialité."],
-  ["US01-2-codes-de-recuperation.png", "CT-02 — Compte créé, codes de récupération", "8 codes affichés ; « Continuer » reste inactif tant que la case n'est pas cochée."],
-  ["US02-1-mot-de-passe-incorrect.png", "CT-03 — Mauvais mot de passe", "Message générique : il ne révèle pas si l'identifiant existe."],
+  [
+    "US01-1-creation-erreurs.png",
+    "CT-01 — Formulaire de création vide",
+    "Résumé d'erreurs affiché, dont l'acceptation de la politique de confidentialité.",
+  ],
+  [
+    "US01-2-codes-de-recuperation.png",
+    "CT-02 — Compte créé, codes de récupération",
+    "8 codes affichés ; « Continuer » reste inactif tant que la case n'est pas cochée.",
+  ],
+  [
+    "US02-1-mot-de-passe-incorrect.png",
+    "CT-03 — Mauvais mot de passe",
+    "Message générique : il ne révèle pas si l'identifiant existe.",
+  ],
   ["US02-2-mon-compte.png", "CT-04 — Connexion réussie", "Page « Mon compte » du compte de démonstration."],
-  ["US03-1-import-pdf-message.png", "CT-05 — Import d'un CV PDF", "Lecture automatique, sans IA : le profil est pré-rempli et doit être relu."],
-  ["US03-2-import-pdf-champs-pre-remplis.png", "CT-05 — Champs pré-remplis", "« Nom et prénom » et les autres champs repris du PDF."],
-  ["US04-1-catalogue-toutes-regions.png", "CT-07 — Catalogue, toutes régions", "Filtres par pays disponibles."],
-  ["US04-2-catalogue-tunisie.png", "CT-07 — Catalogue filtré : Tunisie", "Offres tunisiennes, chacune avec « Cibler cette offre »."],
-  ["US05-1-offre-analysee.png", "CT-08 — Offre analysée", "Étape 4 sur 4 : l'annonce est analysée avant la génération."],
-  ["US05-2-cv-genere-fidelite.png", "CT-08 — CV généré, fidélité 100 %", "Kubernetes, absent du profil, est signalé mais jamais ajouté au CV."],
-  ["US05-3-relecture-ligne-par-ligne.png", "CT-08 — Relecture ligne par ligne", "Chaque ligne renvoie à sa source dans le profil."],
-  ["US06-1-export-modele-pays.png", "CT-11 — Export : modèle et pays", "Modèle « Moderne », usages allemands, relecture confirmée avant téléchargement."],
-  ["US07-1-lien-de-partage.png", "CT-13 — Lien de partage créé", "Lien secret, révocable, créé après relecture et consentement."],
-  ["US07-2-cv-en-ligne-visiteur.png", "CT-13 — Vue du visiteur", "Le CV partagé, ouvert dans une autre session."],
-  ["US08-1-lettre-de-motivation.png", "CT-14 — Lettre de motivation", "Lettre rédigée à partir des faits du CV."],
-  ["US09-1-veille-emploi.png", "CT-16 — Veille emploi", "Adresse de réception renseignée ; le consentement est redemandé à chaque enregistrement."],
-  ["US09-2-veille-mise-a-jour.png", "CT-17 — Veille mise à jour", "« Votre veille est active » après consentement."],
+  [
+    "US03-1-import-pdf-message.png",
+    "CT-05 — Import d'un CV PDF",
+    "Lecture automatique, sans IA : le profil est pré-rempli et doit être relu.",
+  ],
+  [
+    "US03-2-import-pdf-champs-pre-remplis.png",
+    "CT-05 — Champs pré-remplis",
+    "« Nom et prénom » et les autres champs repris du PDF.",
+  ],
+  [
+    "US04-1-catalogue-toutes-regions.png",
+    "CT-07 — Catalogue, toutes régions",
+    "Filtres par pays disponibles.",
+  ],
+  [
+    "US04-2-catalogue-tunisie.png",
+    "CT-07 — Catalogue filtré : Tunisie",
+    "Offres tunisiennes, chacune avec « Cibler cette offre ».",
+  ],
+  [
+    "US05-1-offre-analysee.png",
+    "CT-08 — Offre analysée",
+    "Étape 4 sur 4 : l'annonce est analysée avant la génération.",
+  ],
+  [
+    "US05-2-cv-genere-fidelite.png",
+    "CT-08 — CV généré, fidélité 100 %",
+    "Kubernetes, absent du profil, est signalé mais jamais ajouté au CV.",
+  ],
+  [
+    "US05-3-relecture-ligne-par-ligne.png",
+    "CT-08 — Relecture ligne par ligne",
+    "Chaque ligne renvoie à sa source dans le profil.",
+  ],
+  [
+    "US06-1-export-modele-pays.png",
+    "CT-11 — Export : modèle et pays",
+    "Modèle « Moderne », usages allemands, relecture confirmée avant téléchargement.",
+  ],
+  [
+    "US07-1-lien-de-partage.png",
+    "CT-13 — Lien de partage créé",
+    "Lien secret, révocable, créé après relecture et consentement.",
+  ],
+  [
+    "US07-2-cv-en-ligne-visiteur.png",
+    "CT-13 — Vue du visiteur",
+    "Le CV partagé, ouvert dans une autre session.",
+  ],
+  [
+    "US08-1-lettre-de-motivation.png",
+    "CT-14 — Lettre de motivation",
+    "Lettre rédigée à partir des faits du CV.",
+  ],
+  [
+    "US09-1-veille-emploi.png",
+    "CT-16 — Veille emploi",
+    "Adresse de réception renseignée ; le consentement est redemandé à chaque enregistrement.",
+  ],
+  [
+    "US09-2-veille-mise-a-jour.png",
+    "CT-17 — Veille mise à jour",
+    "« Votre veille est active » après consentement.",
+  ],
   ["US10-1-candidatures.png", "CT-18 — Mes candidatures", "Suivi par étape."],
-  ["US11-1-studio-juge-de-fidelite.png", "CT-19 — Studio IA, juge de fidélité", "Jugement affiché ; « Rejuger » disponible."],
+  [
+    "US11-1-studio-juge-de-fidelite.png",
+    "CT-19 — Studio IA, juge de fidélité",
+    "Jugement affiché ; « Rejuger » disponible.",
+  ],
   ["US12-1-acces-refuse-candidat.png", "CT-20 — Administration refusée au candidat", "« Accès refusé »."],
-  ["US12-2-administration.png", "CT-21 — Administration", "Santé des six services et compteurs agrégés, sans donnée personnelle."],
-  ["US13-1-suppression-confirmation.png", "CT-22 — Confirmation de suppression", "Case « Je comprends » obligatoire avant la suppression définitive."],
+  [
+    "US12-2-administration.png",
+    "CT-21 — Administration",
+    "Santé des six services et compteurs agrégés, sans donnée personnelle.",
+  ],
+  [
+    "US13-1-suppression-confirmation.png",
+    "CT-22 — Confirmation de suppression",
+    "Case « Je comprends » obligatoire avant la suppression définitive.",
+  ],
   ["US13-2-compte-supprime.png", "CT-22 — Compte supprimé", "Retour à l'état déconnecté."],
 ];
 
 const ANOMALIES = [
-  ["A-01", "Connexion par lien impossible sur le monolithe (parité rouge)", `Pile compose, ${c("http://localhost:3080/connexion")} → adresse e-mail → « Recevoir mon lien de connexion » (${c("e2e/parite/compte.spec.ts")}, ${c("complements.spec.ts:129")})`, "Message « lien de connexion envoyé », e-mail reçu dans Mailpit", "Page « Une erreur est survenue » ; journal du conteneur web : MailError « envoi impossible (EAUTH 535) », une fois ESOCKET. Reproduit 2 fois sur 2", "Majeur"],
-  ["A-02", "Échec d'envoi d'e-mail affiché comme une erreur générique", "Même scénario que A-01", "Message explicite (« envoi impossible, réessayez ») sur la page de connexion", "Page d'erreur générique, sans indication sur l'e-mail ni sur la marche à suivre", "Mineur"],
-  ["A-03", "Couverture sous le seuil de la CI dans 4 services", `${c("npm run test:coverage")} dans cv-generation, letters-export, profiles, jobs-matching`, "Lignes ≥ 80 % (seuil de chaque vitest.config.ts)", "56,19 % ; 53,86 % ; 67 % ; 73,34 % : la commande sort en erreur, donc le job CI de ces services échouera dès qu'ils seront modifiés", "Majeur"],
-  ["A-04", "Export Word presque non testé", `Couverture de ${c("letters-export/src/render/docx.ts")}`, "Contenu du .docx vérifié", "8,1 % des lignes, 0 % des branches ; l'E2E US06 ne vérifie que la signature PK du fichier", "Majeur"],
-  ["A-05", "Connecteur d'offres « employeurs » sans aucun test", `${c("jobs-matching/src/sources/employers.ts")}`, "Chemins principaux couverts", "0 % pour des fonctions de complexité 21 (board) et 18 (search)", "Majeur"],
-  ["A-06", "Assistants IA peu testés", `${c("cv-generation/src/assistants.ts")}, ${c("profiles/src/assistant.ts")}`, "Réponses valides, invalides et erreurs du LLM vérifiées", "8,01 % et 13,33 % des lignes ; seul le parcours US11 passe par le Studio IA", "Majeur"],
-  ["A-07", "Effacement et export RGPD partiellement testés", `${c("auth/src/rgpd.ts")}`, "Chemins d'effacement et d'export couverts", "48,88 % des lignes (91-118 non couvertes) ; la suppression de bout en bout (US13) passe", "Majeur"],
-  ["A-08", "Candidatures peu testées côté service", `${c("letters-export/src/applications.ts")}`, "Transitions d'étape vérifiées", "26 % des lignes, 0 % des branches", "Mineur"],
-  ["A-09", "Envoi d'e-mails : erreurs SMTP non testées", `${c("auth/src/mail.ts")}`, "Échec d'envoi traité", "57,14 % des lignes, 0 % des branches", "Mineur"],
-  ["A-10", "Tests instables (délais)", `${c("accounts.test.ts")} › « bloque un identifiant après trop d'échecs » ; ${c("e2e/parite/parcours.spec.ts:45")}`, "Résultat identique à chaque exécution", "auth : échec 1 fois sur 4 (délai de 5 s), puis 3/3 ; parité « les erreurs sont annoncées… » : délai de page.goto, passe à la relance", "Mineur"],
-  ["A-11", "Bornes de validParams mal isolées par les tests", `Stryker sur ${c("auth/src/passwords.ts")}`, "Mutants des bornes tués", "3 survivants et 3 expirations (détail en mission 5)", "Mineur"],
-  ["A-12", "Stryker ne s'arrête pas proprement sous Windows", `${c("npm run test:mutation")} (auth)`, "Fin de commande sans erreur", "« taskkill : accès refusé » à l'arrêt des workers ; rapport produit malgré tout", "Mineur"],
+  [
+    "A-01",
+    "Connexion par lien impossible sur le monolithe (parité rouge)",
+    `Pile compose, ${c("http://localhost:3080/connexion")} → adresse e-mail → « Recevoir mon lien de connexion » (${c("e2e/parite/compte.spec.ts")}, ${c("complements.spec.ts:129")})`,
+    "Message « lien de connexion envoyé », e-mail reçu dans Mailpit",
+    "Page « Une erreur est survenue » ; journal du conteneur web : MailError « envoi impossible (EAUTH 535) », une fois ESOCKET. Reproduit 2 fois sur 2",
+    "Majeur",
+  ],
+  [
+    "A-02",
+    "Échec d'envoi d'e-mail affiché comme une erreur générique",
+    "Même scénario que A-01",
+    "Message explicite (« envoi impossible, réessayez ») sur la page de connexion",
+    "Page d'erreur générique, sans indication sur l'e-mail ni sur la marche à suivre",
+    "Mineur",
+  ],
+  [
+    "A-03",
+    "Couverture sous le seuil de la CI dans 4 services",
+    `${c("npm run test:coverage")} dans cv-generation, letters-export, profiles, jobs-matching`,
+    "Lignes ≥ 80 % (seuil de chaque vitest.config.ts)",
+    "56,19 % ; 53,86 % ; 67 % ; 73,34 % : la commande sort en erreur, donc le job CI de ces services échouera dès qu'ils seront modifiés",
+    "Majeur",
+  ],
+  [
+    "A-04",
+    "Export Word presque non testé",
+    `Couverture de ${c("letters-export/src/render/docx.ts")}`,
+    "Contenu du .docx vérifié",
+    "8,1 % des lignes, 0 % des branches ; l'E2E US06 ne vérifie que la signature PK du fichier",
+    "Majeur",
+  ],
+  [
+    "A-05",
+    "Connecteur d'offres « employeurs » sans aucun test",
+    `${c("jobs-matching/src/sources/employers.ts")}`,
+    "Chemins principaux couverts",
+    "0 % pour des fonctions de complexité 21 (board) et 18 (search)",
+    "Majeur",
+  ],
+  [
+    "A-06",
+    "Assistants IA peu testés",
+    `${c("cv-generation/src/assistants.ts")}, ${c("profiles/src/assistant.ts")}`,
+    "Réponses valides, invalides et erreurs du LLM vérifiées",
+    "8,01 % et 13,33 % des lignes ; seul le parcours US11 passe par le Studio IA",
+    "Majeur",
+  ],
+  [
+    "A-07",
+    "Effacement et export RGPD partiellement testés",
+    `${c("auth/src/rgpd.ts")}`,
+    "Chemins d'effacement et d'export couverts",
+    "48,88 % des lignes (91-118 non couvertes) ; la suppression de bout en bout (US13) passe",
+    "Majeur",
+  ],
+  [
+    "A-08",
+    "Candidatures peu testées côté service",
+    `${c("letters-export/src/applications.ts")}`,
+    "Transitions d'étape vérifiées",
+    "26 % des lignes, 0 % des branches",
+    "Mineur",
+  ],
+  [
+    "A-09",
+    "Envoi d'e-mails : erreurs SMTP non testées",
+    `${c("auth/src/mail.ts")}`,
+    "Échec d'envoi traité",
+    "57,14 % des lignes, 0 % des branches",
+    "Mineur",
+  ],
+  [
+    "A-10",
+    "Tests instables (délais)",
+    `${c("accounts.test.ts")} › « bloque un identifiant après trop d'échecs » ; ${c("e2e/parite/parcours.spec.ts:45")}`,
+    "Résultat identique à chaque exécution",
+    "auth : échec 1 fois sur 4 (délai de 5 s), puis 3/3 ; parité « les erreurs sont annoncées… » : délai de page.goto, passe à la relance",
+    "Mineur",
+  ],
+  [
+    "A-11",
+    "Bornes de validParams mal isolées par les tests",
+    `Stryker sur ${c("auth/src/passwords.ts")}`,
+    "Mutants des bornes tués",
+    "3 survivants et 3 expirations (détail en mission 5)",
+    "Mineur",
+  ],
+  [
+    "A-12",
+    "Stryker ne s'arrête pas proprement sous Windows",
+    `${c("npm run test:mutation")} (auth)`,
+    "Fin de commande sans erreur",
+    "« taskkill : accès refusé » à l'arrêt des workers ; rapport produit malgré tout",
+    "Mineur",
+  ],
 ];
 
 // ---------- Page ----------
@@ -279,33 +621,71 @@ ${barsMutation()}
 <p>Quatre fonctions sur six tuent tous leurs mutants. Les faiblesses se concentrent dans ${c("validParams")}, qui borne les paramètres scrypt lus dans une empreinte stockée : les tests vérifient qu'une empreinte démesurée est refusée, mais pas que chaque borne, prise séparément, fait le travail. La mutation n'a été exécutée que sur ${c("auth")} : les cinq autres services ont une configuration Stryker, mais pas encore de rapport.</p>
 
 <h2>Inventaire de départ</h2>
-${table(["Élément", "Présent ?", "Conséquence"], [
-  [`Recette par user story (${c("e2e/frontend/recette.spec.ts")})`, "Oui, 13 scénarios, jamais exécutés", "Exécutée 3 fois sur la pile compose ; captures produites"],
-  [`Parité (${c("e2e/parite")})`, "Oui, 17 scénarios", "Exécutée contre le monolithe (port 3080) : 14/17"],
-  ["Tests unitaires et d'intégration des 6 services", "Oui, 46 fichiers", "Exécutés avec couverture et PostgreSQL local"],
-  ["Tests de propriétés (fast-check)", "Oui, 6 fichiers", "332 tests réussis (exécution du matin)"],
-  ["Tests de mutation (Stryker)", "Configurés dans les 6 services", "Rapport pour auth seulement"],
-  ["Fournisseur LLM simulé", `Oui : ${c("ScriptedProvider")} et fournisseur de démonstration`, "Aucun appel à un vrai modèle"],
-  ["Workflows GitHub Actions", `${c("ci.yml")}, ${c("mutation.yml")}`, "Présents, jamais observés en exécution"],
-  [`Évaluation live (${c("evals:live")})`, "Script présent", "Non exécutable : aucun identifiant Vertex/Claude"],
-])}
+${table(
+  ["Élément", "Présent ?", "Conséquence"],
+  [
+    [
+      `Recette par user story (${c("e2e/frontend/recette.spec.ts")})`,
+      "Oui, 13 scénarios, jamais exécutés",
+      "Exécutée 3 fois sur la pile compose ; captures produites",
+    ],
+    [`Parité (${c("e2e/parite")})`, "Oui, 17 scénarios", "Exécutée contre le monolithe (port 3080) : 14/17"],
+    [
+      "Tests unitaires et d'intégration des 6 services",
+      "Oui, 46 fichiers",
+      "Exécutés avec couverture et PostgreSQL local",
+    ],
+    ["Tests de propriétés (fast-check)", "Oui, 6 fichiers", "332 tests réussis (exécution du matin)"],
+    ["Tests de mutation (Stryker)", "Configurés dans les 6 services", "Rapport pour auth seulement"],
+    [
+      "Fournisseur LLM simulé",
+      `Oui : ${c("ScriptedProvider")} et fournisseur de démonstration`,
+      "Aucun appel à un vrai modèle",
+    ],
+    [
+      "Workflows GitHub Actions",
+      `${c("ci.yml")}, ${c("mutation.yml")}`,
+      "Présents, jamais observés en exécution",
+    ],
+    [
+      `Évaluation live (${c("evals:live")})`,
+      "Script présent",
+      "Non exécutable : aucun identifiant Vertex/Claude",
+    ],
+  ],
+)}
 
 <h2>User stories</h2>
-${table(["ID", "User story"], [
-  ["US01", "En tant que visiteur, je veux créer un compte avec un identifiant et des codes de récupération, sans e-mail obligatoire."],
-  ["US02", "En tant qu'utilisateur, je veux me connecter ; un mauvais mot de passe est refusé sans révéler si le compte existe."],
-  ["US03", "En tant que candidat, je veux importer mon CV PDF et obtenir un profil pré-rempli à relire."],
-  ["US04", "En tant que candidat, je veux parcourir et filtrer par pays le catalogue d'offres."],
-  ["US05", "En tant que candidat, je veux générer un CV ciblé dont chaque ligne est contrôlée contre mon profil."],
-  ["US06", "En tant que candidat, je veux exporter mon CV en PDF et en Word selon le modèle et le pays."],
-  ["US07", "En tant que candidat, je veux partager mon CV par un lien secret et révocable."],
-  ["US08", "En tant que candidat, je veux une lettre de motivation fondée sur les faits de mon CV."],
-  ["US09", "En tant que candidat, je veux régler ma veille emploi et mon consentement."],
-  ["US10", "En tant que candidat, je veux suivre mes candidatures par étape."],
-  ["US11", "En tant que candidat, je veux faire juger la fidélité de mon CV par l'assistant IA."],
-  ["US12", "En tant qu'administrateur, je veux une administration réservée, sans donnée personnelle visible."],
-  ["US13", "En tant qu'utilisateur, je veux supprimer mon compte et mes données (RGPD)."],
-])}
+${table(
+  ["ID", "User story"],
+  [
+    [
+      "US01",
+      "En tant que visiteur, je veux créer un compte avec un identifiant et des codes de récupération, sans e-mail obligatoire.",
+    ],
+    [
+      "US02",
+      "En tant qu'utilisateur, je veux me connecter ; un mauvais mot de passe est refusé sans révéler si le compte existe.",
+    ],
+    ["US03", "En tant que candidat, je veux importer mon CV PDF et obtenir un profil pré-rempli à relire."],
+    ["US04", "En tant que candidat, je veux parcourir et filtrer par pays le catalogue d'offres."],
+    [
+      "US05",
+      "En tant que candidat, je veux générer un CV ciblé dont chaque ligne est contrôlée contre mon profil.",
+    ],
+    ["US06", "En tant que candidat, je veux exporter mon CV en PDF et en Word selon le modèle et le pays."],
+    ["US07", "En tant que candidat, je veux partager mon CV par un lien secret et révocable."],
+    ["US08", "En tant que candidat, je veux une lettre de motivation fondée sur les faits de mon CV."],
+    ["US09", "En tant que candidat, je veux régler ma veille emploi et mon consentement."],
+    ["US10", "En tant que candidat, je veux suivre mes candidatures par étape."],
+    ["US11", "En tant que candidat, je veux faire juger la fidélité de mon CV par l'assistant IA."],
+    [
+      "US12",
+      "En tant qu'administrateur, je veux une administration réservée, sans donnée personnelle visible.",
+    ],
+    ["US13", "En tant qu'utilisateur, je veux supprimer mon compte et mes données (RGPD)."],
+  ],
+)}
 
 <h2 class="pb">Annexe 2 — Cas de test (boîte noire)</h2>
 <p>« Obtenu » provient de l'exécution réelle des tests automatisés cités (✓ conforme). Les cas E2E pilotent l'interface par libellés et rôles ARIA ; les autres appellent l'API HTTP du service.</p>
@@ -315,55 +695,131 @@ ${table(["N°", "US", "Type", "Étapes", "Résultat attendu", "Obtenu"], CT, "ct
 <h2 class="pb">Preuves d'exécution : captures d'écran</h2>
 <p>Les captures sont produites par la recette elle-même (${c("CAPTURES_DIR")}), sur la pile compose lancée telle quelle : frontend (port 8081), gateway et six services, PostgreSQL, Mailpit. Le CV et la lettre sont produits par le fournisseur LLM de démonstration, qui recopie les faits du profil sans IA. Les adresses e-mail sont masquées à la capture par la recette elle-même : ce sont les rectangles roses visibles en CT-16 et CT-17. Les comptes sont des comptes de démonstration (${c("npm run demo:seed")}). CT-25 n'a pas de capture : la parité n'en produit pas, et rejouer le cas aurait déclenché un nouvel envoi vers le serveur SMTP configuré.</p>
 <p>Note d'exécution : le premier rapport du matin comptait 4 échecs Puppeteer (délai de 30 s au lancement de Chromium) dans la suite racine. Relancée sous Node 22.18.0, la version fixée par ${c(".nvmrc")}, la même suite passe sans échec. Ces échecs ne sont pas retenus comme des anomalies du produit.</p>
-${table(["N°", "Capture", "Constat"], CAPTURES.map(([f, t, d]) => [t.split(" — ")[0], esc(f), d]))}
+${table(
+  ["N°", "Capture", "Constat"],
+  CAPTURES.map(([f, t, d]) => [t.split(" — ")[0], esc(f), d]),
+)}
 ${CAPTURES.map(([f, t, d]) => `<div class="shot"><h4>${t}</h4><img src="${CAP(f)}"><p>Constat : ${d}</p></div>`).join("")}
 
 <h2 class="pb">Mission 2 — Tests fonctionnels automatisés</h2>
 <p>${c("e2e/frontend/recette.spec.ts")} (Playwright 1.64.1, Chromium) : 13 scénarios, un par user story, exécutés contre ${c("http://localhost:8081")}. Ils n'utilisent que ce que voit l'utilisateur : libellés, rôles ARIA, messages, fichiers téléchargés.</p>
-${table(["Scénario", "Ce qui est vérifié", "Durée", "Résultat"], E2E.map(([id, t, d]) => [c(id), t, `${String(d).replace(".", ",")} s`, ok("réussi")]))}
+${table(
+  ["Scénario", "Ce qui est vérifié", "Durée", "Résultat"],
+  E2E.map(([id, t, d]) => [c(id), t, `${String(d).replace(".", ",")} s`, ok("réussi")]),
+)}
 <p>Total : 13 réussis en 81,7 s (exécution 1). La suite de parité ${c("e2e/parite")}, qui compare le monolithe à son comportement de référence, ${PARITE.texte ?? "n'a pas été exécutée."}</p>
 
 <h2>Mission 3 — Tests avec LLM et services simulés</h2>
 <p>Aucun test ne dépend d'un vrai modèle. Les réponses du LLM viennent de ${c("ScriptedProvider")} (réponses scriptées) ou du fournisseur de démonstration ; les sources d'offres et le SMTP sont remplacés par des réponses enregistrées.</p>
-${table(["Cas", "Test(s)", "Résultat"], [
-  ["Réponse valide du LLM", `${c("pipeline.test.ts")} › « fonctionne de bout en bout avec le fournisseur de démonstration, sans invention »`, ok("réussi")],
-  ["Invention du LLM", `${c("pipeline.test.ts")} › « retire les inventions avant qu'elles n'atteignent le CV » ; ${c("faithfulness.test.ts")} › « retire chaque invention et explique pourquoi »`, ok("réussi")],
-  ["Réponse hors contrat d'un autre service", `${c("upstreams.test.ts")} › « traduit un 404 en absence, et rejette une réponse hors contrat »`, ok("réussi")],
-  ["Délai dépassé", `${c("extraction.test.ts")} › « interrompt une analyse qui dépasse le délai » ; ${c("render-pdf-ats.test.ts")} › « interrompt un rendu qui dépasse le délai »`, ok("réussi")],
-  ["Service amont indisponible", `${c("app.test.ts")} (auth) › « refuse un export incomplet si un service ne répond pas »`, ok("réussi")],
-])}
+${table(
+  ["Cas", "Test(s)", "Résultat"],
+  [
+    [
+      "Réponse valide du LLM",
+      `${c("pipeline.test.ts")} › « fonctionne de bout en bout avec le fournisseur de démonstration, sans invention »`,
+      ok("réussi"),
+    ],
+    [
+      "Invention du LLM",
+      `${c("pipeline.test.ts")} › « retire les inventions avant qu'elles n'atteignent le CV » ; ${c("faithfulness.test.ts")} › « retire chaque invention et explique pourquoi »`,
+      ok("réussi"),
+    ],
+    [
+      "Réponse hors contrat d'un autre service",
+      `${c("upstreams.test.ts")} › « traduit un 404 en absence, et rejette une réponse hors contrat »`,
+      ok("réussi"),
+    ],
+    [
+      "Délai dépassé",
+      `${c("extraction.test.ts")} › « interrompt une analyse qui dépasse le délai » ; ${c("render-pdf-ats.test.ts")} › « interrompt un rendu qui dépasse le délai »`,
+      ok("réussi"),
+    ],
+    [
+      "Service amont indisponible",
+      `${c("app.test.ts")} (auth) › « refuse un export incomplet si un service ne répond pas »`,
+      ok("réussi"),
+    ],
+  ],
+)}
 <p>Limite : l'évaluation ${c("evals:live")} sur un vrai modèle n'a pas pu être lancée (aucun identifiant). Les conclusions portent sur les contrats et les jeux rejoués, pas sur la qualité du modèle en production.</p>
 
 <h2>Tests unitaires et d'intégration : exécution</h2>
 <p>Chaque service est testé dans son dossier, comme en CI (${c("scripts/ci/tester-unite.mjs")}) : ${c("npm run test:coverage")}, avec une base PostgreSQL jetable par suite d'intégration.</p>
-${table(["Unité", "Fichiers", "Tests", "Résultat", "Durée"], [
-  ...SERVICES.map(([n, f, t, d]) => [c(n), f, t, n === "auth" ? `${ko("85 réussis, 1 échec (délai)")} ; puis ${ok("86/86 ×3")}` : ok(`${t}/${t} réussis`), `${String(d).replace(".", ",")} s`]),
-  [c("racine (monolithe)"), "22 (+3 ignorés)", "278", ok("247 réussis, 31 ignorés"), "33,6 s"],
-  [c("frontend"), 4, 25, ok("25/25 réussis"), "69,9 s"],
-  [c("e2e/frontend/recette"), 1, 13, ok("13/13 réussis"), "81,7 s"],
-])}
+${table(
+  ["Unité", "Fichiers", "Tests", "Résultat", "Durée"],
+  [
+    ...SERVICES.map(([n, f, t, d]) => [
+      c(n),
+      f,
+      t,
+      n === "auth"
+        ? `${ko("85 réussis, 1 échec (délai)")} ; puis ${ok("86/86 ×3")}`
+        : ok(`${t}/${t} réussis`),
+      `${String(d).replace(".", ",")} s`,
+    ]),
+    [c("racine (monolithe)"), "22 (+3 ignorés)", "278", ok("247 réussis, 31 ignorés"), "33,6 s"],
+    [c("frontend"), 4, 25, ok("25/25 réussis"), "69,9 s"],
+    [c("e2e/frontend/recette"), 1, 13, ok("13/13 réussis"), "81,7 s"],
+  ],
+)}
 <p>Total de la première exécution : <b>899 tests, 898 réussis, 1 échec</b> (A-10), sans compter les 31 tests ignorés de la racine (intégration réservée à la CI). Les 31 tests ignorés de la racine n'ont pas été examinés un par un.</p>
 
 <h2>Tests en boîte blanche</h2>
-${table(["Technique", "Outil", "Résultat"], [
-  ["Complexité cyclomatique (McCabe)", `ESLint, règle ${c("complexity")}`, "1 387 fonctions : 1 300 simples (1-5), 66 en 6-10, 18 en 11-20, 3 au-delà de 20"],
-  ["Couverture des instructions et des branches", "Vitest, V8", "de 51,69 % à 90,67 % des instructions selon le service"],
-  ["Croisement complexité × couverture", "analyse des rapports", "2 fonctions de complexité ≥ 18 sans aucun test (A-05)"],
-  ["Tests de mutation", "Stryker 10.1.1", "82/88 mutants tués sur passwords.ts (93,2 %)"],
-])}
+${table(
+  ["Technique", "Outil", "Résultat"],
+  [
+    [
+      "Complexité cyclomatique (McCabe)",
+      `ESLint, règle ${c("complexity")}`,
+      "1 387 fonctions : 1 300 simples (1-5), 66 en 6-10, 18 en 11-20, 3 au-delà de 20",
+    ],
+    [
+      "Couverture des instructions et des branches",
+      "Vitest, V8",
+      "de 51,69 % à 90,67 % des instructions selon le service",
+    ],
+    [
+      "Croisement complexité × couverture",
+      "analyse des rapports",
+      "2 fonctions de complexité ≥ 18 sans aucun test (A-05)",
+    ],
+    ["Tests de mutation", "Stryker 10.1.1", "82/88 mutants tués sur passwords.ts (93,2 %)"],
+  ],
+)}
 <h3>1. Les fonctions les plus complexes et leur couverture</h3>
-${table(["Fonction", "Fichier", "V(G)", "Couverture des lignes du fichier", "Risque"], [
-  [c("checkLine"), c("cv-generation/src/faithfulness.ts"), 31, "100 %", "faible"],
-  [c("rulesProfile"), c("profiles/src/import-rules.ts"), 30, "99,15 %", "faible"],
-  [c("board"), c("jobs-matching/src/sources/employers.ts"), 21, '<span class="ko">0 %</span>', "<b>élevé</b>"],
-  [c("postings"), c("jobs-matching/src/sources/rss.ts"), 20, "100 %", "faible"],
-  [c("adzunaPosting"), c("jobs-matching/src/sources/adzuna.ts"), 19, "100 % (branches 63,88 %)", "moyen"],
-  [c("baPosting"), c("jobs-matching/src/sources/ba.ts"), 19, "100 %", "faible"],
-  [c("search"), c("jobs-matching/src/sources/employers.ts"), 18, '<span class="ko">0 %</span>', "<b>élevé</b>"],
-  [c("documentXml"), c("letters-export/src/render/docx.ts"), 14, '<span class="ko">8,1 %</span>', "<b>élevé</b>"],
-  ["fonction anonyme", c("job-watch/src/daily.ts"), 13, "78,08 %", "moyen"],
-  [c("validParams"), c("auth/src/passwords.ts"), 10, "100 %", "moyen (mutants)"],
-])}
+${table(
+  ["Fonction", "Fichier", "V(G)", "Couverture des lignes du fichier", "Risque"],
+  [
+    [c("checkLine"), c("cv-generation/src/faithfulness.ts"), 31, "100 %", "faible"],
+    [c("rulesProfile"), c("profiles/src/import-rules.ts"), 30, "99,15 %", "faible"],
+    [
+      c("board"),
+      c("jobs-matching/src/sources/employers.ts"),
+      21,
+      '<span class="ko">0 %</span>',
+      "<b>élevé</b>",
+    ],
+    [c("postings"), c("jobs-matching/src/sources/rss.ts"), 20, "100 %", "faible"],
+    [c("adzunaPosting"), c("jobs-matching/src/sources/adzuna.ts"), 19, "100 % (branches 63,88 %)", "moyen"],
+    [c("baPosting"), c("jobs-matching/src/sources/ba.ts"), 19, "100 %", "faible"],
+    [
+      c("search"),
+      c("jobs-matching/src/sources/employers.ts"),
+      18,
+      '<span class="ko">0 %</span>',
+      "<b>élevé</b>",
+    ],
+    [
+      c("documentXml"),
+      c("letters-export/src/render/docx.ts"),
+      14,
+      '<span class="ko">8,1 %</span>',
+      "<b>élevé</b>",
+    ],
+    ["fonction anonyme", c("job-watch/src/daily.ts"), 13, "78,08 %", "moyen"],
+    [c("validParams"), c("auth/src/passwords.ts"), 10, "100 %", "moyen (mutants)"],
+  ],
+)}
 <p>La règle de fidélité du produit, ${c("checkLine")}, est la fonction la plus complexe du code et elle est entièrement couverte. Les risques sont ailleurs : trois fonctions complexes (connecteur « employeurs » et génération du .docx) ne sont exercées par aucun test du service.</p>
 <h3>2. Ce que la lecture du code a révélé</h3>
 <div class="box"><ul>
@@ -374,37 +830,80 @@ ${table(["Fonction", "Fichier", "V(G)", "Couverture des lignes du fichier", "Ris
 
 <h2>Mission 4 — Couverture</h2>
 <p>Commande : ${c("npm run test:coverage")} dans chaque service (rapport HTML dans ${c("services/<service>/coverage/")}).</p>
-${table(["Service", "Instructions", "Branches", "Fonctions", "Lignes", "Seuil CI (80 % lignes)"], SERVICES.map(([n, , , , s, b, f, l]) => [c(n), pct(s), pct(b), pct(f), `<b>${pct(l)}</b>`, l >= 80 ? ok("atteint") : ko("non atteint")]))}
+${table(
+  ["Service", "Instructions", "Branches", "Fonctions", "Lignes", "Seuil CI (80 % lignes)"],
+  SERVICES.map(([n, , , , s, b, f, l]) => [
+    c(n),
+    pct(s),
+    pct(b),
+    pct(f),
+    `<b>${pct(l)}</b>`,
+    l >= 80 ? ok("atteint") : ko("non atteint"),
+  ]),
+)}
 <p>Fichiers les moins couverts :</p>
-${table(["Fichier", "Lignes", "Branches", "Fonction utilisateur concernée"], [
-  [c("jobs-matching/src/sources/employers.ts"), "0 %", "0 %", "Offres des sites d'employeurs (US04)"],
-  [c("jobs-matching/src/sources/jooble.ts"), "0 %", "0 %", "Source d'offres Jooble (US04)"],
-  [c("jobs-matching/src/catalogue.ts"), "0 %", "0 %", "Catalogue d'offres (US04)"],
-  [c("profiles/src/evidence.ts"), "0 %", "0 %", "Justificatifs joints au profil"],
-  [c("cv-generation/src/assistants.ts"), "8,01 %", "0 %", "Studio IA (US11)"],
-  [c("letters-export/src/render/docx.ts"), "8,1 %", "0 %", "Export Word (US06)"],
-  [c("jobs-matching/src/explain.ts"), "8,33 %", "0 %", "Explication du classement"],
-  [c("profiles/src/assistant.ts"), "13,33 %", "0 %", "Assistant de profil"],
-  [c("letters-export/src/applications.ts"), "26 %", "0 %", "Candidatures (US10)"],
-  [c("auth/src/rgpd.ts"), "48,88 %", "47,05 %", "Effacement et export RGPD (US13)"],
-])}
+${table(
+  ["Fichier", "Lignes", "Branches", "Fonction utilisateur concernée"],
+  [
+    [c("jobs-matching/src/sources/employers.ts"), "0 %", "0 %", "Offres des sites d'employeurs (US04)"],
+    [c("jobs-matching/src/sources/jooble.ts"), "0 %", "0 %", "Source d'offres Jooble (US04)"],
+    [c("jobs-matching/src/catalogue.ts"), "0 %", "0 %", "Catalogue d'offres (US04)"],
+    [c("profiles/src/evidence.ts"), "0 %", "0 %", "Justificatifs joints au profil"],
+    [c("cv-generation/src/assistants.ts"), "8,01 %", "0 %", "Studio IA (US11)"],
+    [c("letters-export/src/render/docx.ts"), "8,1 %", "0 %", "Export Word (US06)"],
+    [c("jobs-matching/src/explain.ts"), "8,33 %", "0 %", "Explication du classement"],
+    [c("profiles/src/assistant.ts"), "13,33 %", "0 %", "Assistant de profil"],
+    [c("letters-export/src/applications.ts"), "26 %", "0 %", "Candidatures (US10)"],
+    [c("auth/src/rgpd.ts"), "48,88 %", "47,05 %", "Effacement et export RGPD (US13)"],
+  ],
+)}
 <p>Aucun test n'a été ajouté pendant cette campagne : le rôle QA s'est limité à mesurer et à signaler.</p>
 
 <h2>Mission 5 — Tests de mutants</h2>
 <p><b>Outil</b> : Stryker 10.1.1, lanceur Vitest, sur ${c("services/auth/src/passwords.ts")} (${c("npm run test:mutation")}). Rapport HTML et JSON conservés dans ${c("docs/rapport-tests/artifacts/")}.</p>
-${table(["Fonction", "Mutants", "Tués", "Survivants", "Expirations", "Score"], [
-  ...MUTATION.map(([n, k, s, t, tot]) => [c(n), tot, k, s, t, pct(((100 * k) / tot).toFixed(1))]),
-  ["<b>Total</b>", "<b>88</b>", "<b>82</b>", "<b>3</b>", "<b>3</b>", "<b>93,2 %</b>"],
-])}
+${table(
+  ["Fonction", "Mutants", "Tués", "Survivants", "Expirations", "Score"],
+  [
+    ...MUTATION.map(([n, k, s, t, tot]) => [c(n), tot, k, s, t, pct(((100 * k) / tot).toFixed(1))]),
+    ["<b>Total</b>", "<b>88</b>", "<b>82</b>", "<b>3</b>", "<b>3</b>", "<b>93,2 %</b>"],
+  ],
+)}
 <h3>Mutants non tués</h3>
-${table(["Ligne", "Code d'origine", "Mutation", "Statut", "Lecture"], [
-  ["33", c("N <= 2 ** 20 &&"), c("true"), "survivant", "Aucun test avec N juste au-dessus de 2<sup>20</sup>. Test à ajouter : N = 2<sup>21</sup> refusé."],
-  ["39", c("p >= 1 &&"), c("true"), "survivant", "p = 0 jamais testé ; scrypt le refuse à la place de validParams."],
-  ["49", c("actual !== undefined && …"), c("true"), "survivant", "Équivalent en pratique : avec des paramètres valides, la dérivation n'échoue pas."],
-  ["33", c("N <= 2 ** 20"), c("N < 2 ** 20"), "expiration", "Le test a dépassé le délai de Stryker. À examiner."],
-  ["34", c("(N & (N - 1)) === 0"), c("true"), "expiration", "Idem."],
-  ["36", c("r >= 1"), c("true"), "expiration", "Idem."],
-])}
+${table(
+  ["Ligne", "Code d'origine", "Mutation", "Statut", "Lecture"],
+  [
+    [
+      "33",
+      c("N <= 2 ** 20 &&"),
+      c("true"),
+      "survivant",
+      "Aucun test avec N juste au-dessus de 2<sup>20</sup>. Test à ajouter : N = 2<sup>21</sup> refusé.",
+    ],
+    [
+      "39",
+      c("p >= 1 &&"),
+      c("true"),
+      "survivant",
+      "p = 0 jamais testé ; scrypt le refuse à la place de validParams.",
+    ],
+    [
+      "49",
+      c("actual !== undefined && …"),
+      c("true"),
+      "survivant",
+      "Équivalent en pratique : avec des paramètres valides, la dérivation n'échoue pas.",
+    ],
+    [
+      "33",
+      c("N <= 2 ** 20"),
+      c("N < 2 ** 20"),
+      "expiration",
+      "Le test a dépassé le délai de Stryker. À examiner.",
+    ],
+    ["34", c("(N & (N - 1)) === 0"), c("true"), "expiration", "Idem."],
+    ["36", c("r >= 1"), c("true"), "expiration", "Idem."],
+  ],
+)}
 
 <h2>Bonus</h2>
 <div class="box"><ul>
@@ -414,22 +913,34 @@ ${table(["Ligne", "Code d'origine", "Mutation", "Statut", "Lecture"], [
 
 <h2 class="pb">Annexe 3 — Rapport d'anomalies</h2>
 <p>Gravité : <b>bloquant</b> = plante ou perd des données ; <b>majeur</b> = fonction fausse, non vérifiée sur un chemin utilisateur, ou CI bloquée ; <b>mineur</b> = test, outillage ou chemin secondaire. Pas de correctif ici : seulement le constat.</p>
-${table(["N°", "Titre", "Où / comment reproduire", "Attendu", "Obtenu", "Gravité"], ANOMALIES.map((a) => [...a.slice(0, 5), `<span class="badge b-${a[5]}">${a[5]}</span>`]), "anom")}
+${table(
+  ["N°", "Titre", "Où / comment reproduire", "Attendu", "Obtenu", "Gravité"],
+  ANOMALIES.map((a) => [...a.slice(0, 5), `<span class="badge b-${a[5]}">${a[5]}</span>`]),
+  "anom",
+)}
 <p>Vérifications impossibles dans cette campagne : l'exécution GitHub Actions (aucun run observé) et ${c("evals:live")} (aucun identifiant). Seules A-01 et A-02 sont visibles par l'utilisateur ; les autres portent sur les tests et l'outillage.</p>
 
 <h2>Annexe 4 — Bilan des mesures</h2>
-${table(["Mesure", "Avant", "Après", "Outil"], [
-  ["Suite racine", "234 réussis, 4 échecs, 40 ignorés (Node 20)", "247 réussis, 0 échec, 31 ignorés (Node 22.18.0)", "Vitest"],
-  ["Tests des services", "86 (auth seul)", "614 (6 services)", "Vitest, PostgreSQL 16"],
-  ["Tests du frontend", "25/25", "25/25", "Vitest, Testing Library"],
-  ["Recette E2E", "non exécutée", "13/13, 3 exécutions identiques", "Playwright, Chromium"],
-  ["Parité E2E", "non exécutée", PARITE.bilan ?? "—", "Playwright, Chromium"],
-  ["Services mesurés en couverture", "1/6", "6/6 ; 2 au-dessus de 80 % des lignes", "V8"],
-  ["Couverture des lignes", "auth 92,30 %", "de 53,86 % (letters-export) à 92,30 % (auth)", "V8"],
-  ["Mutants tués (auth)", "82/88 (93,2 %)", "82/88 (93,2 %)", "Stryker"],
-  ["Complexité cyclomatique", "non mesurée", "1 387 fonctions, maximum 31", "ESLint"],
-  ["Anomalies", "6 actions de suivi", "0 bloquante, 6 majeures, 6 mineures", "Revue + tests"],
-])}
+${table(
+  ["Mesure", "Avant", "Après", "Outil"],
+  [
+    [
+      "Suite racine",
+      "234 réussis, 4 échecs, 40 ignorés (Node 20)",
+      "247 réussis, 0 échec, 31 ignorés (Node 22.18.0)",
+      "Vitest",
+    ],
+    ["Tests des services", "86 (auth seul)", "614 (6 services)", "Vitest, PostgreSQL 16"],
+    ["Tests du frontend", "25/25", "25/25", "Vitest, Testing Library"],
+    ["Recette E2E", "non exécutée", "13/13, 3 exécutions identiques", "Playwright, Chromium"],
+    ["Parité E2E", "non exécutée", PARITE.bilan ?? "—", "Playwright, Chromium"],
+    ["Services mesurés en couverture", "1/6", "6/6 ; 2 au-dessus de 80 % des lignes", "V8"],
+    ["Couverture des lignes", "auth 92,30 %", "de 53,86 % (letters-export) à 92,30 % (auth)", "V8"],
+    ["Mutants tués (auth)", "82/88 (93,2 %)", "82/88 (93,2 %)", "Stryker"],
+    ["Complexité cyclomatique", "non mesurée", "1 387 fonctions, maximum 31", "ESLint"],
+    ["Anomalies", "6 actions de suivi", "0 bloquante, 6 majeures, 6 mineures", "Revue + tests"],
+  ],
+)}
 
 <h2>Le constat le plus important : vert de bout en bout, peu vérifié au milieu</h2>
 <p>Les 13 user stories passent, trois fois de suite. Pourtant l'export Word (US06) traverse ${c("docx.ts")}, couvert à 8,1 %, et le test E2E ne regarde que les deux premiers octets du fichier. Le catalogue d'offres (US04) dépend de sources dont l'une, ${c("employers.ts")}, n'a aucun test alors qu'elle contient deux des fonctions les plus complexes du dépôt.</p>
@@ -448,22 +959,28 @@ npx playwright test e2e/frontend/recette.spec.ts
 $env:E2E_BASE_URL="http://localhost:3080"; $env:MAILPIT_URL="http://localhost:8025"
 npx playwright test e2e/parite</pre>
 <h3>Stabilité</h3>
-${table(["Exécution", "Résultat", "Durée"], [
-  ["Recette E2E 1", "13 réussis, 0 échec", "81,7 s"],
-  ["Recette E2E 2", "13 réussis, 0 échec", "83,5 s"],
-  ["Recette E2E 3", "13 réussis, 0 échec", "73,7 s"],
-  ["auth (couverture) 1", "85 réussis, 1 échec (délai de 5 s)", "28,0 s"],
-  ["auth (couverture) 2 à 4", "86 réussis, 0 échec (×3)", "≈ 28 s"],
-  ["Parité E2E", "14 réussis, 3 échecs", "68,4 s"],
-  ["Parité : 3 tests en échec relancés", "1 réussi, 2 échecs (connexion par lien, A-01)", "23,1 s"],
-])}
+${table(
+  ["Exécution", "Résultat", "Durée"],
+  [
+    ["Recette E2E 1", "13 réussis, 0 échec", "81,7 s"],
+    ["Recette E2E 2", "13 réussis, 0 échec", "83,5 s"],
+    ["Recette E2E 3", "13 réussis, 0 échec", "73,7 s"],
+    ["auth (couverture) 1", "85 réussis, 1 échec (délai de 5 s)", "28,0 s"],
+    ["auth (couverture) 2 à 4", "86 réussis, 0 échec (×3)", "≈ 28 s"],
+    ["Parité E2E", "14 réussis, 3 échecs", "68,4 s"],
+    ["Parité : 3 tests en échec relancés", "1 réussi, 2 échecs (connexion par lien, A-01)", "23,1 s"],
+  ],
+)}
 <p>La recette donne des résultats identiques à chaque exécution. Les écarts observés sont les deux tests instables (A-10). Les deux échecs de connexion par lien de la parité, eux, se reproduisent (A-01).</p>
 <h3>Fichiers ajoutés ou modifiés</h3>
-${table(["Fichier", "Statut"], [
-  [c("docs/rapport-tests/captures/recette/*.png"), "Nouveaux : 23 captures produites par la recette"],
-  [c("docs/rapport-qa-attesta.pdf"), "Nouveau : ce rapport"],
-  ["Code de production, tests, configuration", "<b>Non modifiés</b>"],
-])}
+${table(
+  ["Fichier", "Statut"],
+  [
+    [c("docs/rapport-tests/captures/recette/*.png"), "Nouveaux : 23 captures produites par la recette"],
+    [c("docs/rapport-qa-attesta.pdf"), "Nouveau : ce rapport"],
+    ["Code de production, tests, configuration", "<b>Non modifiés</b>"],
+  ],
+)}
 </body></html>`;
 
 const out = resolve(repo, "docs/rapport-qa-attesta.pdf");
@@ -474,8 +991,12 @@ try {
   const page = await browser.newPage();
   await page.goto(pathToFileURL(tmp).href, { waitUntil: "load" });
   await page.pdf({
-    path: out, format: "A4", printBackground: true, preferCSSPageSize: true,
-    displayHeaderFooter: true, headerTemplate: "<span></span>",
+    path: out,
+    format: "A4",
+    printBackground: true,
+    preferCSSPageSize: true,
+    displayHeaderFooter: true,
+    headerTemplate: "<span></span>",
     footerTemplate: `<div style="font-family:Segoe UI,Arial;font-size:7.5px;color:#6b7280;width:100%;padding:0 15mm;display:flex;justify-content:space-between"><span>Rapport QA — Attesta · campagne du 26 octobre 2026</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
   });
   console.log(out);

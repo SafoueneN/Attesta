@@ -45,9 +45,9 @@
     {
       "label": "tests : parité (pile compose)",
       "type": "shell",
-      "command": "npx playwright test e2e/parite",
+      "command": "npx playwright test e2e/frontend",
       "options": {
-        "env": { "E2E_BASE_URL": "http://localhost:3080", "MAILPIT_URL": "http://localhost:8025" }
+        "env": { "E2E_BASE_URL": "http://localhost:8080" }
       },
       "group": "test",
       "problemMatcher": []

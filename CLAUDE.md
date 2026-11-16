@@ -1,7 +1,7 @@
 # Consignes pour les assistants de code (Claude Code et autres)
 
-Attesta génère des CV ciblés et fidèles. Le dépôt migre d'un monolithe modulaire vers 6 microservices
-([ADR 0011](docs/adr/0011-microservices-extraction.md)). Suivi : [TASKS.md](TASKS.md) ; détail par
+Attesta génère des CV ciblés et fidèles : 6 microservices, une gateway et un frontend React
+([ADR 0011](docs/adr/0011-microservices-extraction.md), [ADR 0048](docs/adr/0048-retrait-du-monolithe-et-ouverture-publique.md)). Suivi : [TASKS.md](TASKS.md) ; détail par
 phase : [docs/backlog.md](docs/backlog.md).
 
 ## Avant toute commande
@@ -24,13 +24,14 @@ phase : [docs/backlog.md](docs/backlog.md).
 ## Vérifier avant de déclarer « terminé »
 
 ```bash
-npm run lint && npm run typecheck && npm test        # unitaires et intégration
-npm run test:parite                                  # parité fonctionnelle, serveur local
+npm run lint && npm run typecheck && npm test        # paquets partagés (racine)
+node scripts/ci/tester-unite.mjs services/<service>  # un service : types, tests, couverture
 docker compose --profile core up -d --build --wait   # pile locale
-E2E_BASE_URL=http://localhost:3080 MAILPIT_URL=http://localhost:8025 npx playwright test e2e/parite
+npm run demo:seed && npm run smoke -- http://localhost:8080
+E2E_BASE_URL=http://localhost:8080 npm run test:parite   # parité de bout en bout (e2e/frontend)
 ```
 
-La suite `e2e/parite` doit rester verte après **chaque** extraction de service.
+La suite `e2e/frontend` doit rester verte après **chaque** modification d'un service ou du frontend.
 
 ## Conventions
 

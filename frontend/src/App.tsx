@@ -34,6 +34,8 @@ const SavedOffers = lazy(() => import("./pages/Offers").then((m) => ({ default: 
 const Forbidden = lazy(() => import("./pages/Static").then((m) => ({ default: m.Forbidden })));
 const NotFound = lazy(() => import("./pages/Static").then((m) => ({ default: m.NotFound })));
 const Privacy = lazy(() => import("./pages/Static").then((m) => ({ default: m.Privacy })));
+const LegalNotice = lazy(() => import("./pages/Legal").then((m) => ({ default: m.LegalNotice })));
+const Terms = lazy(() => import("./pages/Legal").then((m) => ({ default: m.Terms })));
 const WatchLink = lazy(() => import("./pages/Watch").then((m) => ({ default: m.WatchLink })));
 const Studio = lazy(() => import("./pages/studio/Studio").then((m) => ({ default: m.Studio })));
 const WatchPage = lazy(() => import("./pages/Watch").then((m) => ({ default: m.WatchPage })));
@@ -51,6 +53,8 @@ export function App() {
         <Route path="connexion" element={<Login />} />
         <Route path="connexion/:token" element={<LoginConfirm />} />
         <Route path="confidentialite" element={<Privacy />} />
+        <Route path="mentions-legales" element={<LegalNotice />} />
+        <Route path="conditions" element={<Terms />} />
         <Route path="guide" element={<Guide />} />
         <Route path="exemples-cv" element={<ExamplesList />} />
         <Route path="tarifs" element={<Pricing />} />

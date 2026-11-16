@@ -93,7 +93,7 @@ export function Login() {
           field: i.path[0] === "policyAccepted" ? "policy" : String(i.path[0]),
           message:
             i.path[0] === "policyAccepted"
-              ? "Acceptez la politique de confidentialité pour continuer."
+              ? "Acceptez les conditions d'utilisation et la politique de confidentialité pour continuer."
               : i.message,
         }));
     if (newPassword && password && confirm !== password)
@@ -109,7 +109,7 @@ export function Login() {
           title={creating ? "Créer un compte" : forgot ? "Mot de passe oublié" : "Connexion"}
           lead={
             creating
-              ? "Un identifiant et un mot de passe suffisent : aucune adresse e-mail n'est demandée pour créer votre compte."
+              ? "Un identifiant et un mot de passe suffisent : aucune adresse e-mail n'est demandée. En contrepartie, nous ne pourrons pas récupérer votre compte pour vous : les codes de récupération remis à la création seront votre seul recours en cas d'oubli du mot de passe."
               : forgot
                 ? "Saisissez votre identifiant, l'un de vos codes de récupération (remis à la création du compte) et un nouveau mot de passe."
                 : "Connectez-vous avec votre identifiant et votre mot de passe."
@@ -215,7 +215,11 @@ export function Login() {
                     className="mt-1 size-5 accent-accent-text"
                   />
                   <label htmlFor="policy">
-                    J'accepte la{" "}
+                    J'accepte les{" "}
+                    <Link to="/conditions" className="link">
+                      conditions d'utilisation
+                    </Link>{" "}
+                    et la{" "}
                     <Link to="/confidentialite" className="link">
                       politique de confidentialité
                     </Link>
@@ -224,7 +228,7 @@ export function Login() {
                 </div>
                 {errors.some((e) => e.field === "policy") && (
                   <p id="policy-erreur" className="mt-1 text-sm font-medium text-removed">
-                    Acceptez la politique de confidentialité pour continuer.
+                    Acceptez les conditions d'utilisation et la politique de confidentialité pour continuer.
                   </p>
                 )}
               </div>

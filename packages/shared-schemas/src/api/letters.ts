@@ -74,7 +74,12 @@ export const CvExportRequest = z.object({
 });
 
 /** CV en ligne (ADR 0042) : instantané partagé par un lien secret, non indexé, révocable. */
-export const CvShareCreate = CvExportRequest.pick({ generationId: true, variant: true, norms: true, lang: true }).extend({
+export const CvShareCreate = CvExportRequest.pick({
+  generationId: true,
+  variant: true,
+  norms: true,
+  lang: true,
+}).extend({
   generationId: Uuid,
   /** Le candidat accepte que ses coordonnées soient visibles par quiconque reçoit le lien. */
   consent: z.literal(true, "Confirmez que vos coordonnées seront visibles par quiconque a le lien."),

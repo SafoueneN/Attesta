@@ -21,7 +21,9 @@ function deps(rows: { id: string; target: string; userId: string; attempts: numb
     finishDeletions: vi.fn(async () => 0),
     exportData: vi.fn(async () => ({ username: "amina.diallo" })),
   };
-  const signer = { serviceToken: vi.fn(async (_s: string, aud: string, scope: string) => `jeton:${aud}:${scope}`) };
+  const signer = {
+    serviceToken: vi.fn(async (_s: string, aud: string, scope: string) => `jeton:${aud}:${scope}`),
+  };
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   return {
     store,
@@ -42,7 +44,10 @@ describe("processOutbox (campagne QA)", () => {
   it("supprime chez chaque service avec un jeton users:delete, puis clôt les suppressions", async () => {
     const d = deps([{ id: "o1", target: "profiles", userId: "u1", attempts: 0, ageMs: 1000 }]);
     const json = vi.fn(async () => ({ status: 204, data: undefined }));
-    const n = await processOutbox({ ...d.as, clients: new Map([["profiles", client("profiles", json as never)]]) });
+    const n = await processOutbox({
+      ...d.as,
+      clients: new Map([["profiles", client("profiles", json as never)]]),
+    });
     expect(n).toBe(1);
     expect(d.signer.serviceToken).toHaveBeenCalledWith("auth", "profiles", "users:delete");
     expect(json).toHaveBeenCalledWith("DELETE", "/internal/v1/users/u1", {
@@ -113,12 +118,18 @@ describe("exportAll (campagne QA)", () => {
     const d = deps([]);
     const json = vi.fn(async () => ({ status: 200, data: { data: { profils: 2 } } }));
     const archive = await exportAll(
-      { store: d.as.store, signer: d.as.signer, clients: new Map([["profiles", client("profiles", json as never)]]) },
+      {
+        store: d.as.store,
+        signer: d.as.signer,
+        clients: new Map([["profiles", client("profiles", json as never)]]),
+      },
       "u1",
     );
-    expect(json).toHaveBeenCalledWith("GET", "/internal/v1/users/u1/export", { token: "jeton:profiles:users:export" });
+    expect(json).toHaveBeenCalledWith("GET", "/internal/v1/users/u1/export", {
+      token: "jeton:profiles:users:export",
+    });
     expect(archive.auth).toEqual({ username: "amina.diallo" });
-    expect(archive.profiles).toEqual({ profils: 2 });
+    expect((archive as Record<string, unknown>).profiles).toEqual({ profils: 2 });
     expect(Number.isNaN(Date.parse(archive.exportedAt))).toBe(false);
   });
 

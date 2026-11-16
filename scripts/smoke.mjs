@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Test de fumée d'un déploiement : santé, en-têtes de sécurité, parcours complet
-// et export d'un vrai PDF (vérifie Chromium et sa sandbox). Aucun appel au
-// modèle d'IA, aucune donnée réelle ; la session de test est effacée à la fin.
+// Test de fumée de la pile (frontend nginx, gateway, services) : santé, en-têtes de sécurité, application
+// servie, session invitée émise par auth et vérifiée par un service (JWKS), puis fermeture de la session.
+// Aucun appel au modèle d'IA, aucune donnée réelle.
 //
-//   node scripts/smoke.mjs https://candidat---attesta-preprod-xxxx.run.app
+//   node scripts/smoke.mjs http://localhost:8080
 
 const base = (process.argv[2] ?? process.env.SMOKE_URL ?? "").replace(/\/$/, "");
 if (!base) {
@@ -11,102 +11,67 @@ if (!base) {
   process.exit(2);
 }
 
+const CSRF = { "x-attesta-csrf": "1" };
 let cookie = "";
-let csrf = "";
+let token = "";
 
-async function call(method, path, form) {
+async function call(method, path, headers = {}) {
   const res = await fetch(base + path, {
     method,
     redirect: "manual",
-    headers: {
-      ...(cookie ? { cookie } : {}),
-      ...(form ? { "content-type": "application/x-www-form-urlencoded" } : {}),
-    },
-    body: form ? new URLSearchParams({ _csrf: csrf, ...form }).toString() : undefined,
-    signal: AbortSignal.timeout(60_000),
+    headers: { ...(cookie ? { cookie } : {}), ...headers },
+    signal: AbortSignal.timeout(30_000),
   });
-  const session = res.headers.getSetCookie().find((c) => c.startsWith("attesta.sid="));
-  if (session) cookie = session.split(";")[0];
+  const set = res.headers.getSetCookie().map((c) => c.split(";")[0]);
+  if (set.length) cookie = set.join("; ");
   return res;
 }
 
-async function page(path) {
-  const res = await call("GET", path);
-  const html = await res.text();
-  csrf = /name="_csrf" value="([^"]+)"/.exec(html)?.[1] ?? csrf;
-  return { res, html };
-}
-
 const checks = [
-  [
-    "santé",
-    async () => {
-      const res = await call("GET", "/health");
-      const body = await res.json();
-      return res.status === 200 && body.status === "ok";
-    },
-  ],
+  ["santé du frontend", async () => (await call("GET", "/health")).status === 200],
   [
     "accueil et CSP stricte",
     async () => {
-      const { res } = await page("/");
+      const res = await call("GET", "/");
       const csp = res.headers.get("content-security-policy") ?? "";
-      return res.status === 200 && csp.includes("script-src 'self'") && csp.includes("object-src 'none'");
-    },
-  ],
-  [
-    "étape 1",
-    async () => {
-      await page("/cv/etape/1");
-      const res = await call("POST", "/cv/etape/1", { "basics[name]": "Test de fumée", action: "next" });
-      return res.status === 303 && res.headers.get("location") === "/cv/etape/2";
-    },
-  ],
-  [
-    "étape 2",
-    async () => {
-      await page("/cv/etape/2");
-      const res = await call("POST", "/cv/etape/2", {
-        "work[0][position]": "Développeur",
-        "work[0][name]": "Entreprise fictive",
-        "work[0][startDate]": "2020-01",
-        "work[0][highlights]": "Réalisation fictive pour le test de fumée",
-        action: "next",
-      });
-      return res.status === 303 && res.headers.get("location") === "/cv/etape/3";
-    },
-  ],
-  [
-    "étape 3",
-    async () => {
-      await page("/cv/etape/3");
-      const res = await call("POST", "/cv/etape/3", {
-        "offer[rawText]":
-          "Offre fictive utilisée par le test de fumée du déploiement, sans aucune donnée réelle.",
-        action: "next",
-      });
-      return res.status === 303 && res.headers.get("location") === "/cv/etape/4";
-    },
-  ],
-  [
-    "export PDF (Chromium)",
-    async () => {
-      await page("/cv/etape/5");
-      const res = await call("POST", "/cv/etape/5", { variant: "ats", reviewed: "yes", action: "export" });
-      const bytes = new Uint8Array(await res.arrayBuffer());
       return (
         res.status === 200 &&
-        res.headers.get("content-type") === "application/pdf" &&
-        new TextDecoder().decode(bytes.subarray(0, 5)) === "%PDF-"
+        csp.includes("script-src 'self'") &&
+        csp.includes("object-src 'none'") &&
+        csp.includes("frame-ancestors 'none'")
       );
     },
   ],
   [
-    "effacement de la session de test",
+    "route de l'application (mentions légales)",
     async () => {
-      const res = await call("POST", "/cv/effacer", {});
-      return res.status === 303;
+      const res = await call("GET", "/mentions-legales");
+      return res.status === 200 && (await res.text()).includes('<div id="root"');
     },
+  ],
+  [
+    "session invitée (auth, par la gateway)",
+    async () => {
+      const res = await call("POST", "/api/auth/v1/session/guest", CSRF);
+      token = (await res.json()).accessToken ?? "";
+      return res.status === 200 && token.split(".").length === 3;
+    },
+  ],
+  [
+    "jeton accepté par un service (profiles)",
+    async () => {
+      const res = await call("GET", "/api/profiles/v1/profiles/me", { authorization: `Bearer ${token}` });
+      // Invité neuf : aucun profil encore, mais l'accès est autorisé.
+      return res.status === 200 || res.status === 404;
+    },
+  ],
+  [
+    "route protégée sans jeton refusée",
+    async () => (await call("GET", "/api/profiles/v1/profiles/me")).status === 401,
+  ],
+  [
+    "fermeture de la session",
+    async () => (await call("DELETE", "/api/auth/v1/session", CSRF)).status === 204,
   ],
 ];
 

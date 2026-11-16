@@ -11,11 +11,17 @@ reports/
 playwright-report/
 test-results/
 *.tsbuildinfo
-evals/results/
+**/evals/results/
 evals/dist/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Supports de soutenance et de communication : conservés hors du dépôt public.
+/rapport/
+/presentation/
+/presentation-immersive/
+/marketing/
 
 # Paquets partagés consommés par les services : livrés compilés, dist/ versionné (docs/adr/0025).
 !/packages/logger/dist/

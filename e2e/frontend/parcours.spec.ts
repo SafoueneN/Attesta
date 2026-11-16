@@ -125,13 +125,16 @@ test.describe("thème sombre", () => {
   });
 });
 
-test("pages publiques accessibles : confidentialité, connexion, page introuvable", async ({ page }) => {
-  for (const path of ["/confidentialite", "/connexion", "/nulle-part"]) {
+test("pages publiques accessibles : pages légales, connexion, page introuvable", async ({ page }) => {
+  for (const path of ["/confidentialite", "/conditions", "/mentions-legales", "/connexion", "/nulle-part"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expectAccessible(page);
   }
   await expect(page.getByRole("heading", { level: 1, name: "Page introuvable" })).toBeVisible();
+  // Mentions légales : l'adresse de contact fournie au build est affichée et cliquable.
+  await page.goto("/mentions-legales");
+  await expect(page.getByRole("link", { name: /@/ }).first()).toHaveAttribute("href", /^mailto:.+@.+/);
 });
 
 test("une offre trop courte est refusée avec un message clair", async ({ page }) => {

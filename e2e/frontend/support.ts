@@ -1,11 +1,10 @@
 import { expect, type Page } from "@playwright/test";
-import { linkFromMail } from "../support.js";
 
-export { expectAccessible, mailpit } from "../support.js";
+export { expectAccessible } from "../support.js";
 
 /**
- * Outils de la suite du frontend React (pile compose : frontend, gateway et les six services). Mêmes
- * principes que la parité : seulement ce qu'un utilisateur voit (libellés, rôles ARIA, e-mails reçus).
+ * Outils de la suite du frontend React (pile compose : frontend, gateway et les six services) : seulement
+ * ce qu'un utilisateur voit (libellés, rôles ARIA, fichiers téléchargés).
  */
 
 export async function fillProfile(page: Page, email = "lea.martin@example.org") {
@@ -51,15 +50,33 @@ export async function generate(page: Page) {
 export const uniqueEmail = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.org`;
 
-/** Connexion par lien magique, jusqu'à « Mon compte ». */
-export async function login(page: Page, email: string) {
+/** Identifiant unique par test (ADR 0030 : 3 à 30 caractères, [a-z0-9._-]). */
+export const uniqueUsername = (prefix: string) =>
+  `${prefix}.${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+
+export const PASSWORD = "e2e-mot-de-passe";
+
+/** Compte neuf par identifiant et mot de passe, codes de récupération confirmés, jusqu'à « Mon compte ». */
+export async function signUp(page: Page, username = uniqueUsername("e2e")) {
   await page.goto("/connexion");
-  await page.getByLabel("Adresse e-mail").fill(email);
+  await page.getByRole("tab", { name: "Créer un compte" }).click();
+  await page.getByLabel("Identifiant").fill(username);
+  await page.getByLabel("Mot de passe", { exact: true }).fill(PASSWORD);
+  await page.getByLabel("Confirmer le mot de passe").fill(PASSWORD);
   await page.getByLabel(/politique de confidentialité/).check();
-  await page.getByRole("button", { name: "Recevoir mon lien de connexion" }).click();
-  await expect(page.getByText("Lien envoyé")).toBeVisible();
-  await page.goto(await linkFromMail(email, "/connexion"));
-  await expect(page.getByText(/Vous allez vous connecter au compte/)).toBeVisible();
+  await page.getByRole("button", { name: "Créer mon compte" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Votre compte est créé" })).toBeVisible();
+  await page.getByLabel(/J'ai mis mes codes en lieu sûr/).check();
+  await page.getByRole("button", { name: "Continuer" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Mon compte" })).toBeVisible();
+  return username;
+}
+
+/** Connexion à un compte existant, jusqu'à « Mon compte ». */
+export async function signIn(page: Page, username: string, password = PASSWORD) {
+  await page.goto("/connexion");
+  await page.getByLabel("Identifiant").fill(username);
+  await page.getByLabel("Mot de passe", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Me connecter" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Mon compte" })).toBeVisible();
 }

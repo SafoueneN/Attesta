@@ -7,7 +7,6 @@
   { "name": "type:securite", "color": "b60205", "description": "Sécurité ou confidentialité" },
   { "name": "type:rgpd", "color": "b60205", "description": "Données personnelles, consentement, effacement" },
   { "name": "type:docs", "color": "0075ca", "description": "Documentation" },
-  { "name": "service:web", "color": "c5def5", "description": "apps/web (monolithe, retiré en M5)" },
   { "name": "service:frontend", "color": "c5def5", "description": "frontend (React)" },
   { "name": "service:gateway", "color": "c5def5", "description": "gateway" },
   { "name": "service:auth", "color": "c5def5", "description": "services/auth" },

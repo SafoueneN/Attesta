@@ -8,7 +8,7 @@ import { expectAccessible } from "../support.js";
  * seulement ce que voit l'utilisateur (libellés, rôles ARIA, fichiers téléchargés). Une capture d'écran par
  * étape clé, dans CAPTURES_DIR (rapport de tests). Comptes de démonstration : npm run demo:seed.
  *
- *   E2E_BASE_URL=http://localhost:8081 CAPTURES_DIR=test-results/captures npx playwright test e2e/frontend/recette
+ *   E2E_BASE_URL=http://localhost:8080 CAPTURES_DIR=test-results/captures npx playwright test e2e/frontend/recette
  */
 
 const CAPTURES = process.env.CAPTURES_DIR ?? "test-results/captures";
@@ -63,7 +63,9 @@ test("US01 · créer un compte avec un identifiant, sans e-mail, et recevoir 8 c
   await page.getByRole("tab", { name: "Créer un compte" }).click();
   await page.getByRole("button", { name: "Créer mon compte" }).click();
   const summary = page.getByRole("alert");
-  await expect(summary).toContainText("Acceptez la politique de confidentialité");
+  await expect(summary).toContainText(
+    "Acceptez les conditions d'utilisation et la politique de confidentialité",
+  );
   await shot(page, "US01-1-creation-erreurs");
 
   await createAccount(page);
@@ -72,7 +74,7 @@ test("US01 · créer un compte avec un identifiant, sans e-mail, et recevoir 8 c
   await shot(page, "US01-2-codes-de-recuperation");
   const go = page.getByRole("button", { name: "Continuer" });
   await expect(go).toBeDisabled();
-  await page.getByLabel("J'ai mis mes codes en lieu sûr.").check();
+  await page.getByLabel(/J'ai mis mes codes en lieu sûr/).check();
   await go.click();
   await expect(page.getByRole("heading", { level: 1, name: "Mon compte" })).toBeVisible();
 });
@@ -247,7 +249,7 @@ test("US12 · administration réservée à l'administrateur, sans donnée person
 
 test("US13 · supprimer son compte et toutes ses données (RGPD)", async ({ page }) => {
   await createAccount(page);
-  await page.getByLabel("J'ai mis mes codes en lieu sûr.").check();
+  await page.getByLabel(/J'ai mis mes codes en lieu sûr/).check();
   await page.getByRole("button", { name: "Continuer" }).click();
   await page.getByRole("button", { name: "Supprimer mon compte" }).click();
   const dialog = page.getByRole("dialog", { name: "Supprimer définitivement votre compte ?" });

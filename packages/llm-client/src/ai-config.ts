@@ -7,7 +7,15 @@ import { createOpenAiCompatibleClient, OpenAiCompatibleProvider } from "./openai
 import type { LlmProvider } from "./provider.js";
 
 /** Fournisseurs réels, dans l'ordre de repli par défaut (ADR 0047). */
-export const AI_PROVIDERS = ["claude", "groq", "gemini", "ollama"] as const;
+export const AI_PROVIDERS = [
+  "claude",
+  "groq",
+  "cerebras",
+  "mistral",
+  "openrouter",
+  "gemini",
+  "ollama",
+] as const;
 export type AiProviderName = (typeof AI_PROVIDERS)[number];
 
 /** Variable vide (`${VAR:-}` de compose) : absente. */
@@ -18,7 +26,7 @@ const blank = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === "" 
  * service (`serviceEnv(...).extend(aiEnv)`). Documentées dans le `.env.example` de chaque service.
  */
 export const aiEnv = {
-  /** claude | groq | gemini | ollama ; demo : contenu recopié, sans modèle ; none : aucun. */
+  /** claude | groq | cerebras | mistral | openrouter | gemini | ollama ; demo : recopié ; none : aucun. */
   AI_PROVIDER: blank(z.enum([...AI_PROVIDERS, "demo", "none"]).optional()),
   /** Ancien nom, lu quand AI_PROVIDER est absent : anthropic et vertex valent claude. */
   LLM_PROVIDER: blank(z.enum(["demo", "anthropic", "vertex", "none"]).optional()),
@@ -37,8 +45,18 @@ export const aiEnv = {
   GROQ_API_KEY: blank(z.string().optional()),
   GROQ_MODEL: blank(z.string().default("openai/gpt-oss-120b")),
   GROQ_BASE_URL: blank(z.url().default("https://api.groq.com/openai/v1")),
+  CEREBRAS_API_KEY: blank(z.string().optional()),
+  CEREBRAS_MODEL: blank(z.string().default("gpt-oss-120b")),
+  CEREBRAS_BASE_URL: blank(z.url().default("https://api.cerebras.ai/v1")),
+  MISTRAL_API_KEY: blank(z.string().optional()),
+  MISTRAL_MODEL: blank(z.string().default("mistral-small-latest")),
+  MISTRAL_BASE_URL: blank(z.url().default("https://api.mistral.ai/v1")),
+  /** OpenRouter : une clé pour de nombreux modèles ; suffixe « :free » = gratuit (coût compté nul). */
+  OPENROUTER_API_KEY: blank(z.string().optional()),
+  OPENROUTER_MODEL: blank(z.string().default("openai/gpt-oss-120b:free")),
+  OPENROUTER_BASE_URL: blank(z.url().default("https://openrouter.ai/api/v1")),
   GEMINI_API_KEY: blank(z.string().optional()),
-  GEMINI_MODEL: blank(z.string().default("gemini-2.5-flash")),
+  GEMINI_MODEL: blank(z.string().default("gemini-3.8-flash")),
   /** Serveur Ollama (`http://ollama:11434`) ; absent : Ollama n'est pas configuré. */
   OLLAMA_BASE_URL: blank(z.url().optional()),
   OLLAMA_MODEL: blank(z.string().default("qwen3:8b")),
@@ -65,6 +83,12 @@ function configured(name: AiProviderName, env: AiEnv): boolean {
       return claudeTransport(env) === "vertex" ? !!env.VERTEX_PROJECT_ID : !!env.ANTHROPIC_API_KEY;
     case "groq":
       return !!env.GROQ_API_KEY;
+    case "cerebras":
+      return !!env.CEREBRAS_API_KEY;
+    case "mistral":
+      return !!env.MISTRAL_API_KEY;
+    case "openrouter":
+      return !!env.OPENROUTER_API_KEY;
     case "gemini":
       return !!env.GEMINI_API_KEY;
     case "ollama":
@@ -108,6 +132,9 @@ export function aiChain(env: AiEnv, nodeEnv: NodeEnv): AiProviderName[] {
 const REQUIRED: Record<AiProviderName, (env: AiEnv) => string> = {
   claude: (env) => (claudeTransport(env) === "vertex" ? "VERTEX_PROJECT_ID" : "ANTHROPIC_API_KEY"),
   groq: () => "GROQ_API_KEY",
+  cerebras: () => "CEREBRAS_API_KEY",
+  mistral: () => "MISTRAL_API_KEY",
+  openrouter: () => "OPENROUTER_API_KEY",
   gemini: () => "GEMINI_API_KEY",
   ollama: () => "OLLAMA_BASE_URL",
 };
@@ -140,6 +167,27 @@ export function aiConfigProblems(env: AiEnv, nodeEnv: NodeEnv): string[] {
   return problems;
 }
 
+/** Fournisseurs hébergés à API compatible OpenAI : adresse, clé et modèle. */
+const OPENAI_COMPATIBLE = {
+  groq: (env: AiEnv) => ({ baseURL: env.GROQ_BASE_URL, apiKey: env.GROQ_API_KEY, model: env.GROQ_MODEL }),
+  cerebras: (env: AiEnv) => ({
+    baseURL: env.CEREBRAS_BASE_URL,
+    apiKey: env.CEREBRAS_API_KEY,
+    model: env.CEREBRAS_MODEL,
+  }),
+  mistral: (env: AiEnv) => ({
+    baseURL: env.MISTRAL_BASE_URL,
+    apiKey: env.MISTRAL_API_KEY,
+    model: env.MISTRAL_MODEL,
+  }),
+  openrouter: (env: AiEnv) => ({
+    baseURL: env.OPENROUTER_BASE_URL,
+    apiKey: env.OPENROUTER_API_KEY,
+    model: env.OPENROUTER_MODEL,
+    free: env.OPENROUTER_MODEL.endsWith(":free"),
+  }),
+};
+
 /** `maxRetries` : relances du SDK, 0 quand un fournisseur suivant prend le relais. */
 function buildProvider(name: AiProviderName, env: AiEnv, maxRetries: number): LlmProvider {
   const timeoutMs = env.LLM_TIMEOUT_MS;
@@ -156,15 +204,15 @@ function buildProvider(name: AiProviderName, env: AiEnv, maxRetries: number): Ll
         { model: env.LLM_MODEL, timeoutMs, stepModels: parseStepModels(env.LLM_STEP_MODELS) },
       );
     case "groq":
+    case "cerebras":
+    case "mistral":
+    case "openrouter": {
+      const { baseURL, apiKey, model, free } = { free: false, ...OPENAI_COMPATIBLE[name](env) };
       return new OpenAiCompatibleProvider(
-        createOpenAiCompatibleClient({
-          baseURL: env.GROQ_BASE_URL,
-          apiKey: env.GROQ_API_KEY,
-          timeoutMs,
-          maxRetries,
-        }),
-        { name, model: env.GROQ_MODEL, timeoutMs },
+        createOpenAiCompatibleClient({ baseURL, apiKey, timeoutMs, maxRetries }),
+        { name, model, timeoutMs, free },
       );
+    }
     case "gemini":
       return new GeminiProvider(createGeminiClient({ apiKey: env.GEMINI_API_KEY, maxRetries }), {
         model: env.GEMINI_MODEL,
@@ -173,7 +221,7 @@ function buildProvider(name: AiProviderName, env: AiEnv, maxRetries: number): Ll
     case "ollama":
       return new OpenAiCompatibleProvider(
         createOpenAiCompatibleClient({
-          baseURL: `${(env.OLLAMA_BASE_URL ?? "").replace(/\/+$/, "")}/v1`,
+          baseURL: `${(env.OLLAMA_BASE_URL ?? "").replace(/\/$/, "")}/v1`,
           timeoutMs,
           maxRetries,
         }),

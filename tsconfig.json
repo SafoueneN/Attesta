@@ -15,27 +15,6 @@
     },
     {
       "path": "packages/llm-client"
-    },
-    {
-      "path": "packages/schema"
-    },
-    {
-      "path": "packages/shared"
-    },
-    {
-      "path": "packages/llm"
-    },
-    {
-      "path": "packages/render"
-    },
-    {
-      "path": "packages/jobwatch"
-    },
-    {
-      "path": "apps/web"
-    },
-    {
-      "path": "apps/worker"
     }
   ]
 }

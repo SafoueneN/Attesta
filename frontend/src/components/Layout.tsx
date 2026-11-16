@@ -287,6 +287,16 @@ export function Layout() {
                   Confidentialité
                 </Link>
               </li>
+              <li>
+                <Link to="/conditions" className="link">
+                  Conditions d'utilisation
+                </Link>
+              </li>
+              <li>
+                <Link to="/mentions-legales" className="link">
+                  Mentions légales
+                </Link>
+              </li>
               <li>Invité : effacement sous 24 heures</li>
             </ul>
           </div>

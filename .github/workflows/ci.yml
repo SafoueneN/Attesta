@@ -1,8 +1,8 @@
 # Intégration continue : chaque PR et chaque push sur main.
-# Tests en matrice, une entrée par unité (paquet, application, service, gateway : scripts/ci/unites.mjs). Sur une
+# Tests en matrice, une entrée par unité (paquet, service, gateway, frontend : scripts/ci/unites.mjs). Sur une
 # PR, seules les unités touchées sont testées (matrice par chemins) ; sur main, toutes. Chaque service est installé
-# et testé dans son seul dossier (docs/adr/0023). Suite de parité de la migration (docs/adr/0011, 0021).
-# Le déploiement Google Cloud (cd.yml) est gelé (docs/adr/0021) : il ne part pas sans projet configuré.
+# et testé dans son seul dossier (docs/adr/0023). Suite de bout en bout sur la pile compose (docs/adr/0048).
+# Le déploiement continu est à réécrire pour les microservices (docs/adr/0048) ; Terraform reste gelé.
 name: ci
 
 on:
@@ -19,20 +19,8 @@ concurrency:
 
 jobs:
   qualite:
-    name: Lint, types, migrations, dépendances
+    name: Lint, types, dépendances
     runs-on: ubuntu-24.04
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.0-pg16
-        env:
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: attesta_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres -d attesta_test"
-          --health-interval 5s --health-timeout 3s --health-retries 10
-    env:
-      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/attesta_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -46,11 +34,6 @@ jobs:
         run: |
           npx tsc -b packages/logger packages/config packages/http-kit
           test -z "$(git status --porcelain -- packages/logger/dist packages/config/dist packages/http-kit/dist)"             || { git status --short -- packages/*/dist; echo "dist/ obsolète : node scripts/sync-packages.mjs, puis committer"; exit 1; }
-      - name: Migrations (montée, descente, remontée)
-        run: |
-          DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
-          DATABASE_URL=$TEST_DATABASE_URL npx node-pg-migrate down --count 999 --migrations-dir db/migrations --migration-file-language sql
-          DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
       - run: npm audit --omit=dev --audit-level=high
       - name: Scripts de déploiement et de retour arrière
         run: bash infra/deploy/test/deploy.test.sh
@@ -111,15 +94,16 @@ jobs:
             gateway/package-lock.json
             frontend/package-lock.json
       # Ubuntu 24.04 restreint les espaces de noms utilisateur : sans ce réglage,
-      # la sandbox de Chromium (rendu PDF du monolithe et de letters-export) ne démarre pas.
+      # la sandbox de Chromium (rendu PDF de letters-export) ne démarre pas.
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      # Monolithe seulement : un service, la gateway ou le frontend s'installe dans son dossier.
-      - if: ${{ !startsWith(matrix.dir, 'services/') && matrix.dir != 'gateway' && matrix.dir != 'frontend' }}
+      # Paquets partagés seulement : installés et compilés à la racine. Un service, la gateway ou le frontend
+      # s'installe dans son dossier.
+      - if: ${{ startsWith(matrix.dir, 'packages/') }}
         run: |
           npm ci
           npm run build
-          DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
-      # Couverture limitée au src/ de l'unité ; l'entrée `evals` est la porte de fidélité (bloquante).
+      # Couverture limitée au src/ de l'unité. La porte de fidélité (évaluation en rejeu, bloquante) est dans
+      # les tests de cv-generation (tests/evals-fidelite.test.ts).
       - run: node scripts/ci/tester-unite.mjs ${{ matrix.dir }}
 
   secrets:
@@ -158,28 +142,8 @@ jobs:
           fetch-depth: 0
       - uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
 
-  e2e:
-    name: Parité (serveur local) et accessibilité
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:parite
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
   image:
-    name: Pile compose, parité complète, vulnérabilités
+    name: Pile compose, parité de bout en bout, accessibilité, vulnérabilités
     runs-on: ubuntu-24.04
     needs: [qualite, tests]
     steps:
@@ -191,27 +155,31 @@ jobs:
       - run: docker compose --profile core up -d --build --wait
       - name: Bases et rôles cloisonnés (docs/adr/0013)
         run: bash infra/postgres/verifier-cloisonnement.sh
-      - name: Vulnérabilités de l'image (critiques et hautes, corrigeables)
-        # Image Docker de Trivy, version figée (comme dans cd.yml) : l'action trivy-action
-        # dépendait d'une version de setup-trivy retirée par son éditeur.
-        run: >-
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.57.0
-          image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 --quiet attesta-web
-      - run: node scripts/smoke.mjs http://localhost:3080
-      - run: npm ci && npx playwright install --with-deps chromium
-      - name: Suite de parité complète (comptes et veille par Mailpit)
-        run: npx playwright test e2e/parite
-        env:
-          E2E_BASE_URL: http://localhost:3080
-          MAILPIT_URL: http://localhost:8025
-      # Le worker démarre dans l'image, migre la file pg-boss, purge et s'arrête :
-      # aucun abonné, donc aucune requête vers les sources (pas de réseau externe).
-      - name: Worker de veille dans l'image
-        run: docker compose run --rm -e ESCO_ENABLED=false veille
-      - name: Aucune donnée saisie dans les journaux
-        # Noms et adresses saisis par les tests E2E, jetons des liens envoyés par e-mail.
+      - name: Vulnérabilités des images construites (critiques et hautes, corrigeables)
+        # Image Docker de Trivy, version figée : l'action trivy-action dépendait d'une version de
+        # setup-trivy retirée par son éditeur. Seules nos images (attesta-*) sont analysées.
         run: |
-          ! docker compose logs web | grep -e 'Léa' -e 'lea.martin' -e 'Camille' -e '@attesta.localhost' \
-            -e '/connexion/[A-Za-z0-9_-]\{20,\}' -e '/confirmer/[A-Za-z0-9_-]\{20,\}' -e '/desabonner/[A-Za-z0-9_-]\{20,\}'
+          for image in $(docker compose --profile core config --images | grep '^attesta-'); do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.57.0 \
+              image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 --quiet "$image"
+          done
+      - run: node scripts/smoke.mjs http://localhost:8080
+      - run: npm ci && npx playwright install --with-deps chromium
+      - name: Comptes de démonstration (recette par user story)
+        run: npm run demo:seed
+      - name: Suite de bout en bout (parcours, comptes, recette, accessibilité)
+        run: npm run test:parite
+        env:
+          E2E_BASE_URL: http://localhost:8080
+      - name: Aucune donnée saisie dans les journaux
+        # Noms et adresses saisis par les tests E2E et par les comptes de démonstration.
+        run: |
+          ! docker compose --profile core logs | grep -e 'Léa' -e 'lea.martin' -e 'Camille' -e 'Amina' -e '@example.org'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
       - if: always()
-        run: docker compose --profile core --profile veille down -v
+        run: docker compose --profile core down -v

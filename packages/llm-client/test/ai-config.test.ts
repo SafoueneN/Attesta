@@ -51,6 +51,20 @@ describe("aiChain", () => {
     ]);
   });
 
+  it("place Cerebras et Mistral après Groq, et les écarte en production (hors UE)", () => {
+    const six = { ...all, CEREBRAS_API_KEY: "cle-cerebras-test", MISTRAL_API_KEY: "cle-mistral-test" };
+    expect(aiChain(env({ AI_PROVIDER: "groq", ...six }), "development")).toEqual([
+      "groq",
+      "cerebras",
+      "mistral",
+      "gemini",
+      "ollama",
+      "claude",
+    ]);
+    expect(aiChain(env({ AI_PROVIDER: "claude", ...six }), "production")).toEqual(["claude", "ollama"]);
+    expect(aiConfigProblems(env({ AI_PROVIDER: "mistral", ...six }), "production")).toHaveLength(1);
+  });
+
   it("écarte les fournisseurs non configurés de l'ordre par défaut", () => {
     expect(
       aiChain(
@@ -116,11 +130,11 @@ describe("aiConfigProblems", () => {
   it("vérifie la liste de repli explicite", () => {
     expect(
       aiConfigProblems(
-        env({ AI_PROVIDER: "ollama", AI_FALLBACK_PROVIDERS: "mistral,groq", ...all }),
+        env({ AI_PROVIDER: "ollama", AI_FALLBACK_PROVIDERS: "cohere,groq", ...all }),
         "production",
       ),
     ).toEqual([
-      "AI_FALLBACK_PROVIDERS : fournisseur inconnu « mistral »",
+      "AI_FALLBACK_PROVIDERS : fournisseur inconnu « cohere »",
       "AI_FALLBACK_PROVIDERS : groq ne traite pas les données dans l'UE (décision Q5)",
     ]);
     expect(
@@ -161,5 +175,26 @@ describe("createAiProvider", () => {
     expect(
       createAiProvider(env({ AI_PROVIDER: "ollama", OLLAMA_BASE_URL: "http://ollama:11434" }), "test"),
     ).toBeInstanceOf(OpenAiCompatibleProvider);
+  });
+
+  it("construit Cerebras et Mistral sur l'API compatible OpenAI, avec leur modèle par défaut", () => {
+    const cerebras = createAiProvider(env({ AI_PROVIDER: "cerebras", CEREBRAS_API_KEY: "cle" }), "test");
+    const mistral = createAiProvider(env({ AI_PROVIDER: "mistral", MISTRAL_API_KEY: "cle" }), "test");
+    expect(cerebras).toBeInstanceOf(OpenAiCompatibleProvider);
+    expect(cerebras?.model).toBe("gpt-oss-120b");
+    expect(mistral).toBeInstanceOf(OpenAiCompatibleProvider);
+    expect(mistral?.model).toBe("mistral-small-latest");
+    expect(aiConfigProblems(env({ AI_PROVIDER: "mistral" }), "test")).toEqual([
+      "MISTRAL_API_KEY : requis pour mistral",
+    ]);
+  });
+
+  it("construit OpenRouter, placé après Mistral, et l'écarte en production", () => {
+    const keys = { GROQ_API_KEY: "cle", MISTRAL_API_KEY: "cle", OPENROUTER_API_KEY: "cle" };
+    const provider = createAiProvider(env({ AI_PROVIDER: "openrouter", OPENROUTER_API_KEY: "cle" }), "test");
+    expect(provider).toBeInstanceOf(OpenAiCompatibleProvider);
+    expect(provider?.model).toBe("openai/gpt-oss-120b:free");
+    expect(aiChain(env({ AI_PROVIDER: "groq", ...keys }), "test")).toEqual(["groq", "mistral", "openrouter"]);
+    expect(aiConfigProblems(env({ AI_PROVIDER: "openrouter", ...keys }), "production")).toHaveLength(1);
   });
 });

@@ -1,10 +1,9 @@
 // Teste une unité de la matrice CI, de la même façon en local et sur GitHub Actions.
 // - service ou gateway (son propre package-lock.json, docs/adr/0023) : `npm ci`, types, puis tests avec
 //   couverture, dans le seul dossier de l'unité, sans rien de la racine ;
-// - unité du monolithe : Vitest de la racine, limité à ses tests, couverture limitée à son `src/` ;
-// - `evals` : évaluation de fidélité en rejeu, sans couverture.
-// Prérequis pour le monolithe : `npm ci && npm run build` à la racine.
-// Usage : node scripts/ci/tester-unite.mjs packages/schema
+// - paquet partagé : Vitest de la racine, limité à ses tests, couverture limitée à son `src/`.
+// Prérequis pour un paquet : `npm ci && npm run build` à la racine.
+// Usage : node scripts/ci/tester-unite.mjs packages/http-kit
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 
@@ -29,8 +28,6 @@ if (autonomous) {
 } else if (/^(services\/|gateway$)/.test(dir)) {
   console.error(`${dir} : un service doit avoir son propre package-lock.json (docs/adr/0023).`);
   process.exit(1);
-} else if (dir === "evals") {
-  run("npx", ["vitest", "run", "evals/"]);
 } else {
   run("npx", ["vitest", "run", `${dir}/`, "--coverage", `--coverage.include=${dir}/src/**`]);
 }

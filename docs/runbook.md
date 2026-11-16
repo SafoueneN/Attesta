@@ -7,31 +7,28 @@ Trois environnements : **dev** (poste local, `docker compose`), **préprod** et 
 ### Avec Docker (recommandé)
 
 ```bash
-docker compose --profile core up --build
+cp .env.example .env                               # facultatif : clés d'IA, adresse de contact
+docker compose --profile core up -d --build --wait # ou --profile full, avec la veille (job-watch)
+npm run demo:seed                                  # comptes de démonstration
 ```
 
-Puis ouvrir http://localhost:3080. Si le port est déjà pris : `ATTESTA_PORT=9000 docker compose --profile core up`.
+Puis ouvrir http://localhost:8080. Si le port est déjà pris : `FRONTEND_PORT=9000 docker compose --profile core up`.
 
-Sans profil, seule l'infrastructure démarre ; `--profile full` ajoutera les services de veille au fil de leur extraction ([ADR 0021](adr/0021-cible-execution-et-outillage.md)). `db-init` crée à chaque démarrage, s'ils manquent, les 7 bases et rôles cloisonnés des services ([ADR 0013](adr/0013-une-base-par-service.md)) ; vérification : `bash infra/postgres/verifier-cloisonnement.sh`. PostgreSQL est joignable depuis le poste sur `127.0.0.1:5433` (variable `DB_PORT`).
+Sans profil, seule l'infrastructure démarre ([ADR 0021](adr/0021-cible-execution-et-outillage.md)). `db-init` crée à chaque démarrage, s'ils manquent, les bases et rôles cloisonnés des services ([ADR 0013](adr/0013-une-base-par-service.md)) ; vérification : `bash infra/postgres/verifier-cloisonnement.sh`. PostgreSQL est joignable depuis le poste sur `127.0.0.1:5433` (variable `DB_PORT`).
 
-La pile comprend PostgreSQL 16 + pgvector, une migration unique du monolithe (`migrate`), l'application (`web`) et **Mailpit**, qui reçoit tous les e-mails (connexion, confirmation, rapports) : http://localhost:8025. Aucun e-mail ne sort du poste. L'application démarre seulement si la migration a réussi. Chromium y tourne **avec sa sandbox**, grâce au profil seccomp `infra/seccomp/chromium.json`. Le fournisseur d'IA est `demo` : aucun appel au modèle (le rerank garde l'ordre de la recherche).
+La pile comprend PostgreSQL 16 + pgvector, les six services (chacun migre sa base au démarrage), la gateway, le frontend (nginx) et **Mailpit**, qui reçoit tous les e-mails (rapports de veille, rappels) : http://localhost:8025. Aucun e-mail ne sort du poste. Chromium (rendu PDF de letters-export) tourne **avec sa sandbox**, grâce au profil seccomp `infra/seccomp/chromium.json`. Le fournisseur d'IA est `demo` par défaut : aucun appel au modèle.
 
 ### Veille emploi en local
 
-1. Remplir un CV (étapes 1 à 3), puis « Mon compte et ma veille » : saisir une adresse, ouvrir le lien reçu dans Mailpit, enregistrer le profil, activer la veille (pays, ville, rayon), puis la confirmer depuis Mailpit.
-2. Lancer l'exécution quotidienne, à la demande :
-   ```bash
-   docker compose run --rm veille                    # vecteurs de développement (sans sémantique)
-   docker compose --profile tei up -d tei            # BGE-M3 : 2 Go téléchargés au premier lancement
-   EMBEDDINGS_PROVIDER=tei docker compose run --rm veille
-   ```
-3. Le rapport arrive dans Mailpit, avec ses deux PDF. Relancer le même jour n'envoie rien de plus ; `--date=AAAA-MM-JJ` rejoue une date (`docker compose run --rm veille node apps/worker/dist/main.js --date=2026-10-17`).
+1. Démarrer avec `--profile full`, se connecter (ex. `amina.diallo`), enregistrer son profil, puis « Veille emploi » : métiers, pays, ville, adresse de réception ; la veille est active dès l'enregistrement (ADR 0030).
+2. Lancer l'exécution quotidienne depuis l'administration (compte `admin`), ou démarrer job-watch avec `DAILY_RUN_ENABLED=true`. Vecteurs BGE-M3 : `docker compose --profile tei up -d tei`, puis `EMBEDDINGS_PROVIDER=tei`.
+3. Le rapport arrive dans Mailpit. Relancer le même jour n'envoie rien de plus.
 
-La veille interroge les **vraies** API publiques de BA Jobsuche et d'ESCO (sans clé). Hors ligne : `ESCO_ENABLED=false`.
+La veille interroge les **vraies** API publiques des sources d'offres (sans clé pour BA Jobsuche et ESCO).
 
 ### Envoi réel depuis le poste (Gmail, Mailjet, Brevo…)
 
-Remplir `.env.smtp` (modèle commenté, ignoré par Git et par Docker) avec l'URL SMTP du fournisseur et l'expéditeur, puis `docker compose --env-file .env.smtp --profile core up -d` (et `docker compose --env-file .env.smtp run --rm veille`). Sans ce fichier, les e-mails restent dans Mailpit. Le webhook des plaintes et rebonds exige une adresse publique : il n'est branché qu'en préprod.
+Remplir `.env.smtp` (modèle commenté, ignoré par Git et par Docker) avec l'URL SMTP du fournisseur et l'expéditeur, puis `docker compose --env-file .env.smtp --profile core up -d`. Sans ce fichier, les e-mails restent dans Mailpit. Le webhook des plaintes et rebonds exige une adresse publique : il n'est branché qu'en préprod.
 
 - **Gmail** : le mot de passe du compte est refusé (erreur 535). Activer la validation en deux étapes, créer un
   mot de passe d'application (https://myaccount.google.com/apppasswords), puis
@@ -49,55 +46,48 @@ Remplir `.env.smtp` (modèle commenté, ignoré par Git et par Docker) avec l'UR
 Par défaut, les services tournent en `demo`, sans modèle. Pour un vrai modèle, mettre les clés dans un fichier
 jamais commité (`.env.ia`, par exemple), puis `docker compose --env-file .env.ia --profile core up -d` :
 
-| Fournisseur         | Variables                                                                   |
-| ------------------- | --------------------------------------------------------------------------- |
-| Claude, Vertex UE   | `AI_PROVIDER=claude`, `VERTEX_PROJECT_ID` (seul Claude admis en production) |
-| Claude, API directe | `AI_PROVIDER=claude`, `CLAUDE_TRANSPORT=anthropic`, `ANTHROPIC_API_KEY`     |
-| Groq                | `AI_PROVIDER=groq`, `GROQ_API_KEY`, `GROQ_MODEL` (facultatif)               |
-| Gemini              | `AI_PROVIDER=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL` (facultatif)         |
-| Ollama (local)      | `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://ollama:11434`, `OLLAMA_MODEL` |
+| Fournisseur         | Variables                                                                       |
+| ------------------- | ------------------------------------------------------------------------------- |
+| Claude, Vertex UE   | `AI_PROVIDER=claude`, `VERTEX_PROJECT_ID` (seul Claude admis en production)     |
+| Claude, API directe | `AI_PROVIDER=claude`, `CLAUDE_TRANSPORT=anthropic`, `ANTHROPIC_API_KEY`         |
+| Groq                | `AI_PROVIDER=groq`, `GROQ_API_KEY`, `GROQ_MODEL` (facultatif)                   |
+| Cerebras            | `AI_PROVIDER=cerebras`, `CEREBRAS_API_KEY`, `CEREBRAS_MODEL` (facultatif)       |
+| Mistral             | `AI_PROVIDER=mistral`, `MISTRAL_API_KEY`, `MISTRAL_MODEL` (facultatif)          |
+| OpenRouter          | `AI_PROVIDER=openrouter`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (facultatif) |
+| Gemini              | `AI_PROVIDER=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL` (facultatif)             |
+| Ollama (local)      | `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://ollama:11434`, `OLLAMA_MODEL`     |
 
 Ollama : `docker compose --profile core --profile ollama up -d`, puis `docker compose exec ollama ollama pull qwen3:8b`.
 
 En cas de quota atteint (429) ou de délai dépassé, la requête passe aux fournisseurs configurés suivants, dans
-l'ordre claude, groq, gemini, ollama. Chaque bascule est journalisée (`llm_repli`). `AI_FALLBACK_PROVIDERS`
+l'ordre claude, groq, cerebras, mistral, openrouter, gemini, ollama. Chaque bascule est journalisée (`llm_repli`). `AI_FALLBACK_PROVIDERS`
 fixe une autre liste, et `none` désactive le repli. En production, seuls Claude sur Vertex et Ollama sont admis.
 
 ### Sans Docker
 
-```bash
-nvm use                      # Node 22
-npm install
-cp .env.example .env         # puis renseigner SESSION_SECRET
-npm run build
-node --env-file=.env apps/web/dist/server.js
-```
+Chaque service se lance seul depuis son dossier (`cp .env.example .env`, puis `npm ci && npm run dev`) ; le
+frontend aussi (`npm run dev`, Vite relaie `/api` vers la gateway). Voir le README de chaque service.
 
 ## Vérifications
 
-| Commande                                                 | Rôle                                                                                |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `npm run lint`                                           | ESLint (frontières entre paquets) + Prettier                                        |
-| `npm run typecheck`                                      | TypeScript strict, sources et tests                                                 |
-| `npm test`                                               | unitaires, intégration HTTP, extraction ATS du PDF, évaluation de fidélité en rejeu |
-| `TEST_DATABASE_URL=… npm test`                           | ajoute les tests d'intégration sur un vrai PostgreSQL migré                         |
-| `npm run test:coverage`                                  | idem, avec les seuils de couverture (75 % global, 90 % pour `schema`)               |
-| `npm run test:e2e`                                       | Playwright + axe-core sur un serveur local                                          |
-| `E2E_BASE_URL=http://localhost:3080 npx playwright test` | mêmes tests contre le conteneur                                                     |
-| `node scripts/smoke.mjs <url>`                           | test de fumée d'un déploiement (sans appel au modèle)                               |
-| `bash infra/deploy/test/deploy.test.sh`                  | scénarios des scripts de déploiement et de retour arrière                           |
-| `npm run evals:live`                                     | évaluation sur le vrai modèle (**payante**)                                         |
+| Commande                                                 | Rôle                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `npm run lint`                                           | ESLint (frontières entre paquets et services) + Prettier                 |
+| `npm run typecheck`, `npm test`                          | paquets partagés : types stricts, tests                                  |
+| `node scripts/ci/tester-unite.mjs services/<service>`    | un service : installation, types, tests avec couverture (comme la CI)    |
+| `npm run smoke -- http://localhost:8080`                 | test de fumée de la pile (sans appel au modèle)                          |
+| `E2E_BASE_URL=http://localhost:8080 npm run test:parite` | Playwright + axe-core contre la pile compose (après `npm run demo:seed`) |
+| `bash infra/deploy/test/deploy.test.sh`                  | scénarios des scripts de déploiement et de retour arrière                |
+| `npm run eval:live` (dans `services/cv-generation`)      | évaluation de fidélité sur le vrai modèle (**payante**)                  |
 
-Base PostgreSQL jetable pour les tests d'intégration :
-
-```bash
-docker run -d --name attesta-test-db -e POSTGRES_PASSWORD=test -e POSTGRES_DB=attesta_test \
-  -p 127.0.0.1:55432:5432 pgvector/pgvector:0.8.0-pg16
-export TEST_DATABASE_URL=postgres://postgres:test@127.0.0.1:55432/attesta_test
-DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate && npm test
-```
+Les tests d'intégration de chaque service créent puis suppriment leur propre base jetable, à partir de
+`TEST_ADMIN_DATABASE_URL` (par exemple `postgres://attesta:attesta-dev-uniquement@127.0.0.1:5433/postgres`
+avec la base de la pile compose).
 
 ## Mise en place de Google Cloud (une fois)
+
+> **Gelé** : cette section et les suivantes décrivent le déploiement du monolithe v0.4. Le déploiement des
+> microservices est à réécrire ([ADR 0048](adr/0048-retrait-du-monolithe-et-ouverture-publique.md)).
 
 1. **Projet** Google Cloud, avec la facturation et l'accès aux modèles Claude accordé dans le Model Garden de Vertex AI.
 2. **Bucket d'état Terraform** privé, versionné, à Paris : `gcloud storage buckets create gs://<projet>-tfstate --location=europe-west9 --uniform-bucket-level-access --public-access-prevention`, puis `gcloud storage buckets update gs://<projet>-tfstate --versioning`. L'état contient les mots de passe générés : seuls les administrateurs y ont accès.
@@ -211,7 +201,7 @@ FROM llm_usage GROUP BY 1, 2 ORDER BY 1 DESC;
 | Export PDF en erreur 500, « Rendu PDF interrompu »            | Chromium lent ou bloqué                                                                          | mémoire de l'instance ; `PDF_TIMEOUT_MS` ; le navigateur est relancé automatiquement                                                                                                             |
 | Chromium ne démarre pas (« No usable sandbox »)               | espaces de noms utilisateur bloqués                                                              | Docker : profil `infra/seccomp/chromium.json` ; Ubuntu 24.04 : `sysctl kernel.apparmor_restrict_unprivileged_userns=0` ; Cloud Run : `chromium_no_sandbox = true` (ADR 0009), en dernier recours |
 | Bandeau « La reformulation par IA est indisponible »          | fournisseur injoignable, quota Vertex, délai dépassé                                             | `reason` = `indisponible` : identité du service, quota Vertex ; `refus` : contenu décliné ; `budget` : `LLM_MAX_COST_USD_PER_CV` ; le parcours reste utilisable sans IA                          |
-| « La reformulation obtenue ne respectait pas nos contrôles »  | 3 sorties non conformes de suite                                                                 | `pipelineVersion` et `redactionAttempts` dans les journaux ; relancer `npm run evals:live`                                                                                                       |
+| « La reformulation obtenue ne respectait pas nos contrôles »  | 3 sorties non conformes de suite                                                                 | `pipelineVersion` et `redactionAttempts` dans les journaux ; relancer `npm run eval:live` (cv-generation)                                                                                        |
 | « Un traitement par l'IA est déjà en cours »                  | verrou de session posé (10 min au plus si une instance s'est arrêtée)                            | attendre ; le verrou expire seul                                                                                                                                                                 |
 | 429 Too Many Requests                                         | limiteur : 300 requêtes ou 20 exports par 15 min, 10 appels à l'IA par heure et par IP           | derrière un proxy, vérifier `TRUST_PROXY` (sinon toutes les requêtes semblent venir du proxy)                                                                                                    |
 | « Ce PDF est trop long à analyser » ou « n'a pas pu être lu » | délai de 10 s, plafond mémoire de 768 Mo ou temps CPU de 15 s dépassé par le processus d'analyse | comportement attendu pour un PDF piégé ; l'instance n'est pas affectée ; saisie manuelle                                                                                                         |
@@ -223,7 +213,7 @@ FROM llm_usage GROUP BY 1, 2 ORDER BY 1 DESC;
 | Symptôme                                                | Cause probable                                                                                 | Action                                                                                                                                      |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ingestion_erreur`, `source: ba`, `errorType: ZodError` | BA Jobsuche a changé de format (API non officielle)                                            | comparer une réponse réelle aux schémas de `packages/jobwatch/src/sources/ba.ts` ; les autres sources et les abonnés continuent             |
-| `ingestion_erreur`, `status: 403` ou `429`              | clé client BA refusée, quota d'une source atteint                                              | vérifier https://github.com/bundesAPI/jobsuche-api ; réduire `DAILY_REQUEST_LIMITS` (`apps/worker/src/main.ts`)                             |
+| `ingestion_erreur`, `status: 403` ou `429`              | clé client BA refusée, quota d'une source atteint                                              | vérifier https://github.com/bundesAPI/jobsuche-api ; réduire les plafonds de requêtes de la source (`services/jobs-matching/src/sources`)   |
 | Aucun e-mail reçu par un abonné                         | aucune offre nouvelle (comportement voulu), veille non confirmée, désabonnée ou suspendue      | `summary.subscribers` dans `veille_terminee` ; état de la veille dans « Mon compte »                                                        |
 | `rerank_degrade`                                        | Vertex indisponible ou budget `JOBWATCH_LLM_MAX_COST_USD` atteint                              | les rapports partent quand même, classés par la recherche, avec une mention dans le rapport                                                 |
 | Erreur « TEI injoignable » ou « jeton d'identité »      | service TEI arrêté, droit `run.invoker` manquant, premier démarrage (téléchargement du modèle) | relancer le job ; vérifier `google_cloud_run_v2_service_iam_member.tei_invoker`                                                             |

@@ -3,17 +3,20 @@ import { DemoProvider } from "./demo-provider.js";
 import { type FallbackEvent } from "./fallback-provider.js";
 import type { LlmProvider } from "./provider.js";
 /** Fournisseurs réels, dans l'ordre de repli par défaut (ADR 0047). */
-export declare const AI_PROVIDERS: readonly ["claude", "groq", "gemini", "ollama"];
+export declare const AI_PROVIDERS: readonly ["claude", "groq", "cerebras", "mistral", "openrouter", "gemini", "ollama"];
 export type AiProviderName = (typeof AI_PROVIDERS)[number];
 /**
  * Variables d'environnement communes aux services qui appellent un modèle, à ajouter au schéma du
  * service (`serviceEnv(...).extend(aiEnv)`). Documentées dans le `.env.example` de chaque service.
  */
 export declare const aiEnv: {
-    /** claude | groq | gemini | ollama ; demo : contenu recopié, sans modèle ; none : aucun. */
+    /** claude | groq | cerebras | mistral | openrouter | gemini | ollama ; demo : recopié ; none : aucun. */
     AI_PROVIDER: z.ZodPreprocess<z.ZodOptional<z.ZodEnum<{
         claude: "claude";
         groq: "groq";
+        cerebras: "cerebras";
+        mistral: "mistral";
+        openrouter: "openrouter";
         gemini: "gemini";
         ollama: "ollama";
         demo: "demo";
@@ -44,6 +47,16 @@ export declare const aiEnv: {
     GROQ_API_KEY: z.ZodPreprocess<z.ZodOptional<z.ZodString>, unknown>;
     GROQ_MODEL: z.ZodPreprocess<z.ZodDefault<z.ZodString>, unknown>;
     GROQ_BASE_URL: z.ZodPreprocess<z.ZodDefault<z.ZodURL>, unknown>;
+    CEREBRAS_API_KEY: z.ZodPreprocess<z.ZodOptional<z.ZodString>, unknown>;
+    CEREBRAS_MODEL: z.ZodPreprocess<z.ZodDefault<z.ZodString>, unknown>;
+    CEREBRAS_BASE_URL: z.ZodPreprocess<z.ZodDefault<z.ZodURL>, unknown>;
+    MISTRAL_API_KEY: z.ZodPreprocess<z.ZodOptional<z.ZodString>, unknown>;
+    MISTRAL_MODEL: z.ZodPreprocess<z.ZodDefault<z.ZodString>, unknown>;
+    MISTRAL_BASE_URL: z.ZodPreprocess<z.ZodDefault<z.ZodURL>, unknown>;
+    /** OpenRouter : une clé pour de nombreux modèles ; suffixe « :free » = gratuit (coût compté nul). */
+    OPENROUTER_API_KEY: z.ZodPreprocess<z.ZodOptional<z.ZodString>, unknown>;
+    OPENROUTER_MODEL: z.ZodPreprocess<z.ZodDefault<z.ZodString>, unknown>;
+    OPENROUTER_BASE_URL: z.ZodPreprocess<z.ZodDefault<z.ZodURL>, unknown>;
     GEMINI_API_KEY: z.ZodPreprocess<z.ZodOptional<z.ZodString>, unknown>;
     GEMINI_MODEL: z.ZodPreprocess<z.ZodDefault<z.ZodString>, unknown>;
     /** Serveur Ollama (`http://ollama:11434`) ; absent : Ollama n'est pas configuré. */
